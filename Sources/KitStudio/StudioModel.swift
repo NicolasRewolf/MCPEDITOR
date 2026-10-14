@@ -346,6 +346,7 @@ final class StudioModel: ObservableObject {
         panel.directoryURL = selectedLocation ?? programURL?.deletingLastPathComponent()
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         program.name = kitName
+        let exportProgram = program
         let pool = sounds
         let name = kitName
         busy = true
@@ -353,7 +354,7 @@ final class StudioModel: ObservableObject {
         Task {
             do {
                 let output = try await Task.detached(priority: .userInitiated) {
-                    try KitExport.export(program: program, sounds: pool, name: name, to: destination)
+                    try KitExport.export(program: exportProgram, sounds: pool, name: name, to: destination)
                 }.value
                 self.busy = false
                 self.isDirty = false
