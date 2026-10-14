@@ -13,8 +13,6 @@ cp "$BIN_DIR/KitStudio" "$APP/Contents/MacOS/KitStudio"
 for bundle in "$BIN_DIR"/*.bundle; do
     [ -d "$bundle" ] || continue
     cp -R "$bundle" "$APP/Contents/Resources/"
-    # SwiftPM versions differ in the main-bundle search path.
-    cp -R "$bundle" "$APP/"
 done
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
