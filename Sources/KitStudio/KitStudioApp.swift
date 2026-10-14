@@ -1,8 +1,10 @@
 import SwiftUI
+import AppKit
 
 @main
 @MainActor
 struct KitStudioApp: App {
+    @NSApplicationDelegateAdaptor(StudioAppDelegate.self) private var appDelegate
     @StateObject private var model = StudioModel()
 
     var body: some Scene {
@@ -13,6 +15,7 @@ struct KitStudioApp: App {
                 .preferredColorScheme(.dark)
                 .tint(StudioPalette.orange)
                 .onAppear {
+                    appDelegate.model = model
                     model.refreshLocations()
                     if model.program == nil { model.newKit() }
                 }
@@ -36,5 +39,14 @@ struct KitStudioApp: App {
                     .disabled(model.program == nil || model.busy)
             }
         }
+    }
+}
+
+@MainActor
+final class StudioAppDelegate: NSObject, NSApplicationDelegate {
+    weak var model: StudioModel?
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        (model?.confirmClose() ?? true) ? .terminateNow : .terminateCancel
     }
 }

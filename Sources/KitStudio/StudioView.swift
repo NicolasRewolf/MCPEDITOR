@@ -206,9 +206,20 @@ struct StudioView: View {
                 }
             }
             .disabled(model.program == nil || model.busy)
-            Label("Glisse un fichier audio sur un pad", systemImage: "arrow.down.doc")
-                .font(.caption)
+            HStack(spacing: 8) {
+                Label("Glisse un son sur un pad", systemImage: "arrow.down.doc")
+                    .font(.caption)
+                    .foregroundStyle(StudioPalette.muted)
+                Spacer(minLength: 0)
+                Button(action: model.clearPad) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
                 .foregroundStyle(StudioPalette.muted)
+                .disabled(model.program == nil || model.busy)
+                .help("Vider le pad sélectionné")
+                .accessibilityLabel("Vider le pad sélectionné")
+            }
             Spacer(minLength: 12)
             VStack(alignment: .leading, spacing: 8) {
                 Text("TON KIT, PRÊT POUR LA MPC.")
