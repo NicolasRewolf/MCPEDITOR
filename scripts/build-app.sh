@@ -23,8 +23,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>MPC Kit Studio</string>
 <key>CFBundleDisplayName</key><string>MPC Kit Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
@@ -33,4 +33,10 @@ PLIST
 codesign --force --deep --sign - --timestamp=none "$APP"
 codesign --verify --deep --strict "$APP"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.zip"
-echo "Application prête : $PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.zip"
+DMG_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/kit-studio-dmg.XXXXXX")"
+trap 'rm -rf "$DMG_STAGE"' EXIT
+ditto "$APP" "$DMG_STAGE/MPC Kit Studio.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+hdiutil create -volname "MPC Kit Studio" -srcfolder "$DMG_STAGE" \
+    -format UDZO "$PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.dmg"
+echo "Application prête : $PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.dmg"

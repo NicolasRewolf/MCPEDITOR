@@ -144,7 +144,7 @@ struct StudioView: View {
                 HStack(spacing: 9) {
                     TextField("Nom du kit", text: Binding(
                         get: { model.kitName },
-                        set: { model.kitName = $0; model.isDirty = true }
+                        set: { model.setKitName($0) }
                     ))
                     .textFieldStyle(.plain)
                     .font(.system(size: 27, weight: .semibold, design: .rounded))
@@ -453,20 +453,7 @@ private struct SampleEditor: View {
     }
 
     private func trimSlider(title: String, value: Int, upper: Int, onChange: @escaping (Int) -> Void) -> some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(StudioPalette.muted)
-                .frame(width: 35, alignment: .leading)
-            Slider(value: Binding(
-                get: { Double(min(upper, max(0, value))) },
-                set: { onChange(Int($0)) }
-            ), in: 0...Double(upper), step: 1)
-            .accessibilityLabel(title == "DÉBUT" ? "Début du sample" : "Fin du sample")
-            Text(value.formatted())
-                .font(.system(size: 10, design: .monospaced))
-                .frame(width: 66, alignment: .trailing)
-        }
+        SampleTrimSlider(title: title, value: value, upper: upper, onChange: onChange)
     }
 
     private var transformControls: some View {
@@ -484,7 +471,7 @@ private struct SampleEditor: View {
                 operation("Petits fondus", symbol: "waveform.path", kind: "fade")
                 operation("Inverser", symbol: "backward.end", kind: "reverse")
             }
-            Text("Les traitements modifient le son du kit en cours. Les fichiers d’origine restent intacts jusqu’à l’export.")
+            Text("Les traitements modifient le son du kit en cours. L’export crée de nouveaux fichiers et conserve les originaux.")
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -516,6 +503,33 @@ private struct SampleEditor: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minHeight: 430)
+    }
+}
+
+/// Keep the native slider continuous: a stepped macOS slider allocates one
+/// visual tick per step, which stalls layout for audio with thousands of frames.
+/// The binding still rounds the selected position to a whole audio frame.
+struct SampleTrimSlider: View {
+    let title: String
+    let value: Int
+    let upper: Int
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(StudioPalette.muted)
+                .frame(width: 35, alignment: .leading)
+            Slider(value: Binding(
+                get: { Double(min(upper, max(0, value))) },
+                set: { onChange(Int($0.rounded())) }
+            ), in: 0...Double(upper))
+            .accessibilityLabel(title == "DÉBUT" ? "Début du sample" : "Fin du sample")
+            Text(value.formatted())
+                .font(.system(size: 10, design: .monospaced))
+                .frame(width: 66, alignment: .trailing)
+        }
     }
 }
 

@@ -6,8 +6,9 @@ Aucune gestion de séquences.
 
 ## Essayer
 
-Le workflow **MPC Kit Studio - Mac** fabrique une archive Apple Silicon dans ses artefacts GitHub Actions.
-Décompresser l'archive externe puis **MPC-Kit-Studio-Apple-Silicon.zip**, et ouvrir **MPC Kit Studio.app**.
+Le workflow **MPC Kit Studio - Mac** fabrique une image disque et une archive Apple Silicon dans ses artefacts GitHub Actions.
+Décompresser l'archive de l'artefact, ouvrir **MPC-Kit-Studio-Apple-Silicon.dmg**,
+puis copier **MPC Kit Studio.app** dans Applications. Le ZIP reste disponible en alternative.
 La signature est locale (ad hoc), sans certificat Developer ID ni notarisation Apple.
 Si macOS bloque l'application téléchargée, utiliser son option **Ouvrir quand même** dans
 Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gatekeeper.
@@ -32,6 +33,11 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
 - Le SND natif a un en-tête de 38 octets et du PCM 16 bits little-endian,
   stéréo planaire. Import WAV/AIFF converti vers 44,1 kHz.
 - Les samples restent partagés entre les pads qui utilisent le même emplacement.
+- Le chargement préfère un nom de fichier unique. Si le nom DOS diffère du nom référencé,
+  il recherche un nom interne SND natif unique ; une ambiguïté reste signalée.
+- Un import multiple est préparé intégralement avant de remplacer le kit en mémoire.
+  Un fichier invalide, un dépassement de mémoire ou un lot dépassant D16 laisse le kit précédent intact.
+  Les sons de moins de 441 points et les valeurs audio non finies sont refusés à l'import.
 - La préécoute joue les samples avec leur accordage. Elle ne reproduit pas
   les filtres, enveloppes, couches, modes d'affectation ou convertisseurs audio de la MPC.
 - Les sons absents, ambigus ou non pris en charge empêchent l'export.
@@ -56,8 +62,11 @@ bash scripts/build-app.sh
 ```
 
 Le script lance les tests, compile pour arm64, assemble et signe localement l'application.
-Résultat : `dist/MPC-Kit-Studio-Apple-Silicon.zip`.
+Résultat : `dist/MPC-Kit-Studio-Apple-Silicon.dmg` et `.zip`.
 Les tests du cœur se lancent séparément avec `swift test`.
+Les tests de l'application contrôlent aussi les conversions WAV/AIFF mono/stéréo
+à 44,1/48/96 kHz, le budget des lots, les curseurs natifs et le rendu audio hors ligne.
+Ces contrôles ne remplacent pas une écoute humaine ni un chargement sur la MPC.
 
 ## Sources techniques
 

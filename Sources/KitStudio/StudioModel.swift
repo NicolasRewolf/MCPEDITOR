@@ -76,17 +76,28 @@ final class StudioModel: ObservableObject {
         sound = nil
         sounds = [:]
         isDirty = false
-        scan(url)
-        status = "\(programs.count) programme(s) dans \(url.lastPathComponent)."
+        missing = []
+        errorMessage = nil
+        if scan(url) {
+            status = "\(programs.count) programme(s) dans \(url.lastPathComponent)."
+        }
     }
 
-    private func scan(_ url: URL) {
+    @discardableResult
+    func scan(_ url: URL) -> Bool {
         do {
             programs = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isRegularFileKey],
                 options: [.skipsHiddenFiles]).filter {
                     $0.pathExtension.lowercased() == "pgm" && (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
                 }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        } catch { errorMessage = "Impossible de lire ce dossier : \(error.localizedDescription)" }
+            errorMessage = nil
+            return true
+        } catch {
+            programs = []
+            errorMessage = "Impossible de lire ce dossier : \(error.localizedDescription)"
+            status = "Le dossier est indisponible."
+            return false
+        }
     }
 
     func openProgram(_ url: URL) {
@@ -94,28 +105,29 @@ final class StudioModel: ObservableObject {
         generation += 1
         let token = generation
         busy = true
+        errorMessage = nil
         audio.stop()
         status = "Ouverture de \(url.lastPathComponent)…"
         Task {
             do {
                 let loaded = try await Task.detached(priority: .userInitiated) {
-                    try Self.loadKit(url)
+                    try KitLoader.load(programURL: url)
                 }.value
                 guard token == self.generation else { return }
-                self.program = loaded.0
-                self.sounds = loaded.1
-                self.missing = loaded.2
+                self.program = loaded.program
+                self.sounds = loaded.sounds
+                self.missing = loaded.missing
                 self.programURL = url
                 self.kitName = url.deletingPathExtension().lastPathComponent
                 self.isDirty = false
                 self.busy = false
                 self.selectPad(0)
                 self.bank = 0
-                let trailing = loaded.1.values.reduce(0) { $0 + $1.trailingByteCount }
-                self.status = loaded.2.isEmpty ? (trailing > 0 ?
+                let trailing = loaded.sounds.values.reduce(0) { $0 + $1.trailingByteCount }
+                self.status = loaded.missing.isEmpty ? (trailing > 0 ?
                     "Kit ouvert. \(trailing) octets hors PCM seront omis lors du nouvel export." :
-                    "Kit ouvert. Les originaux sont conservés jusqu’à un nouvel export.") :
-                    "Sons indisponibles : \(loaded.2.joined(separator: ", ")). L’export exige tous les sons du kit."
+                    "Kit ouvert. L’export crée de nouveaux fichiers et conserve les originaux.") :
+                    "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’export exige tous les sons du kit."
             } catch {
                 guard token == self.generation else { return }
                 self.busy = false
@@ -123,35 +135,6 @@ final class StudioModel: ObservableObject {
                 self.status = "Ouverture interrompue."
             }
         }
-    }
-
-    nonisolated private static func loadKit(_ url: URL) throws -> (MPCProgram, [Int: MPCSound], [String]) {
-        let program = try MPCProgram(data: Data(contentsOf: url))
-        let folder = url.deletingLastPathComponent()
-        let files = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil,
-                                                               options: [.skipsHiddenFiles])
-        var assets: [Int: MPCSound] = [:]
-        var missing: [String] = []
-        var total = 0
-        for slot in program.referencedSlots.sorted() {
-            let name = program.soundName(slot: slot)
-            let matches = files.filter {
-                $0.pathExtension.lowercased() == "snd" &&
-                $0.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(name) == .orderedSame
-            }
-            guard matches.count == 1, let file = matches.first else {
-                missing.append(name.isEmpty ? "slot \(slot + 1)" : name)
-                continue
-            }
-            do {
-                let sample = try MPCSound.decode(Data(contentsOf: file), name: name)
-                total += sample.frameCount * sample.channels.count * 2
-                guard total <= 33_554_432 else { throw StudioError.message("Le kit dépasse 32 Mo de mémoire PCM.") }
-                assets[slot] = sample
-            } catch let error as StudioError { throw error }
-              catch { missing.append("\(name) (\(error.localizedDescription))") }
-        }
-        return (program, assets, missing)
     }
 
     func newKit() {
@@ -167,6 +150,7 @@ final class StudioModel: ObservableObject {
         selectedPad = 0
         sound = nil
         isDirty = false
+        errorMessage = nil
         status = "Nouveau kit. Importe des WAV, AIFF ou SND sur les pads."
     }
 
@@ -200,7 +184,6 @@ final class StudioModel: ObservableObject {
 
     func importAudio() {
         guard !busy else { return }
-        if program == nil { newKit() }
         let panel = NSOpenPanel()
         panel.title = "Importer des samples sur les pads"
         panel.prompt = "Importer"
@@ -216,70 +199,150 @@ final class StudioModel: ObservableObject {
         let accepted = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !accepted.isEmpty else { return false }
         let token = generation
-        Task {
-            var urls: [URL] = []
-            for provider in accepted {
-                let url = await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
-                    provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                        if let data = item as? Data {
-                            continuation.resume(returning: URL(dataRepresentation: data, relativeTo: nil))
-                        } else if let url = item as? URL {
-                            continuation.resume(returning: url)
-                        } else {
-                            continuation.resume(returning: nil)
-                        }
-                    }
-                }
-                if let url { urls.append(url) }
-            }
-            guard token == self.generation else { return }
-            self.importURLs(urls, atPad: onPad)
-        }
-        return true
-    }
-
-    private func importURLs(_ urls: [URL], atPad: Int) {
-        guard !busy, !urls.isEmpty else { return }
-        if program == nil { newKit() }
-        let token = generation
+        // Reserve the entire operation before provider resolution can suspend.
         busy = true
-        status = "Conversion audio vers 44,1 kHz…"
+        errorMessage = nil
+        status = "Lecture des fichiers déposés…"
         Task {
             do {
-                let loaded = try await Task.detached(priority: .userInitiated) {
-                    try urls.prefix(64 - atPad).map { try AudioImporter.load($0) }
-                }.value
-                guard token == self.generation, var updated = self.program else { return }
-                var pool = self.sounds
-                for (offset, sample) in loaded.enumerated() {
-                    let note = updated.midiNote(forPad: atPad + offset)
-                    var available = Set(0..<128).subtracting(updated.referencedSlots)
-                    if let old = updated.slot(forNote: note) {
-                        let uses = (35...98).filter { updated.slot(forNote: $0) == old }.count
-                        if uses == 1 { available.insert(old) }
+                var urls: [URL] = []
+                for (index, provider) in accepted.enumerated() {
+                    let url = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+                        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                            let prefix = "Impossible de lire le fichier déposé \(index + 1)."
+                            if let error {
+                                continuation.resume(throwing: StudioError.message("\(prefix) \(error.localizedDescription)"))
+                                return
+                            }
+                            let url: URL?
+                            if let data = item as? Data {
+                                url = URL(dataRepresentation: data, relativeTo: nil)
+                            } else {
+                                url = item as? URL
+                            }
+                            guard let url, url.isFileURL else {
+                                continuation.resume(throwing: StudioError.message(prefix))
+                                return
+                            }
+                            continuation.resume(returning: url)
+                        }
                     }
-                    guard let slot = available.sorted().first else { throw StudioError.message("Le programme utilise déjà 128 sons.") }
-                    pool[slot] = sample
-                    updated.setSound(slot: slot, name: sample.name, wordCount: sample.frameCount * sample.channels.count)
-                    updated.assign(slot: slot, toNote: note)
+                    urls.append(url)
                 }
-                let bytes = updated.referencedSlots.reduce(0) { sum, slot in
-                    sum + (pool[slot].map { $0.frameCount * $0.channels.count * 2 } ?? 0)
-                }
-                guard bytes <= 33_554_432 else { throw StudioError.message("L’import ferait dépasser 32 Mo de mémoire PCM.") }
-                pool = pool.filter { updated.referencedSlots.contains($0.key) }
-                self.program = updated
-                self.sounds = pool
-                self.busy = false
-                self.isDirty = true
-                self.selectPad(atPad)
-                self.status = "\(loaded.count) sample(s) importé(s)."
+                guard token == self.generation else { return }
+                await self.importResolvedURLs(urls, atPad: onPad, token: token)
             } catch {
+                guard token == self.generation else { return }
                 self.busy = false
                 self.errorMessage = error.localizedDescription
                 self.status = "Import interrompu ; le kit est conservé."
             }
         }
+        return true
+    }
+
+    struct PreparedImport {
+        let program: MPCProgram
+        let sounds: [Int: MPCSound]
+        let importedCount: Int
+    }
+
+    /// Prepare the complete batch on copies; the model commits it only after every file succeeds.
+    /// The injected loader makes the per-file memory allowance independently testable.
+    nonisolated static func prepareImport(
+        _ urls: [URL], atPad: Int, program: MPCProgram, sounds: [Int: MPCSound],
+        maximumPCMBytes: Int = 33_554_432,
+        loadAudio: (URL, Int) throws -> MPCSound = { try AudioImporter.load($0, maximumPCMBytes: $1) }
+    ) throws -> PreparedImport {
+        guard (0..<64).contains(atPad) else {
+            throw StudioError.message("Le pad de départ est invalide.")
+        }
+        guard urls.count <= 64 - atPad else {
+            throw StudioError.message("L’import contient \(urls.count) samples, mais seuls \(64 - atPad) pads restent jusqu’à D16. Choisis moins de fichiers ou un pad de départ plus tôt.")
+        }
+        let targetNotes = urls.indices.map { program.midiNote(forPad: atPad + $0) }
+        guard targetNotes.allSatisfy({ (35...98).contains($0) }) else {
+            throw StudioError.message("Le programme contient une affectation de pad invalide.")
+        }
+        guard Set(targetNotes).count == targetNotes.count else {
+            throw StudioError.message("Deux pads de ce lot partagent la même note MIDI. Importe ces samples séparément ou modifie l’affectation des pads.")
+        }
+        var updated = program
+        let initialReferences = program.referencedSlots
+        var pool = sounds.filter { initialReferences.contains($0.key) }
+        for (offset, url) in urls.enumerated() {
+            let note = targetNotes[offset]
+            let referenced = updated.referencedSlots
+            let old = updated.slot(forNote: note)
+            let replacesExclusive = old.map { slot in
+                (35...98).filter { updated.slot(forNote: $0) == slot }.count == 1
+            } ?? false
+            var available = Set(0..<128).subtracting(referenced)
+            if replacesExclusive, let old { available.insert(old) }
+            guard let slot = available.min() else {
+                throw StudioError.message("Le programme utilise déjà 128 sons.")
+            }
+            let retainedBytes = referenced.reduce(0) { sum, existing in
+                if replacesExclusive && existing == old { return sum }
+                guard let sample = pool[existing] else { return sum }
+                return sum + sample.frameCount * sample.channels.count * 2
+            }
+            let remaining = maximumPCMBytes - retainedBytes
+            guard remaining > 0 else {
+                throw StudioError.message("L’import ferait dépasser 32 Mo de mémoire PCM.")
+            }
+            let sample = try loadAudio(url, remaining)
+            let sampleBytes = sample.frameCount * sample.channels.count * 2
+            guard sampleBytes <= remaining else {
+                throw StudioError.message("L’import ferait dépasser 32 Mo de mémoire PCM.")
+            }
+            pool[slot] = sample
+            updated.setSound(slot: slot, name: sample.name, wordCount: sample.frameCount * sample.channels.count)
+            updated.assign(slot: slot, toNote: note)
+            let currentReferences = updated.referencedSlots
+            pool = pool.filter { currentReferences.contains($0.key) }
+        }
+        return PreparedImport(program: updated, sounds: pool, importedCount: urls.count)
+    }
+
+    @discardableResult
+    func importURLs(_ urls: [URL], atPad: Int) -> Task<Void, Never>? {
+        guard !busy, !urls.isEmpty else { return nil }
+        let token = generation
+        busy = true
+        errorMessage = nil
+        status = "Conversion audio vers 44,1 kHz…"
+        return Task { await self.importResolvedURLs(urls, atPad: atPad, token: token) }
+    }
+
+    /// Both entry points hold `busy` until provider resolution and conversion finish.
+    private func importResolvedURLs(_ urls: [URL], atPad: Int, token: Int) async {
+        let startingProgram = program ?? MPCProgram.blank(name: kitName)
+        let startingSounds = sounds
+        status = "Conversion audio vers 44,1 kHz…"
+        do {
+            let prepared = try await Task.detached(priority: .userInitiated) {
+                try Self.prepareImport(urls, atPad: atPad, program: startingProgram, sounds: startingSounds)
+            }.value
+            guard token == self.generation else { return }
+            self.program = prepared.program
+            self.sounds = prepared.sounds
+            self.busy = false
+            self.isDirty = true
+            self.selectPad(atPad)
+            self.status = "\(prepared.importedCount) sample(s) importé(s)."
+        } catch {
+            guard token == self.generation else { return }
+            self.busy = false
+            self.errorMessage = error.localizedDescription
+            self.status = "Import interrompu ; le kit est conservé."
+        }
+    }
+
+    func setKitName(_ value: String) {
+        guard !busy, value != kitName else { return }
+        kitName = value
+        isDirty = true
     }
 
     func setTrim(start: Int, end: Int) {

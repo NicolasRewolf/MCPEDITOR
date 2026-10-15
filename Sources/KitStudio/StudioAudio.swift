@@ -3,20 +3,21 @@ import AVFoundation
 import MPCCore
 
 enum AudioImporter {
-    static func load(_ url: URL) throws -> MPCSound {
+    static func load(_ url: URL, maximumPCMBytes: Int = 33_554_432) throws -> MPCSound {
         if url.pathExtension.lowercased() == "snd" {
-            return try MPCSound.decode(Data(contentsOf: url), name: url.deletingPathExtension().lastPathComponent)
+            return try loadNativeSound(url, maximumPCMBytes: maximumPCMBytes)
         }
-        let file = try AVAudioFile(forReading: url)
+        let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
         let source = file.processingFormat
         let channels = Int(source.channelCount)
-        guard channels == 1 || channels == 2, source.sampleRate > 0 else {
+        guard channels == 1 || channels == 2, source.sampleRate.isFinite, source.sampleRate > 0 else {
             throw StudioError.message("Choisis un fichier audio mono ou stéréo.")
         }
         let expected = ceil(Double(file.length) * 44100 / source.sampleRate)
-        guard file.length > 0, file.length <= 33_554_432,
-              expected > 0, expected * Double(channels) * 2 <= 33_554_432 else {
-            throw StudioError.message("Ce sample dépasse les 32 Mo de mémoire PCM.")
+        try validatePCM(frameCount: expected, channels: channels, maximumPCMBytes: maximumPCMBytes)
+        // Bound the source buffer as well as the converted PCM, before allocating either.
+        guard file.length <= 33_554_432 else {
+            throw StudioError.message("Ce fichier contient trop de points audio pour cet import.")
         }
         guard let input = AVAudioPCMBuffer(pcmFormat: source, frameCapacity: AVAudioFrameCount(file.length)),
               let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100,
@@ -26,6 +27,14 @@ enum AudioImporter {
             throw StudioError.message("Impossible de préparer la conversion audio.")
         }
         try file.read(into: input)
+        guard input.frameLength == file.length, let inputPCM = input.floatChannelData else {
+            throw StudioError.message("La lecture de ce fichier audio est incomplète.")
+        }
+        guard (0..<channels).allSatisfy({ channel in
+            UnsafeBufferPointer(start: inputPCM[channel], count: Int(input.frameLength)).allSatisfy(\.isFinite)
+        }) else {
+            throw StudioError.message("Ce fichier contient une valeur audio non finie (NaN ou infini).")
+        }
         var supplied = false
         var conversionError: NSError?
         let result = converter.convert(to: output, error: &conversionError) { _, status in
@@ -38,18 +47,63 @@ enum AudioImporter {
         guard result != .error, output.frameLength > 0, let pcm = output.floatChannelData else {
             throw StudioError.message("La conversion de ce fichier audio a échoué.")
         }
+        try validatePCM(frameCount: Double(output.frameLength), channels: channels, maximumPCMBytes: maximumPCMBytes)
+        guard (0..<channels).allSatisfy({ channel in
+            UnsafeBufferPointer(start: pcm[channel], count: Int(output.frameLength)).allSatisfy(\.isFinite)
+        }) else {
+            throw StudioError.message("La conversion contient une valeur audio non finie (NaN ou infini).")
+        }
         let data = (0..<channels).map { Array(UnsafeBufferPointer(start: pcm[$0], count: Int(output.frameLength))) }
         return MPCSound(name: url.deletingPathExtension().lastPathComponent, channels: data)
+    }
+
+    private static func validatePCM(frameCount: Double, channels: Int, maximumPCMBytes: Int) throws {
+        guard frameCount.isFinite, frameCount >= 441 else {
+            throw StudioError.message("Ce sample doit contenir au moins 441 points (10 ms à 44,1 kHz) pour l’export MPC.")
+        }
+        // The native 32 MiB file limit includes the 38-byte SND header.
+        guard frameCount <= Double((MPCSound.maximumFileBytes - 38) / (channels * 2)) else {
+            throw StudioError.message("Ce sample dépasse la taille maximale d’un fichier SND de 32 Mio.")
+        }
+        guard maximumPCMBytes >= 0,
+              frameCount <= Double(maximumPCMBytes / (channels * 2)) else {
+            let available = ByteCountFormatter.string(fromByteCount: Int64(max(0, maximumPCMBytes)), countStyle: .memory)
+            throw StudioError.message("Ce sample dépasse la mémoire PCM disponible pour cet import (\(available)).")
+        }
+    }
+
+    private static func loadNativeSound(_ url: URL, maximumPCMBytes: Int) throws -> MPCSound {
+        let file = try FileHandle(forReadingFrom: url)
+        defer { try? file.close() }
+        let header = try file.read(upToCount: 38) ?? Data()
+        guard header.count == 38 else { throw MPCFormatError.invalid("en-tête SND tronqué.") }
+        let bytes = Array(header)
+        guard bytes[0] == 1 else { throw MPCFormatError.unsupported("ce fichier n'est pas un SND natif.") }
+        if bytes[1] == 0x82 { throw MPCFormatError.unsupported("SND compressé 12 bits (révision 82).") }
+        guard bytes[1] == 2 else { throw MPCFormatError.unsupported("seule la révision SND 02 est prise en charge.") }
+        guard bytes[21] <= 1 else { throw MPCFormatError.invalid("indicateur mono/stéréo incorrect.") }
+        let frames = (0..<4).reduce(UInt32(0)) { $0 | UInt32(bytes[30 + $1]) << (8 * $1) }
+        try validatePCM(frameCount: Double(frames), channels: Int(bytes[21]) + 1, maximumPCMBytes: maximumPCMBytes)
+        let fileBytes = try file.seekToEnd()
+        guard fileBytes <= MPCSound.maximumFileBytes else { throw MPCFormatError.tooLarge }
+        try file.seek(toOffset: 0)
+        // A growing or oversized source is never read without a bound.
+        let data = try file.read(upToCount: MPCSound.maximumFileBytes + 1) ?? Data()
+        guard data.count == fileBytes, data.prefix(38) == header else {
+            throw StudioError.message("Ce fichier SND a changé pendant l’import. Réessaie avec un fichier stable.")
+        }
+        return try MPCSound.decode(data, name: url.deletingPathExtension().lastPathComponent)
     }
 }
 
 @MainActor
 final class StudioAudio {
-    private let engine = AVAudioEngine()
+    private let engine: AVAudioEngine
     private var voices: [(AVAudioPlayerNode, AVAudioUnitVarispeed)] = []
     private var next = 0
 
-    init() {
+    init(engine: AVAudioEngine = AVAudioEngine()) {
+        self.engine = engine
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
         for _ in 0..<8 {
             let player = AVAudioPlayerNode()

@@ -11,7 +11,8 @@ let package = Package(
     targets: [
         .target(name: "MPCCore", resources: [.process("Resources")]),
         .executableTarget(name: "KitStudio", dependencies: ["MPCCore"]),
-        .testTarget(name: "MPCCoreTests", dependencies: ["MPCCore"])
+        .testTarget(name: "MPCCoreTests", dependencies: ["MPCCore"]),
+        .testTarget(name: "KitStudioTests", dependencies: ["KitStudio"])
     ],
     swiftLanguageVersions: [.v5]
 )
