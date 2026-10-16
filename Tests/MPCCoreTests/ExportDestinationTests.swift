@@ -28,6 +28,12 @@ final class ExportDestinationTests: XCTestCase {
         return bytes
     }
 
+    private func canonicalURL(_ url: URL) throws -> URL {
+        guard let resolved = realpath(url.path, nil) else { throw ExportDestinationError.changed }
+        defer { free(resolved) }
+        return URL(fileURLWithPath: String(cString: resolved), isDirectory: true)
+    }
+
     /// These probes describe a synthetic FAT mount; no mounted card is ever modified by this suite.
     private func simulatedFAT(root: URL) -> ExportDestination.Environment {
         var environment = ExportDestination.Environment()
@@ -65,6 +71,46 @@ final class ExportDestinationTests: XCTestCase {
         }
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["KEEP.SND"])
         XCTAssertEqual(try Data(contentsOf: sample), original)
+    }
+
+    func testSearchOnlyAncestorDoesNotRequireEnumerationPermission() throws {
+        #if canImport(Darwin)
+        let parent = try fixture(named: "SearchOnlyParent")
+        let leaf = parent.appendingPathComponent("SelectedLeaf", isDirectory: true)
+        try FileManager.default.createDirectory(at: leaf, withIntermediateDirectories: false)
+        let canonical = try canonicalURL(leaf)
+        XCTAssertEqual(chmod(parent.path, 0o111), 0)
+        defer { _ = chmod(parent.path, 0o700) }
+        let readingParent = open(parent.path, O_RDONLY | O_DIRECTORY)
+        if readingParent >= 0 { _ = close(readingParent); throw XCTSkip("This user can read search-only directories") }
+        let descriptor = try ExportDestination.openDirectory(canonical)
+        defer { _ = close(descriptor) }
+        let receipt = try ExportDestination.capture(at: leaf, requireEmpty: true)
+        XCTAssertEqual(receipt.url, leaf.standardizedFileURL)
+        XCTAssertTrue(try ExportDestination.nativeNames(directoryFD: descriptor).isEmpty)
+        #endif
+    }
+
+    func testSearchTraversalStillRefusesASymbolicAncestor() throws {
+        let parent = try fixture(named: "Parent")
+        let leaf = parent.appendingPathComponent("Leaf", isDirectory: true)
+        try FileManager.default.createDirectory(at: leaf, withIntermediateDirectories: false)
+        let canonical = try canonicalURL(leaf)
+        let moved = parent.deletingLastPathComponent().appendingPathComponent("Moved")
+        try FileManager.default.moveItem(at: parent, to: moved)
+        try FileManager.default.createSymbolicLink(at: parent, withDestinationURL: moved)
+        XCTAssertThrowsError(try ExportDestination.openDirectory(canonical))
+    }
+
+    func testFinalDirectoryStillRequiresReadPermission() throws {
+        let leaf = try fixture(named: "UnreadableLeaf")
+        let canonical = try canonicalURL(leaf)
+        XCTAssertEqual(chmod(leaf.path, 0o100), 0)
+        defer { _ = chmod(leaf.path, 0o700) }
+        let readingLeaf = open(leaf.path, O_RDONLY | O_DIRECTORY)
+        if readingLeaf >= 0 { _ = close(readingLeaf); throw XCTSkip("This user can read search-only directories") }
+        XCTAssertThrowsError(try ExportDestination.openDirectory(canonical))
+        XCTAssertThrowsError(try ExportDestination.capture(at: leaf, requireEmpty: true))
     }
 
     func testDirectoryReplacedAfterProposalRefusesBothOldAndNewDirectories() throws {

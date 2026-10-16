@@ -673,7 +673,7 @@ final class LibraryModelTests: XCTestCase {
         let model = try testModel()
         await model.importURLs([sample], atPad: 0)?.value
         model.exportKit()
-        model.selectExportFolder(destination)
+        await model.selectExportFolder(destination)?.value
         XCTAssertNotNil(model.exportDestinationReceipt)
         XCTAssertNil(model.exportDestinationIssue)
         let displaced = destination.deletingLastPathComponent().appendingPathComponent("OriginalDestination")
@@ -710,7 +710,7 @@ final class LibraryModelTests: XCTestCase {
         let model = try testModel()
         await model.importURLs([sample], atPad: 0)?.value
         model.exportKit()
-        model.selectExportFolder(local)
+        await model.selectExportFolder(local)?.value
         let originalReceipt = model.exportDestinationReceipt
 
         model.selectExportPartition(suspect)

@@ -49,6 +49,8 @@ et n’est pas proposée automatiquement comme destination vide.
 L’identité du dossier et du volume est conservée jusqu’au clic sur Enregistrer, puis revérifiée
 avant les créations. Une PART annoncée vide doit encore l’être à cet instant. Les destinations
 non vérifiables, y compris par un choix de dossier personnalisé, restent protégées en lecture.
+Le contrôle d’un dossier personnalisé s’exécute en arrière-plan ; **Annuler** permet de sortir
+de l’attente sans modifier le kit. Un résultat tardif ne rétablit pas une sélection abandonnée.
 Un nom de programme présent plusieurs fois interdit également sa mise à la corbeille.
 Si macOS refuse l’accès à un dossier caché nécessaire au contrôle, l’app signale le refus ;
 le kit peut être enregistré dans un dossier local vérifiable sur le Mac.

@@ -56,6 +56,7 @@ def create(dist):
         "createdUTC": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "sourceCommit": command("git", "rev-parse", "HEAD", cwd=repo),
         "sourceTree": command("git", "rev-parse", "HEAD^{tree}", cwd=repo),
+        "sourceScope": list(scope),
         "sourceDirty": bool(command("git", "status", "--porcelain", "--", *scope, cwd=repo)),
         "sourceFiles": {name: digest(repo / name) for name in sorted(set(files))
                         if (repo / name).is_file()},

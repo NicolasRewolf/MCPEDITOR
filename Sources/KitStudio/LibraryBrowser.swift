@@ -555,9 +555,12 @@ struct ExportDestinationSheet: View {
                         .foregroundStyle(.yellow)
                 }
                 if let issue = model.exportDestinationIssue {
-                    Text(issue)
-                        .font(.caption)
-                        .foregroundStyle(.yellow)
+                    HStack(spacing: 8) {
+                        if model.validatingExportDestination { ProgressView().controlSize(.small) }
+                        Text(issue)
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                    }
                 }
             }
             Text(
@@ -567,7 +570,7 @@ struct ExportDestinationSheet: View {
             .foregroundStyle(StudioPalette.muted)
             .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("Annuler") { dismiss() }
+                Button("Annuler") { model.cancelExportDialog(); dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .disabled(model.documentLocked)
                 Spacer()
@@ -584,6 +587,7 @@ struct ExportDestinationSheet: View {
         .padding(24)
         .frame(width: 580)
         .onAppear { changeDestination = model.exportDestinationURL == nil }
+        .onDisappear { model.cancelExportDestinationValidation() }
         .background(StudioPalette.background)
         .interactiveDismissDisabled(model.documentLocked)
     }

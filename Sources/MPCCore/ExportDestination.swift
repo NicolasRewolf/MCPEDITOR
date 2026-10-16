@@ -169,10 +169,21 @@ public struct ExportDestination: Equatable, Sendable {
 
     /// Resolve the selected path once, then walk each component without following a newly swapped link.
     static func openDirectory(_ canonical: URL) throws -> Int32 {
-        var descriptor = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
+        let components = canonical.pathComponents.filter { $0 != "/" }
+        #if canImport(Darwin)
+        // Traversal needs search permission, not enumeration of every ancestor.
+        // Reading protected parents (e.g. Desktop) can trigger unrelated access
+        // requests even when the user has selected the leaf in NSOpenPanel.
+        let ancestorFlags = O_SEARCH | O_NOFOLLOW | O_CLOEXEC
+        #else
+        let ancestorFlags = O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        #endif
+        let leafFlags = O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        var descriptor = open("/", components.isEmpty ? leafFlags : ancestorFlags)
         guard descriptor >= 0 else { throw KitExportError.invalidDestination }
-        for component in canonical.pathComponents where component != "/" {
-            let next = component.withCString { openat(descriptor, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
+        for (index, component) in components.enumerated() {
+            let flags = index == components.count - 1 ? leafFlags : ancestorFlags
+            let next = component.withCString { openat(descriptor, $0, flags) }
             _ = close(descriptor)
             guard next >= 0 else { throw ExportDestinationError.changed }
             descriptor = next

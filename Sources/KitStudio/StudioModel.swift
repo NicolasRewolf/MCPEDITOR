@@ -53,6 +53,7 @@ final class StudioModel: ObservableObject {
     @Published var showExportSheet = false
     @Published var exportDestinationURL: URL?
     @Published private(set) var exportDestinationReceipt: ExportDestination?
+    @Published private(set) var validatingExportDestination = false
 
     private var kitFolders: [URL] = []
     private var libraryGeneration = 0
@@ -70,6 +71,9 @@ final class StudioModel: ObservableObject {
     private let preferences: UserDefaults
     private let volumeProvider: () -> [URL]
     private let sampleFolderLoader: @Sendable (URL) -> LibraryFolderListing
+    private let exportDestinationCapture: @Sendable (URL) throws -> ExportDestination
+    private var exportDestinationValidationGeneration = 0
+    private var exportDestinationValidationTask: Task<Void, Never>?
     private var sounds: [Int: MPCSound] = [:]
     private let audio = StudioAudio()
     private var generation = 0
@@ -142,13 +146,15 @@ final class StudioModel: ObservableObject {
              FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil,
                                                   options: [.skipHiddenVolumes]) ?? []
          },
-         sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) }) {
+         sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) },
+         exportDestinationCapture: @escaping @Sendable (URL) throws -> ExportDestination = { try ExportDestination.capture(at: $0) }) {
         preferences = defaults
         self.discardPresenter = discardPresenter
         self.trashPresenter = trashPresenter
         self.trashOperation = trashOperation
         self.volumeProvider = volumeProvider
         self.sampleFolderLoader = sampleFolderLoader
+        self.exportDestinationCapture = exportDestinationCapture
         kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
         sampleRoots = (defaults.stringArray(forKey: "library.sampleRoots") ?? []).map { URL(fileURLWithPath: $0) }
         volumeObservation = WorkspaceMountObservation(center: NSWorkspace.shared.notificationCenter,
@@ -161,10 +167,11 @@ final class StudioModel: ObservableObject {
         volumeRefreshTask?.cancel()
         dropTask?.cancel()
         dropResolution?.cancel()
+        exportDestinationValidationTask?.cancel()
     }
 
     var documentLocked: Bool { busy || awaitingDiscardConfirmation || filePanelPresented || awaitingKitTrashConfirmation }
-    var documentActionsDisabled: Bool { documentLocked || showExportSheet }
+    var documentActionsDisabled: Bool { documentLocked || showExportSheet || validatingExportDestination }
 
     var filteredKits: [LibraryKit] {
         libraryKits.filter { kit in
@@ -231,6 +238,7 @@ final class StudioModel: ObservableObject {
     }
 
     var exportDestinationIssue: String? {
+        if validatingExportDestination { return "Vérification de l’emplacement en cours… Tu peux annuler sans modifier le kit." }
         guard let destination = exportDestinationURL else { return nil }
         if let part = partitions.first(where: { $0.url == destination.standardizedFileURL }), !part.issues.isEmpty {
             return "Cette PART doit être vérifiée avant l’enregistrement. Actualise la bibliothèque."
@@ -864,17 +872,63 @@ final class StudioModel: ObservableObject {
     func selectExportPartition(_ partition: LibraryPartition) {
         guard !documentLocked, partition.issues.isEmpty,
               let receipt = partition.exportDestination, receipt.isMountedMPCPartition else { return }
+        cancelExportDestinationValidation()
         exportDestinationURL = partition.url
         exportDestinationReceipt = partition.isEmpty ? receipt.requiringEmpty() : receipt
     }
 
-    func selectExportFolder(_ url: URL) {
-        guard !documentLocked else { return }
-        do {
-            let receipt = try ExportDestination.capture(at: url)
-            exportDestinationURL = url.standardizedFileURL
-            exportDestinationReceipt = receipt
-        } catch { errorMessage = error.localizedDescription }
+    @discardableResult
+    func selectExportFolder(_ url: URL) -> Task<Void, Never>? {
+        guard !documentLocked else { return nil }
+        cancelExportDestinationValidation()
+        let selected = url.standardizedFileURL
+        let token = exportDestinationValidationGeneration
+        let capture = exportDestinationCapture
+        exportDestinationURL = selected
+        // Never leave the previous selection's receipt usable while probing a new one.
+        exportDestinationReceipt = nil
+        validatingExportDestination = true
+        errorMessage = nil
+        let task = Task { [weak self] in
+            guard !Task.isCancelled else { return }
+            do {
+                // Path traversal and volume probes can block in the kernel. Their
+                // completion is detached from both the main actor and the panel callback.
+                let receipt = try await Task.detached(priority: .userInitiated) { try capture(selected) }.value
+                guard let self, token == self.exportDestinationValidationGeneration,
+                      self.validatingExportDestination, self.exportDestinationURL == selected else { return }
+                guard receipt.url.standardizedFileURL == selected else { throw ExportDestinationError.changed }
+                self.exportDestinationReceipt = receipt
+                self.validatingExportDestination = false
+                self.exportDestinationValidationTask = nil
+            } catch {
+                guard let self, token == self.exportDestinationValidationGeneration,
+                      self.validatingExportDestination else { return }
+                self.validatingExportDestination = false
+                self.exportDestinationValidationTask = nil
+                self.errorMessage = error.localizedDescription
+            }
+        }
+        exportDestinationValidationTask = task
+        return task
+    }
+
+    /// Releases the UI immediately. Task cancellation does not interrupt a native
+    /// filesystem syscall already in progress; its eventual result is ignored.
+    func cancelExportDestinationValidation() {
+        exportDestinationValidationGeneration += 1
+        exportDestinationValidationTask?.cancel()
+        exportDestinationValidationTask = nil
+        if validatingExportDestination {
+            exportDestinationURL = nil
+            exportDestinationReceipt = nil
+        }
+        validatingExportDestination = false
+    }
+
+    func cancelExportDialog() {
+        cancelExportDestinationValidation()
+        showExportSheet = false
     }
 
     func chooseExportFolder() {
