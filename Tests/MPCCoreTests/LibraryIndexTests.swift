@@ -1,6 +1,11 @@
 import Foundation
 import XCTest
 @testable import MPCCore
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 
 final class LibraryIndexTests: XCTestCase {
     private func directory(named name: String = "Library") throws -> URL {
@@ -180,5 +185,117 @@ final class LibraryIndexTests: XCTestCase {
         XCTAssertFalse(part.issues.isEmpty)
         XCTAssertThrowsError(try LibraryIndex.scanKits(in: folder))
         XCTAssertNotNil(LibraryIndex.listSamples(in: folder).issue)
+    }
+
+    private func allocatedBytes(at url: URL) throws -> Int64 {
+        var info = stat()
+        let result = url.path.withCString { lstat($0, &info) }
+        guard result == 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
+        return Int64(info.st_blocks) * 512
+    }
+
+    func testApparentlyEmptyFATWithUnexplainedOccupiedClustersIsNotEmpty() throws {
+        let folder = try directory(named: "MPC-PART--A")
+        let known = try allocatedBytes(at: folder)
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            .init(allocationUnitBytes: 8192, occupiedBytes: known + 6_103_040)
+        })
+        XCTAssertEqual(part.fileCount, 0)
+        XCTAssertEqual(part.folderCount, 0)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertTrue(part.issues.contains { $0.contains("ne sont pas expliqués") })
+    }
+
+    func testEmptyFATIsAcceptedWhenRootAndHiddenMetadataExplainEveryOccupiedByte() throws {
+        let folder = try directory(named: "MPC-PART--E")
+        let hidden = folder.appendingPathComponent(".fseventsd", isDirectory: true)
+        try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: false)
+        let log = try file("events", in: hidden)
+        let known = try [folder, hidden, log].reduce(Int64(0)) { try $0 + allocatedBytes(at: $1) }
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            .init(allocationUnitBytes: 8192, occupiedBytes: known)
+        })
+        XCTAssertTrue(part.isEmpty)
+        XCTAssertTrue(part.issues.isEmpty)
+        XCTAssertEqual(part.fileCount, 0)
+        XCTAssertEqual(part.folderCount, 0)
+    }
+
+    func testEmptyFATHasNoAllowanceForAnUnexplainedAllocationUnit() throws {
+        let folder = try directory()
+        let known = try allocatedBytes(at: folder)
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            .init(allocationUnitBytes: 8192, occupiedBytes: known + 8192)
+        })
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertFalse(part.issues.isEmpty)
+    }
+
+    func testFATProbeFailurePreventsEmptyClaim() throws {
+        let folder = try directory()
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
+        })
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertFalse(part.issues.isEmpty)
+    }
+
+    func testNativeInventoryRejectsAVisibleFileMissingFromTheInitialScan() throws {
+        let folder = try directory()
+        let native = folder.appendingPathComponent("EXISTING.SND")
+        let bytes = Data([1, 2, 3])
+        var calls = 0
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            calls += 1
+            // The initial Foundation scan was empty; the independent native inventory must disagree.
+            if calls == 1 { try bytes.write(to: native) }
+            return .init(allocationUnitBytes: 8192, occupiedBytes: 0)
+        })
+        XCTAssertEqual(part.fileCount, 0)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertTrue(part.issues.contains { $0.contains("absents du premier relevé") })
+        XCTAssertEqual(try Data(contentsOf: native), bytes)
+    }
+
+    func testHiddenSymlinkCannotExplainFATAllocation() throws {
+        let folder = try directory()
+        let outside = try directory(named: "Outside")
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent(".linked"),
+                                                 withDestinationURL: outside)
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            .init(allocationUnitBytes: 8192, occupiedBytes: 0)
+        })
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertTrue(part.issues.contains { $0.contains("lien") })
+    }
+
+    func testHiddenFATInventoryLimitsPreventEmptyClaim() throws {
+        let folder = try directory()
+        let hidden = folder.appendingPathComponent(".metadata", isDirectory: true)
+        try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: false)
+        _ = try file("one", in: hidden)
+        _ = try file("two", in: hidden)
+        let probe: (Int32) throws -> LibraryIndex.FATVolumeUsage? = { _ in
+            .init(allocationUnitBytes: 8192, occupiedBytes: 0)
+        }
+        let shallow = LibraryIndex.scanPartition(folder, maximumDepth: 0, fatVolumeProbe: probe)
+        let truncated = LibraryIndex.scanPartition(folder, maximumEntries: 1, fatVolumeProbe: probe)
+        XCTAssertFalse(shallow.isEmpty)
+        XCTAssertFalse(truncated.isEmpty)
+        XCTAssertFalse(shallow.issues.isEmpty)
+        XCTAssertFalse(truncated.issues.isEmpty)
+    }
+
+    func testFATAllocationIncreaseDuringInventoryPreventsEmptyClaim() throws {
+        let folder = try directory()
+        let known = try allocatedBytes(at: folder)
+        var calls = 0
+        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+            calls += 1
+            return .init(allocationUnitBytes: 8192, occupiedBytes: known + (calls == 1 ? 0 : 8192))
+        })
+        XCTAssertEqual(calls, 2)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertFalse(part.issues.isEmpty)
     }
 }

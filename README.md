@@ -35,6 +35,8 @@ identifié séparément de la dernière copie enregistrée. Les dossiers ajouté
 La notion de PART vide exclut les fichiers cachés macOS : elle exige l’absence de toute entrée visible
 et un parcours complet sans erreur. Une PART contenant uniquement des samples, séquences ou dossiers
 n’est donc jamais choisie automatiquement comme vide.
+Une lecture FAT dont l’espace occupé n’est pas expliqué par l’inventaire reste « À vérifier »
+et n’est pas proposée automatiquement comme destination vide.
 
 Commencer sur une **copie d'un kit dans un dossier local**, puis valider un petit export sur la MPC.
 Aucun aller-retour matériel n'a encore été effectué par ce projet.
