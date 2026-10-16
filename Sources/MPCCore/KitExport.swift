@@ -5,14 +5,17 @@ import Darwin
 import Glibc
 #endif
 
-public enum KitExportError: LocalizedError {
+public enum KitExportError: LocalizedError, Sendable {
     case invalidDestination
     case missingSounds([Int])
     case invalidSlot(Int)
     case invalidSound(Int)
+    case invalidPCM16Range(slot: Int, peak: Float, outOfRange: Int, nonFinite: Int)
     case memoryLimitExceeded
     case namesExhausted
     case io(file: String, code: Int32)
+    case destinationChangedDuringWrite(selected: String, actual: String?)
+    case publishedFileChanged(String)
     case incompleteRollback(cause: String, files: [String])
 
     public var errorDescription: String? {
@@ -25,14 +28,21 @@ public enum KitExportError: LocalizedError {
             return "Emplacement de son MPC invalide : \(slot)."
         case .invalidSound(let slot):
             return "Données audio invalides pour l’emplacement MPC \(slot + 1)."
+        case .invalidPCM16Range(let slot, let peak, let outOfRange, let nonFinite):
+            return "Le son de l’emplacement MPC \(slot + 1) dépasse la plage PCM16 : crête \(String(format: "%.3f", peak)), \(outOfRange) valeurs hors plage et \(nonFinite) valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement."
         case .memoryLimitExceeded:
             return "Ce kit dépasse la limite de 32 Mio de données audio du prototype."
         case .namesExhausted:
             return "Impossible de trouver un nom MPC libre de huit caractères."
         case .io(let file, let code):
             return "Écriture impossible de \(file) : " + NSError(domain: NSPOSIXErrorDomain, code: Int(code)).localizedDescription
+        case .destinationChangedDuringWrite(let selected, let actual):
+            let location = actual.map { " Ils se trouvent dans le dossier ouvert : \($0)." } ?? " Leur emplacement actuel doit être vérifié dans le Finder."
+            return "La destination a changé pendant l’enregistrement : \(selected)." + location
+        case .publishedFileChanged(let filename):
+            return "Le fichier \(filename) a changé pendant l’enregistrement. Le kit n’a pas été confirmé."
         case .incompleteRollback(let cause, let files):
-            return cause + " Certains nouveaux fichiers n’ont pas pu être retirés : " + files.joined(separator: ", ") + "."
+            return cause + " Par sécurité, aucun fichier créé n’a été supprimé automatiquement. Fichiers à vérifier : " + files.joined(separator: ", ") + "."
         }
     }
 }
@@ -48,7 +58,7 @@ public struct KitExport {
     }
 
     private struct CreatedFile {
-        let name: String
+        var name: String
         let descriptor: Int32
     }
 
@@ -60,12 +70,12 @@ public struct KitExport {
         var entryInfo: (Int32, String, inout stat) -> Int32 = { directory, name, info in
             name.withCString { fstatat(directory, $0, &info, AT_SYMLINK_NOFOLLOW) }
         }
-        var removeEntry: (Int32, String) -> Int32 = { directory, name in
-            name.withCString { unlinkat(directory, $0, 0) }
+        /// There is deliberately no injected unlink: failure handling never removes a public name.
+        var publishProgram: (Int32, String, String) -> Int32 = { directory, temporary, final in
+            KitExport.publishExclusively(directoryFD: directory, temporary: temporary, final: final)
         }
         var synchronize: (Int32) -> Int32 = { fsync($0) }
         var closeFile: (Int32) -> Int32 = { close($0) }
-        var canIdentifyEmptyFile: (Int32) -> Bool = { KitExport.canIdentifyEmptyFile($0) }
         var volumeSpace: (Int32) throws -> ExportVolumeSpace = { try ExportSpace.volume(directoryFD: $0) }
         var destinationEnvironment = ExportDestination.Environment()
     }
@@ -90,6 +100,7 @@ public struct KitExport {
         expectedDestination: ExportDestination? = nil,
         io: FileIO
     ) throws -> URL {
+        try program.validateKnownFields()
         let slots = program.referencedSlots.sorted()
         for slot in slots where !(0..<128).contains(slot) {
             throw KitExportError.invalidSlot(slot)
@@ -109,6 +120,12 @@ public struct KitExport {
             guard !wordOverflow, !byteOverflow, !totalOverflow,
                   bytes >= 0, nextTotal <= maximumPCMBytes else {
                 throw KitExportError.memoryLimitExceeded
+            }
+            let range = sound.pcm16RangeReport
+            guard range.outOfRangeSampleCount == 0, range.nonFiniteSampleCount == 0 else {
+                throw KitExportError.invalidPCM16Range(slot: slot, peak: range.peakMagnitude,
+                                                       outOfRange: range.outOfRangeSampleCount,
+                                                       nonFinite: range.nonFiniteSampleCount)
             }
             pcmBytes = nextTotal
         }
@@ -155,7 +172,11 @@ public struct KitExport {
             assets.append(Asset(filename: stem + ".SND", data: encoded))
         }
         let programFilename = programStem + ".PGM"
-        assets.append(Asset(filename: programFilename, data: exported.bytes))
+        // DOS 8.3 staging uses the same allocation as the final PGM, without any extra
+        // directory or audio copy. A process interruption can leave a .TMP, never a
+        // partly written .PGM that the library or MPC could interpret as a kit.
+        let temporaryProgramFilename = programStem + ".TMP"
+        assets.append(Asset(filename: temporaryProgramFilename, data: exported.bytes))
 
         let volume = try io.volumeSpace(directoryFD)
         let estimate = try ExportSpace.estimate(fileSizes: assets.map { $0.data.count }, volume: volume)
@@ -168,6 +189,7 @@ public struct KitExport {
                              environment: io.destinationEnvironment)
 
         var created: [CreatedFile] = []
+        var closedDescriptors: Set<Int32> = []
         do {
             for asset in assets {
                 try writeExclusively(
@@ -175,36 +197,116 @@ public struct KitExport {
                     directoryFD: directoryFD, created: &created, io: io
                 )
             }
-            // Some mounted filesystems do not support synchronizing directories.
-            if io.synchronize(directoryFD) != 0 {
-                let code = errno
-                if code != EINVAL && code != ENOTSUP {
-                    throw KitExportError.io(file: programFilename, code: code)
-                }
+            try verifyPublishedFiles(created, directoryFD: directoryFD, io: io)
+            try synchronizeDirectory(directoryFD, filename: programFilename, io: io)
+            try validateLocationAfterCreation(receipt, directoryFD: directoryFD,
+                                              selectedURL: destination, io: io)
+            // Both the program body and every SND are fully synchronized before this
+            // one atomic, exclusive publication. Never fall back to replacing rename.
+            guard io.publishProgram(directoryFD, temporaryProgramFilename, programFilename) == 0 else {
+                throw KitExportError.io(file: programFilename, code: errno)
             }
+            created[created.count - 1].name = programFilename
+            try synchronizeDirectory(directoryFD, filename: programFilename, io: io)
+            // A concurrent writer can also replace a completed SND or PGM. Refuse a
+            // success result unless every published name still identifies our open body.
+            try verifyPublishedFiles(created, directoryFD: directoryFD, io: io)
+            for file in created {
+                let result = io.closeFile(file.descriptor)
+                closedDescriptors.insert(file.descriptor)
+                guard result == 0 else { throw KitExportError.io(file: file.name, code: errno) }
+            }
+            try validateLocationAfterCreation(receipt, directoryFD: directoryFD,
+                                              selectedURL: destination, io: io)
         } catch {
-            let leftovers = rollback(created, directoryFD: directoryFD, io: io)
-            for file in created { _ = io.closeFile(file.descriptor) }
-            if !leftovers.isEmpty {
-                throw KitExportError.incompleteRollback(
-                    cause: error.localizedDescription, files: leftovers
-                )
+            let artifacts = preservedArtifacts(created, directoryFD: directoryFD, io: io)
+            for file in created where !closedDescriptors.contains(file.descriptor) {
+                _ = io.closeFile(file.descriptor)
+            }
+            // A stat-then-unlink pair cannot conditionally delete the checked inode.
+            // Even a matching live descriptor does not close that race. Retain all
+            // created names on failure; report their names and never claim rollback.
+            if !artifacts.isEmpty {
+                let location = currentDirectoryPath(directoryFD).map { " Dossier ouvert : \($0)." } ?? ""
+                throw KitExportError.incompleteRollback(cause: error.localizedDescription + location, files: artifacts)
             }
             throw error
         }
-        var closingError: KitExportError?
+        return directory.appendingPathComponent(programFilename)
+    }
+
+    private static func synchronizeDirectory(_ descriptor: Int32, filename: String, io: FileIO) throws {
+        // Some mounted filesystems do not support synchronizing directories.
+        if io.synchronize(descriptor) != 0 {
+            let code = errno
+            if code != EINVAL && code != ENOTSUP { throw KitExportError.io(file: filename, code: code) }
+        }
+    }
+
+    private static func validateLocationAfterCreation(
+        _ receipt: ExportDestination, directoryFD: Int32, selectedURL: URL, io: FileIO
+    ) throws {
+        do {
+            try receipt.validateLocation(directoryFD: directoryFD, selectedURL: selectedURL,
+                                         environment: io.destinationEnvironment)
+        } catch {
+            throw KitExportError.destinationChangedDuringWrite(selected: selectedURL.path,
+                                                               actual: currentDirectoryPath(directoryFD))
+        }
+    }
+
+    private static func currentDirectoryPath(_ descriptor: Int32) -> String? {
+        #if canImport(Darwin)
+        var bytes = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        guard fcntl(descriptor, F_GETPATH, &bytes) == 0 else { return nil }
+        return String(cString: bytes)
+        #else
+        return nil
+        #endif
+    }
+
+    private static func verifyPublishedFiles(_ created: [CreatedFile], directoryFD: Int32, io: FileIO) throws {
         for file in created {
-            if io.closeFile(file.descriptor) != 0, closingError == nil {
-                closingError = .io(file: file.name, code: errno)
+            var owned = stat()
+            var current = stat()
+            guard io.descriptorInfo(file.descriptor, &owned) == 0,
+                  io.entryInfo(directoryFD, file.name, &current) == 0,
+                  owned.st_dev == current.st_dev, owned.st_ino == current.st_ino,
+                  owned.st_size == current.st_size,
+                  current.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG) else {
+                throw KitExportError.publishedFileChanged(file.name)
             }
         }
-        if let closingError {
-            // All bodies and the directory have already been synchronized. Some handles are
-            // now closed, so ownership cannot safely be proved for a destructive rollback.
-            throw KitExportError.incompleteRollback(cause: closingError.localizedDescription,
-                                                     files: created.map(\.name))
+    }
+
+    private static func publishExclusively(directoryFD: Int32, temporary: String, final: String) -> Int32 {
+        #if canImport(Darwin)
+        return temporary.withCString { source in
+            final.withCString { target in
+                renameatx_np(directoryFD, source, directoryFD, target, UInt32(RENAME_EXCL))
+            }
         }
-        return directory.appendingPathComponent(programFilename)
+        #else
+        // The app is macOS-only. On platforms without exclusive atomic rename, refuse
+        // publication rather than introduce a replacing rename or copy/delete fallback.
+        errno = ENOTSUP
+        return -1
+        #endif
+    }
+
+    private static func preservedArtifacts(_ created: [CreatedFile], directoryFD: Int32, io: FileIO) -> [String] {
+        var names: [String] = []
+        for file in created {
+            // Include native names even when unavailable or concurrently moved: they
+            // describe what this attempt created, not a claim that it still owns them.
+            names.append(file.name)
+            let sidecar = "._" + file.name
+            var info = stat()
+            if io.entryInfo(directoryFD, sidecar, &info) == 0 || errno != ENOENT {
+                names.append(sidecar)
+            }
+        }
+        return names
     }
 
     private static func reserveName(
@@ -245,7 +347,7 @@ public struct KitExport {
             openat(directoryFD, $0, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, mode_t(0o644))
         }
         guard fd >= 0 else { throw KitExportError.io(file: filename, code: errno) }
-        // Keep ownership through the live descriptor until commit or rollback. On FAT,
+        // Retain the live descriptor for post-write verification. On FAT,
         // st_ino can change when the first data cluster is allocated: a pre-write snapshot
         // does not identify the completed file reliably.
         created.append(CreatedFile(name: filename, descriptor: fd))
@@ -266,58 +368,4 @@ public struct KitExport {
         }
     }
 
-    private static func rollback(_ created: [CreatedFile], directoryFD: Int32, io: FileIO) -> [String] {
-        var leftovers: [String] = []
-        func recordRemainingSidecar(_ filename: String) {
-            let sidecarName = "._" + filename
-            var metadata = stat()
-            let result = io.entryInfo(directoryFD, sidecarName, &metadata)
-            if result == 0 || errno != ENOENT { leftovers.append(sidecarName) }
-        }
-        for file in created.reversed() {
-            var owned = stat()
-            guard io.descriptorInfo(file.descriptor, &owned) == 0 else {
-                leftovers.append(file.name)
-                continue
-            }
-            // FAT derives nonempty IDs from the first allocated cluster; empty files can
-            // share an ID. A matching ID cannot prove ownership of an empty replacement.
-            guard owned.st_size != 0 || io.canIdentifyEmptyFile(file.descriptor) else {
-                leftovers.append(file.name)
-                continue
-            }
-            var current = stat()
-            let result = io.entryInfo(directoryFD, file.name, &current)
-            if result != 0 {
-                if errno != ENOENT { leftovers.append(file.name) }
-                else { recordRemainingSidecar(file.name) }
-                continue
-            }
-            // A changed or unverifiable identity must stay in place and be reported.
-            // In particular, do not mistake a replacement entry for our open file.
-            guard current.st_dev == owned.st_dev, current.st_ino == owned.st_ino else {
-                leftovers.append(file.name)
-                continue
-            }
-            let removed = io.removeEntry(directoryFD, file.name)
-            if removed != 0 && errno != ENOENT { leftovers.append(file.name) }
-            else { recordRemainingSidecar(file.name) }
-        }
-        _ = io.synchronize(directoryFD)
-        return Array(leftovers.reversed())
-    }
-
-    private static func canIdentifyEmptyFile(_ descriptor: Int32) -> Bool {
-        #if canImport(Darwin)
-        var filesystem = statfs()
-        guard fstatfs(descriptor, &filesystem) == 0 else { return false }
-        let name = withUnsafePointer(to: &filesystem.f_fstypename) { pointer in
-            pointer.withMemoryRebound(to: CChar.self, capacity: 16) { String(cString: $0) }
-        }
-        return name != "msdos" && name != "exfat"
-        #else
-        // The export app runs on macOS; other filesystems remain conservative for empties.
-        return false
-        #endif
-    }
 }

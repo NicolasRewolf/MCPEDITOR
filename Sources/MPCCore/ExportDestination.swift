@@ -103,8 +103,10 @@ public struct ExportDestination: Equatable, Sendable {
         return try Self.openDirectory(canonicalURL)
     }
 
-    func validate(directoryFD: Int32, selectedURL: URL,
-                  environment: Environment = Environment()) throws {
+    /// Bind the live write descriptor to the selected path and captured volume. Unlike
+    /// preflight, this remains usable after our own files have made an empty PART busy.
+    func validateLocation(directoryFD: Int32, selectedURL: URL,
+                          environment: Environment = Environment()) throws {
         guard selectedURL.standardizedFileURL.path == url.path,
               try Self.resolvedDirectoryURL(selectedURL).path == canonicalURL.path,
               try Self.directoryIdentity(directoryFD) == directoryIdentity else {
@@ -113,6 +115,20 @@ public struct ExportDestination: Equatable, Sendable {
         let currentMount = try environment.mount(directoryFD)
         guard currentMount == mountIdentity else { throw ExportDestinationError.changed }
         _ = try Self.validateMount(currentMount, selectedURL: canonicalURL)
+        // Reopening also detects a renamed directory whose held descriptor remains valid.
+        let pathDescriptor = try Self.openDirectory(canonicalURL)
+        defer { _ = close(pathDescriptor) }
+        guard try Self.resolvedDirectoryURL(selectedURL).path == canonicalURL.path,
+              try Self.directoryIdentity(directoryFD) == directoryIdentity,
+              try Self.directoryIdentity(pathDescriptor) == directoryIdentity,
+              try environment.mount(directoryFD) == mountIdentity,
+              try environment.mount(pathDescriptor) == mountIdentity else { throw ExportDestinationError.changed }
+    }
+
+    func validate(directoryFD: Int32, selectedURL: URL,
+                  environment: Environment = Environment()) throws {
+        try validateLocation(directoryFD: directoryFD, selectedURL: selectedURL, environment: environment)
+        let currentMount = try environment.mount(directoryFD)
         if currentMount.filesystem == "msdos" {
             let root = try Self.openDirectory(Self.resolvedDirectoryURL(currentMount.mountPoint))
             defer { _ = close(root) }
@@ -123,15 +139,8 @@ public struct ExportDestination: Equatable, Sendable {
             let names = try environment.names(directoryFD)
             guard !names.contains(where: { !$0.hasPrefix(".") }) else { throw ExportDestinationError.notEmpty }
         }
-        // A held descriptor can still name a renamed directory. Reopen the path
-        // after inventory so the final check also binds it to the selected location.
-        let pathDescriptor = try Self.openDirectory(canonicalURL)
-        defer { _ = close(pathDescriptor) }
-        guard try Self.resolvedDirectoryURL(selectedURL).path == canonicalURL.path,
-              try Self.directoryIdentity(directoryFD) == directoryIdentity,
-              try Self.directoryIdentity(pathDescriptor) == directoryIdentity,
-              try environment.mount(directoryFD) == mountIdentity,
-              try environment.mount(pathDescriptor) == mountIdentity else { throw ExportDestinationError.changed }
+        // Inventory is not an atomic snapshot; bind the path once more after reading it.
+        try validateLocation(directoryFD: directoryFD, selectedURL: selectedURL, environment: environment)
     }
 
     private static func validateMount(_ mount: MountIdentity, selectedURL: URL) throws -> Bool {

@@ -151,4 +151,45 @@ final class KitExportTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("SOUND.SND").path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("SOUND1.SND").path))
     }
+    func testOrphanProgramTemporaryAppleDoubleReservesTheProgramStem() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sidecar = directory.appendingPathComponent("._kit.tmp")
+        let metadata = Data("orphan temporary metadata must stay".utf8)
+        try metadata.write(to: sidecar)
+        let output = try KitExport.export(program: MPCProgram.blank(name: "KIT"), sounds: [:], name: "KIT", to: directory)
+        XCTAssertEqual(output.lastPathComponent, "KIT1.PGM")
+        XCTAssertEqual(try Data(contentsOf: sidecar), metadata)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("KIT.TMP").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("KIT.PGM").path))
+    }
+
+    func testOutOfRangeWorkingAudioIsExplicitlyRejectedWithoutClippingOrCreatingFiles() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let existing = Data("original card sample".utf8)
+        try existing.write(to: directory.appendingPathComponent("KEEP.SND"))
+        var program = MPCProgram.blank(name: "OVER")
+        program.assign(slot: 3, toNote: 35)
+        program.setSound(slot: 3, name: "LOUD", wordCount: 512)
+        var channel = Array(repeating: Float(0.25), count: 512)
+        channel[0] = 1.25
+        channel[1] = -1.5
+        let sound = MPCSound(name: "LOUD", channels: [channel])
+        let originalProgram = program.bytes
+        XCTAssertThrowsError(try KitExport.export(program: program, sounds: [3: sound], name: "OVER", to: directory)) { error in
+            guard case KitExportError.invalidPCM16Range(let slot, let peak, let outOfRange, let nonFinite) = error else {
+                return XCTFail("Range diagnostic must precede any PCM clipping: \(error)")
+            }
+            XCTAssertEqual(slot, 3)
+            XCTAssertEqual(peak, 1.5)
+            XCTAssertEqual(outOfRange, 2)
+            XCTAssertEqual(nonFinite, 0)
+        }
+        XCTAssertEqual(sound.channels, [channel], "Export must not normalize or clip working audio")
+        XCTAssertEqual(program.bytes, originalProgram)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["KEEP.SND"])
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("KEEP.SND")), existing)
+    }
+
 }
