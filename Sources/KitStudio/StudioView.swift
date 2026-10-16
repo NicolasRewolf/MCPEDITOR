@@ -17,8 +17,8 @@ struct StudioView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                library
-                    .frame(width: 230)
+                LibraryBrowser()
+                    .frame(width: 300)
                 Divider()
                 workspace
             }
@@ -29,11 +29,16 @@ struct StudioView: View {
             ToolbarItemGroup {
                 Button(action: model.newKit) { Label("Nouveau kit", systemImage: "plus") }
                     .help("Créer un programme vide")
+                    .disabled(model.documentActionsDisabled)
                 Button(action: model.importAudio) { Label("Importer", systemImage: "square.and.arrow.down") }
-                    .disabled(model.program == nil || model.busy)
-                Button(action: model.exportKit) { Label("Exporter le kit…", systemImage: "square.and.arrow.up") }
-                    .disabled(model.program == nil || model.busy)
+                    .disabled(model.program == nil || model.documentActionsDisabled)
+                Button(action: model.exportKit) { Label("Enregistrer le kit…", systemImage: "square.and.arrow.up") }
+                    .disabled(model.program == nil || model.documentActionsDisabled)
             }
+        }
+        .sheet(isPresented: $model.showExportSheet) {
+            ExportDestinationSheet()
+                .environmentObject(model)
         }
         .alert("Impossible de terminer", isPresented: Binding(
             get: { model.errorMessage != nil },
@@ -45,93 +50,18 @@ struct StudioView: View {
         }
     }
 
-    private var library: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 9) {
-                Image(systemName: "externaldrive")
-                    .font(.title3)
-                    .foregroundStyle(StudioPalette.orange)
-                Text("BIBLIOTHÈQUE")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .tracking(1.8)
-                Spacer()
-                Button(action: model.refreshLocations) { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.plain)
-                    .help("Actualiser les volumes")
-            }
-            .padding(18)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 7) {
-                    sectionTitle("VOLUMES & DOSSIERS")
-                    if model.locations.isEmpty {
-                        Text("Insère ta SD ou ouvre un dossier de samples.")
-                            .font(.callout)
-                            .foregroundStyle(StudioPalette.muted)
-                            .padding(.vertical, 10)
-                    }
-                    ForEach(model.locations, id: \.self) { url in
-                        LibraryRow(
-                            title: url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent,
-                            subtitle: url.path,
-                            symbol: "externaldrive",
-                            selected: model.selectedLocation == url
-                        ) { model.selectLocation(url) }
-                    }
-                    Button(action: model.chooseFolder) {
-                        Label("Ouvrir un dossier…", systemImage: "folder.badge.plus")
-                            .font(.callout)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(10)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(StudioPalette.orange)
-                    sectionTitle("PROGRAMMES · \(model.programs.count)")
-                        .padding(.top, 22)
-                    if model.programs.isEmpty {
-                        Text("Les programmes .PGM du dossier apparaîtront ici.")
-                            .font(.callout)
-                            .foregroundStyle(StudioPalette.muted)
-                            .padding(.vertical, 10)
-                    }
-                    ForEach(model.programs, id: \.self) { url in
-                        LibraryRow(
-                            title: url.deletingPathExtension().lastPathComponent,
-                            subtitle: "Programme MPC3000",
-                            symbol: "square.grid.3x3",
-                            selected: model.programURL == url
-                        ) { model.openProgram(url) }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 18)
-            }
-            Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: 5) {
-                Text("MPC3000 / VAILIXI")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(StudioPalette.orange)
-                Text("Programmes & samples")
-                    .font(.caption)
-                    .foregroundStyle(StudioPalette.muted)
-            }
-            .padding(18)
-        }
-        .background(StudioPalette.inset)
-        .disabled(model.busy)
-    }
-
     private var workspace: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 18) {
             header
-            HStack(alignment: .top, spacing: 22) {
+            HStack(alignment: .top, spacing: 18) {
                 padPanel
-                    .frame(width: 350)
+                    .frame(width: 310)
                 SampleEditor()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        .padding(24)
+        .padding(20)
     }
 
     private var header: some View {
@@ -149,12 +79,27 @@ struct StudioView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 27, weight: .semibold, design: .rounded))
                     .accessibilityLabel("Nom du kit")
-                    .disabled(model.program == nil || model.busy)
+                    .disabled(model.program == nil || model.documentActionsDisabled)
                     if model.isDirty {
                         Circle().fill(StudioPalette.orange).frame(width: 7, height: 7)
                             .help("Modifications non exportées")
                     }
                 }
+                HStack(spacing: 7) {
+                    Image(systemName: model.kitLocationPath.isEmpty ? "square.grid.3x3" : "externaldrive")
+                    Text(model.kitLocationLabel)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if !model.kitLocationPath.isEmpty {
+                        Button("Finder", action: model.revealKitLocation)
+                            .buttonStyle(.borderless)
+                            .help(model.kitLocationPath)
+                            .accessibilityLabel("Afficher le kit dans le Finder")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(StudioPalette.muted)
+                .help(model.kitLocationPath)
             }
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 6) {
@@ -187,6 +132,7 @@ struct StudioView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Banque \(["A", "B", "C", "D"][bank])")
+                        .disabled(model.documentActionsDisabled)
                         .accessibilityAddTraits(model.bank == bank ? .isSelected : [])
                     }
                 }
@@ -205,7 +151,7 @@ struct StudioView: View {
                     )
                 }
             }
-            .disabled(model.program == nil || model.busy)
+            .disabled(model.program == nil || model.documentActionsDisabled)
             HStack(spacing: 8) {
                 Label("Glisse un son sur un pad", systemImage: "arrow.down.doc")
                     .font(.caption)
@@ -216,21 +162,28 @@ struct StudioView: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(StudioPalette.muted)
-                .disabled(model.program == nil || model.busy)
+                .disabled(model.program == nil || model.documentActionsDisabled)
                 .help("Vider le pad sélectionné")
                 .accessibilityLabel("Vider le pad sélectionné")
             }
             Spacer(minLength: 12)
             VStack(alignment: .leading, spacing: 8) {
-                Text("TON KIT, PRÊT POUR LA MPC.")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .tracking(1.5)
-                Text("Charge un programme existant ou crée ton kit. L’export rassemble le .PGM et ses sons .SND dans le dossier de ton choix.")
-                    .font(.callout)
+                Label(model.kitLocationLabel, systemImage: "folder")
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(2)
+                    .help(model.kitLocationPath)
+                Text(model.isDirty ? "Modifications à enregistrer" : "Aucune modification en attente")
+                    .font(.caption)
+                    .foregroundStyle(model.isDirty ? StudioPalette.orange : StudioPalette.muted)
+                Text("\(model.assignedPadCount) pad(s) affecté(s) · \(ByteCountFormatter.string(fromByteCount: model.estimatedExportBytes, countStyle: .file)) à enregistrer")
+                    .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
-                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Enregistrer le kit…", action: model.exportKit)
+                    .buttonStyle(.bordered)
+                    .disabled(model.program == nil || model.documentActionsDisabled)
             }
-            .padding(18)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 12))
         }
@@ -265,40 +218,6 @@ struct StudioView: View {
             .font(.system(size: 10, weight: .semibold, design: .monospaced))
             .tracking(1)
             .foregroundStyle(StudioPalette.muted)
-    }
-}
-
-private struct LibraryRow: View {
-    let title: String
-    let subtitle: String
-    let symbol: String
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 16))
-                    .foregroundStyle(selected ? StudioPalette.orange : StudioPalette.muted)
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 10))
-                        .foregroundStyle(StudioPalette.muted)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(10)
-            .background(selected ? Color.white.opacity(0.07) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(subtitle)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -371,7 +290,16 @@ private struct SampleEditor: View {
                         .foregroundStyle(StudioPalette.muted)
                     Text(model.selectedLabel)
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .lineLimit(1)
+                    if model.sound != nil {
+                        TextField("Nom du sample", text: Binding(
+                            get: { model.sound?.name ?? "" }, set: { model.setSoundName($0) }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12, weight: .medium))
+                        .accessibilityLabel("Nom du sample du pad \(model.selectedLabel)")
+                        .help(model.sound?.name ?? "")
+                        .disabled(model.busy)
+                    }
                 }
                 Spacer()
                 if let sound = model.sound {
@@ -382,11 +310,14 @@ private struct SampleEditor: View {
                         .background(Color.white.opacity(0.06), in: Capsule())
                 }
             }
-            if let sound = model.sound, sound.frameCount > 0 {
-                loadedEditor(sound)
-            } else {
-                emptyEditor
+            ScrollView(.vertical, showsIndicators: true) {
+                if let sound = model.sound, sound.frameCount > 0 {
+                    loadedEditor(sound)
+                } else {
+                    emptyEditor
+                }
             }
+            .scrollIndicators(.visible)
         }
         .padding(20)
         .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 14))
@@ -499,7 +430,7 @@ private struct SampleEditor: View {
                 .foregroundStyle(StudioPalette.muted)
             Button("Importer un sample…", action: model.importAudio)
                 .buttonStyle(.bordered)
-                .disabled(model.program == nil || model.busy)
+                .disabled(model.program == nil || model.documentActionsDisabled)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minHeight: 430)

@@ -13,14 +13,28 @@ La signature est locale (ad hoc), sans certificat Developer ID ni notarisation A
 Si macOS bloque l'application téléchargée, utiliser son option **Ouvrir quand même** dans
 Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gatekeeper.
 
-1. Insérer la SD ; cliquer sur Actualiser pour afficher les volumes externes.
-2. Choisir PART A, PART B, etc., puis un programme. « Ouvrir un dossier » fonctionne aussi sur une copie locale.
-3. Jouer les pads, changer de banque A–D, importer ou glisser des WAV, AIFF ou SND.
-   Une sélection multiple remplit les pads suivants dans l'ordre de la sélection.
-4. Régler les marqueurs début/fin, découper, normaliser, convertir en mono, inverser ou appliquer des fondus de 3 ms.
-5. Choisir un nom de kit, puis Exporter vers la racine d'une partition. L'application crée un nouveau
-   programme et de nouveaux sons, avec noms ASCII de huit caractères sans écraser les fichiers existants.
-6. Éjecter la SD depuis le Finder, puis charger le nouveau programme sur la MPC.
+1. Insérer la SD et ouvrir l’application. **Kits** rassemble les `.PGM` des PART et des dossiers ajoutés,
+   avec leur emplacement visible sur chaque ligne. Un `.PGM` correspond à un kit.
+2. Créer un nouveau kit, puis glisser des WAV, AIFF ou SND sur les pads. Une sélection multiple
+   remplit les pads suivants dans l’ordre de la sélection, jusqu’à D16.
+3. Dans **Samples**, parcourir une PART ou ajouter un dossier du SSD : les sons existants apparaissent
+   même sans programme. Sélectionner un son, l’écouter, puis l’affecter au pad choisi, ou le glisser sur un pad.
+   La recherche filtre le dossier courant ; les sous-dossiers s’ouvrent séparément.
+4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
+   Parcourir la bibliothèque ne remplace jamais le kit en mémoire.
+5. **Enregistrer le kit…** propose une PART vide disposant d’assez d’espace, avec une réserve pour
+   l’allocation des fichiers. Valider, ou ouvrir **Changer la destination**. Sans PART adaptée,
+   l’application demande une autre destination. Aucun déplacement de kits existants n’est automatique.
+6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. La **Carte de la SD**
+   reste disponible en bas de la bibliothèque pour consulter le rangement.
+7. Éjecter la SD depuis le Finder, la remettre dans la MPC et charger le `.PGM` indiqué.
+
+Chaque enregistrement crée un nouveau programme et ses sons ; les fichiers existants sont conservés.
+Un nom ASCII libre de huit caractères est choisi en cas de collision. Le kit ouvert d’origine reste
+identifié séparément de la dernière copie enregistrée. Les dossiers ajoutés sont mémorisés localement.
+La notion de PART vide exclut les fichiers cachés macOS : elle exige l’absence de toute entrée visible
+et un parcours complet sans erreur. Une PART contenant uniquement des samples, séquences ou dossiers
+n’est donc jamais choisie automatiquement comme vide.
 
 Commencer sur une **copie d'un kit dans un dossier local**, puis valider un petit export sur la MPC.
 Aucun aller-retour matériel n'a encore été effectué par ce projet.

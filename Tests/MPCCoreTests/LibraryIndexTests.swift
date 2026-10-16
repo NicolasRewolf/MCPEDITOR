@@ -1,0 +1,184 @@
+import Foundation
+import XCTest
+@testable import MPCCore
+
+final class LibraryIndexTests: XCTestCase {
+    private func directory(named name: String = "Library") throws -> URL {
+        let container = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LibraryIndexTests-" + UUID().uuidString)
+        let folder = container.appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: container) }
+        return folder
+    }
+
+    private func file(_ name: String, in folder: URL) throws -> URL {
+        let url = folder.appendingPathComponent(name)
+        try Data([0, 1, 2]).write(to: url)
+        return url
+    }
+
+    func testPartitionRecognitionRequiresExactlyOneUppercaseLetter() {
+        for letter in ["A", "M", "Z"] {
+            XCTAssertEqual(LibraryIndex.partitionLetter(for: URL(fileURLWithPath: "/Volumes/MPC-PART--\(letter)")), letter)
+        }
+        for name in ["MPC-PART--", "MPC-PART--AA", "MPC-PART--a", "MPC-PART--1", "MPC-PART--É", "OTHER-A"] {
+            XCTAssertNil(LibraryIndex.partitionLetter(for: URL(fileURLWithPath: "/Volumes/\(name)")))
+        }
+    }
+
+    func testHiddenFilesAndSidecarsDoNotMakeAnOtherwiseEmptyPartOccupied() throws {
+        let folder = try directory(named: "MPC-PART--Z")
+        _ = try file(".DS_Store", in: folder)
+        _ = try file("._KIT.PGM", in: folder)
+        let hidden = folder.appendingPathComponent(".Hidden")
+        try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: false)
+        _ = try file("KIT.PGM", in: hidden)
+
+        let part = LibraryIndex.scanPartition(folder)
+        XCTAssertEqual(part.letter, "Z")
+        XCTAssertTrue(part.isEmpty)
+        XCTAssertEqual(part.fileCount, 0)
+        XCTAssertEqual(part.folderCount, 0)
+        XCTAssertTrue(part.kits.isEmpty)
+        XCTAssertTrue(part.issues.isEmpty)
+    }
+
+    func testRecursiveMetadataCountsKitsSamplesSequencesAndUnknownFiles() throws {
+        let folder = try directory(named: "MPC-PART--C")
+        let direct = try file("ROOT.PGM", in: folder)
+        _ = try file("KICK.SND", in: folder)
+        _ = try file("TAKE.Seq", in: folder)
+        _ = try file("NOTES.TXT", in: folder)
+        let nested = folder.appendingPathComponent("Drums/Live")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let kit = try file("NESTED.pgm", in: nested)
+        _ = try file("SNARE.WAV", in: nested)
+
+        let part = LibraryIndex.scanPartition(folder)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertTrue(part.issues.isEmpty)
+        XCTAssertEqual(part.fileCount, 6)
+        XCTAssertEqual(part.folderCount, 2)
+        XCTAssertEqual(part.audioCount, 2)
+        XCTAssertEqual(part.sequenceCount, 1)
+        XCTAssertEqual(Set(part.kits.map(\.url)), Set([direct, kit]))
+        XCTAssertEqual(part.kits.first { $0.url == kit }?.locationLabel, "PART C · Drums/Live")
+        XCTAssertEqual(part.kits.first { $0.url == direct }?.locationLabel, "PART C")
+        XCTAssertEqual(try LibraryIndex.scanKits(in: folder), part.kits)
+    }
+
+    func testSameKitNamesHaveDistinctFilesystemIdentityAndPartLabels() throws {
+        let first = try directory(named: "MPC-PART--A")
+        let second = try directory(named: "MPC-PART--B")
+        _ = try file("KIT.PGM", in: first)
+        _ = try file("KIT.PGM", in: second)
+        let a = try XCTUnwrap(LibraryIndex.scanPartition(first).kits.first)
+        let b = try XCTUnwrap(LibraryIndex.scanPartition(second).kits.first)
+        XCTAssertEqual(a.title, b.title)
+        XCTAssertNotEqual(a.id, b.id)
+        XCTAssertEqual(a.locationLabel, "PART A")
+        XCTAssertEqual(b.locationLabel, "PART B")
+    }
+
+    func testSampleListingIsImmediateAndExcludesNonAudioLinksAndHiddenEntries() throws {
+        let folder = try directory(named: "Soul")
+        let kick = try file("Kick 2.WAV", in: folder)
+        let snare = try file("Snare.aiff", in: folder)
+        _ = try file("KIT.PGM", in: folder)
+        _ = try file("NOTES.txt", in: folder)
+        _ = try file("._Kick.WAV", in: folder)
+        let nested = folder.appendingPathComponent("Drums")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: false)
+        _ = try file("DEEP.WAV", in: nested)
+        let directoryWithAudioExtension = folder.appendingPathComponent("Folder.WAV")
+        try FileManager.default.createDirectory(at: directoryWithAudioExtension, withIntermediateDirectories: false)
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("Alias.WAV"), withDestinationURL: kick)
+
+        let listing = LibraryIndex.listSamples(in: folder)
+        XCTAssertNil(listing.issue)
+        XCTAssertEqual(listing.samples, [kick, snare].map(\.standardizedFileURL))
+        XCTAssertEqual(Set(listing.folders.map(\.path)), Set([nested, directoryWithAudioExtension].map { $0.standardizedFileURL.path }))
+    }
+
+    func testSymlinkEscapesAreNotTraversedAndStillPreventEmptyClaim() throws {
+        let folder = try directory(named: "MPC-PART--D")
+        let external = try directory(named: "Outside")
+        let outsideKit = try file("OUTSIDE.PGM", in: external)
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("LinkedFolder"), withDestinationURL: external)
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("LINK.PGM"), withDestinationURL: outsideKit)
+
+        let part = LibraryIndex.scanPartition(folder)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertEqual(part.fileCount, 2)
+        XCTAssertTrue(part.kits.isEmpty)
+        XCTAssertTrue(part.issues.isEmpty)
+        XCTAssertTrue(LibraryIndex.listSamples(in: folder).folders.isEmpty)
+        let linkedRoot = folder.appendingPathComponent("LinkedFolder")
+        XCTAssertFalse(LibraryIndex.scanPartition(linkedRoot).isEmpty)
+        XCTAssertThrowsError(try LibraryIndex.scanKits(in: linkedRoot))
+    }
+
+    func testDepthLimitReportsPartialScanInsteadOfPretendingToBeComplete() throws {
+        let folder = try directory()
+        let direct = try file("DIRECT.PGM", in: folder)
+        let nested = folder.appendingPathComponent("Nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: false)
+        _ = try file("DEEP.PGM", in: nested)
+
+        let part = LibraryIndex.scanPartition(folder, maximumDepth: 0)
+        XCTAssertEqual(part.kits.map(\.url), [direct])
+        XCTAssertFalse(part.issues.isEmpty)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertThrowsError(try LibraryIndex.scanKits(in: folder, maximumDepth: 0))
+    }
+
+    func testEntryLimitReportsPartialScanAndBoundsProcessedEntries() throws {
+        let folder = try directory()
+        for number in 0..<4 { _ = try file("\(number).PGM", in: folder) }
+        let part = LibraryIndex.scanPartition(folder, maximumEntries: 2)
+        XCTAssertEqual(part.fileCount, 2)
+        XCTAssertEqual(part.kits.count, 2)
+        XCTAssertFalse(part.issues.isEmpty)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertThrowsError(try LibraryIndex.scanKits(in: folder, maximumEntries: 2))
+        XCTAssertNotNil(LibraryIndex.listSamples(in: folder, maximumEntries: 2).issue)
+    }
+
+    func testMissingOrNonDirectoryRootCannotBeReportedAsEmpty() throws {
+        let folder = try directory()
+        let regular = try file("REGULAR", in: folder)
+        let missing = folder.appendingPathComponent("Missing")
+        for root in [missing, regular] {
+            let part = LibraryIndex.scanPartition(root)
+            XCTAssertFalse(part.isEmpty)
+            XCTAssertFalse(part.issues.isEmpty)
+            XCTAssertThrowsError(try LibraryIndex.scanKits(in: root))
+            XCTAssertNotNil(LibraryIndex.listSamples(in: root).issue)
+        }
+    }
+
+    func testRescanAfterRootDisappearsDoesNotReuseAnEmptySnapshot() throws {
+        let folder = try directory()
+        XCTAssertTrue(LibraryIndex.scanPartition(folder).isEmpty)
+        try FileManager.default.removeItem(at: folder)
+        let disconnected = LibraryIndex.scanPartition(folder)
+        XCTAssertFalse(disconnected.isEmpty)
+        XCTAssertFalse(disconnected.issues.isEmpty)
+        XCTAssertNil(disconnected.availableBytes)
+    }
+
+    func testUnreadableRootCannotBeReportedAsEmpty() throws {
+        let folder = try directory()
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: folder.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path) }
+        guard !FileManager.default.isReadableFile(atPath: folder.path) else {
+            throw XCTSkip("This test process can read directories despite permission bits.")
+        }
+        let part = LibraryIndex.scanPartition(folder)
+        XCTAssertFalse(part.isEmpty)
+        XCTAssertFalse(part.issues.isEmpty)
+        XCTAssertThrowsError(try LibraryIndex.scanKits(in: folder))
+        XCTAssertNotNil(LibraryIndex.listSamples(in: folder).issue)
+    }
+}

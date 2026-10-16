@@ -132,4 +132,23 @@ final class KitExportTests: XCTestCase {
         let exported = try MPCProgram(data: Data(contentsOf: url))
         XCTAssertTrue(exported.referencedSlots.isEmpty)
     }
+
+    func testOrphanAppleDoubleReservesItsNativeNameWithoutChangingTheSidecar() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sidecar = directory.appendingPathComponent("._sound.snd")
+        let metadata = Data("preexisting orphan metadata".utf8)
+        try metadata.write(to: sidecar)
+        var program = MPCProgram.blank(name: "KIT")
+        program.assign(slot: 0, toNote: program.midiNote(forPad: 0))
+        program.setSound(slot: 0, name: "SOUND", wordCount: 512)
+
+        let output = try KitExport.export(program: program, sounds: [0: sound("SOUND")], name: "KIT", to: directory)
+
+        let exported = try MPCProgram(data: Data(contentsOf: output))
+        XCTAssertEqual(exported.soundName(slot: 0), "SOUND1")
+        XCTAssertEqual(try Data(contentsOf: sidecar), metadata)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("SOUND.SND").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("SOUND1.SND").path))
+    }
 }

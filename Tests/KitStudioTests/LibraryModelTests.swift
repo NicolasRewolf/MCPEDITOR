@@ -1,0 +1,651 @@
+import AppKit
+import Combine
+import Foundation
+import MPCCore
+import UniformTypeIdentifiers
+import XCTest
+@testable import KitStudio
+
+final class LibraryModelTests: XCTestCase {
+    private func directory(_ name: String = "Library") throws -> URL {
+        let container = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LibraryModelTests-" + UUID().uuidString, isDirectory: true)
+        let folder = container.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: container) }
+        return folder
+    }
+
+    @MainActor
+    private func testModel(
+        discardPresenter: StudioModel.DiscardPresenter? = nil,
+        sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) }
+    ) throws -> StudioModel {
+        let suiteName = "LibraryModelTests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
+        return StudioModel(defaults: defaults, discardPresenter: discardPresenter,
+                           volumeProvider: { [] }, sampleFolderLoader: sampleFolderLoader)
+    }
+
+    private func nativeSound(_ name: String, in folder: URL) throws -> URL {
+        let url = folder.appendingPathComponent(name + ".SND")
+        let sound = MPCSound(name: name, channels: [Array(repeating: 0.25, count: 441)])
+        try sound.encoded().write(to: url)
+        return url
+    }
+
+    private func kit(in folder: URL, pad: Int = 20) throws -> URL {
+        _ = try nativeSound("ORIGINAL", in: folder)
+        var program = MPCProgram.blank(name: "SOURCE")
+        program.setSound(slot: 0, name: "ORIGINAL", wordCount: 441)
+        program.assign(slot: 0, toNote: program.midiNote(forPad: pad))
+        let url = folder.appendingPathComponent("SOURCE.PGM")
+        try program.bytes.write(to: url)
+        return url
+    }
+
+    @MainActor
+    private func open(_ url: URL, in model: StudioModel) async throws {
+        let finished = expectation(description: "Kit load finishes")
+        let observation = model.$busy.dropFirst().filter { !$0 }.sink { _ in finished.fulfill() }
+        defer { observation.cancel() }
+        model.openProgram(url)
+        await fulfillment(of: [finished], timeout: 3)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(model.programURL, url)
+    }
+
+    @MainActor
+    func testBrowsingAnotherPartPreservesDirtyLoadedDocumentAndSelectedSample() async throws {
+        let source = try directory("Source")
+        let part = try directory("MPC-PART--S")
+        let sourceURL = try kit(in: source)
+        let sampleURL = try nativeSound("SNARE", in: part)
+        let model = try testModel()
+        try await open(sourceURL, in: model)
+        model.selectPad(20)
+        model.setKitName("EDITED")
+        let beforeProgram = try XCTUnwrap(model.program?.bytes)
+        let beforeSound = try XCTUnwrap(model.sound)
+        let beforeStatus = model.status
+        let beforeMemory = model.memoryBytes
+
+        model.selectLocation(part)
+        await model.browseSamplesFolder(part)?.value
+
+        XCTAssertEqual(model.selectedLocation, part.standardizedFileURL)
+        XCTAssertEqual(model.sampleListing.samples, [sampleURL.standardizedFileURL])
+        XCTAssertEqual(model.program?.bytes, beforeProgram)
+        XCTAssertEqual(model.programURL, sourceURL)
+        XCTAssertEqual(model.sound?.channels, beforeSound.channels)
+        XCTAssertEqual(model.sound?.name, beforeSound.name)
+        XCTAssertEqual(model.selectedPad, 20)
+        XCTAssertEqual(model.bank, 1)
+        XCTAssertEqual(model.kitName, "EDITED")
+        XCTAssertEqual(model.memoryBytes, beforeMemory)
+        XCTAssertEqual(model.status, beforeStatus)
+        XCTAssertTrue(model.isDirty)
+        XCTAssertFalse(model.busy)
+    }
+
+    @MainActor
+    func testPartBrowsingDoesNotInvalidateAnImportWaitingForItsProvider() async throws {
+        let source = try directory("Source")
+        let part = try directory("MPC-PART--S")
+        let original = try nativeSound("ORIGINAL", in: source)
+        let replacement = try nativeSound("NEW", in: source)
+        let model = try testModel()
+        await model.importURLs([original], atPad: 20)?.value
+        model.setKitName("KEEP")
+        let beforeProgram = try XCTUnwrap(model.program?.bytes)
+        let beforeChannels = try XCTUnwrap(model.sound?.channels)
+        let requested = expectation(description: "Provider is waiting")
+        let gate = LibraryDeferredProvider()
+        gate.provider.registerDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier, visibility: .all) { completion in
+            gate.store(completion)
+            requested.fulfill()
+            return nil
+        }
+        let finished = expectation(description: "Import survives browsing")
+        let observation = model.$busy.dropFirst().filter { !$0 }.sink { _ in finished.fulfill() }
+        defer { observation.cancel() }
+
+        XCTAssertTrue(model.dropFiles([gate.provider], onPad: 21))
+        await fulfillment(of: [requested], timeout: 3)
+        let operationStatus = model.status
+        model.selectLocation(part)
+        await model.browseSamplesFolder(part)?.value
+
+        XCTAssertTrue(model.busy)
+        XCTAssertTrue(model.isDirty)
+        XCTAssertEqual(model.program?.bytes, beforeProgram)
+        XCTAssertEqual(model.sound?.channels, beforeChannels)
+        XCTAssertEqual(model.selectedPad, 20)
+        XCTAssertEqual(model.bank, 1)
+        XCTAssertEqual(model.status, operationStatus)
+        gate.complete(replacement.dataRepresentation)
+        await fulfillment(of: [finished], timeout: 3)
+
+        XCTAssertEqual(model.padName(20), "ORIGINAL")
+        XCTAssertEqual(model.padName(21), "NEW")
+        XCTAssertEqual(model.kitName, "KEEP")
+        XCTAssertEqual(model.selectedLocation, part.standardizedFileURL)
+        XCTAssertEqual(model.selectedPad, 21)
+        XCTAssertEqual(model.bank, 1)
+        XCTAssertEqual(model.memoryBytes, 1_764)
+        XCTAssertTrue(model.isDirty)
+        XCTAssertFalse(model.busy)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    @MainActor
+    func testSamplesAlreadyOnAPartAreListedWithoutAnyProgram() async throws {
+        let part = try directory("MPC-PART--S")
+        let kick = try nativeSound("KICK", in: part)
+        let snare = try nativeSound("SNARE", in: part)
+        try Data([1, 2, 3]).write(to: part.appendingPathComponent("TAKE.SEQ"))
+        let model = try testModel()
+
+        model.selectLocation(part)
+        await model.browseSamplesFolder(part)?.value
+
+        XCTAssertEqual(model.sampleListing.samples, [kick, snare].map(\.standardizedFileURL))
+        XCTAssertNil(model.sampleListing.issue)
+        XCTAssertTrue(model.programs.isEmpty)
+        XCTAssertNil(model.program)
+        XCTAssertFalse(model.isDirty)
+    }
+
+    @MainActor
+    func testOlderFolderResultCannotReplaceTheLatestUnavailableFolder() async throws {
+        let root = try directory("Samples")
+        let old = root.appendingPathComponent("Old", isDirectory: true)
+        let missing = root.appendingPathComponent("Disconnected", isDirectory: true)
+        let oldListing = LibraryFolderListing(folders: [], samples: [old.appendingPathComponent("OLD.SND")], issue: nil)
+        let requested = expectation(description: "Old scan is blocked before returning")
+        let gate = LibraryListingGate()
+        defer { gate.release(oldListing) }
+        let model = try testModel(sampleFolderLoader: { folder in
+            if folder == old.standardizedFileURL {
+                requested.fulfill()
+                return gate.wait()
+            }
+            return LibraryFolderListing(folders: [], samples: [], issue: "Disconnected source")
+        })
+        model.selectedSampleRoot = root
+
+        let previous = try XCTUnwrap(model.browseSamplesFolder(old))
+        await fulfillment(of: [requested], timeout: 3)
+        let latest = try XCTUnwrap(model.browseSamplesFolder(missing))
+        await latest.value
+        XCTAssertEqual(model.sampleListing.issue, "Disconnected source")
+        gate.release(oldListing)
+        await previous.value
+
+        XCTAssertEqual(model.sampleFolder, missing.standardizedFileURL)
+        XCTAssertTrue(model.sampleListing.samples.isEmpty)
+        XCTAssertTrue(model.sampleListing.folders.isEmpty)
+        XCTAssertEqual(model.sampleListing.issue, "Disconnected source")
+        XCTAssertTrue(model.samplePreviewStatus.contains("indisponible"))
+    }
+
+    @MainActor
+    func testDisconnectedSourceClearsCachedListingAndKeepsTheKit() async throws {
+        let folder = try directory("ExternalSource")
+        let sample = try nativeSound("KICK", in: folder)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        let before = try XCTUnwrap(model.program?.bytes)
+        model.selectSampleRoot(folder)
+        await model.browseSamplesFolder(folder)?.value
+        XCTAssertEqual(model.sampleListing.samples, [sample.standardizedFileURL])
+        try FileManager.default.removeItem(at: folder)
+
+        await model.browseSamplesFolder(folder)?.value
+
+        XCTAssertTrue(model.sampleListing.samples.isEmpty)
+        XCTAssertTrue(model.sampleListing.folders.isEmpty)
+        XCTAssertNotNil(model.sampleListing.issue)
+        XCTAssertNil(model.selectedSampleURL)
+        XCTAssertEqual(model.program?.bytes, before)
+        XCTAssertEqual(model.padName(0), "KICK")
+        XCTAssertTrue(model.isDirty)
+    }
+
+    @MainActor
+    func testExportCollisionReportsActualCopyWhilePreservingLoadedOrigin() async throws {
+        let source = try directory("Origin")
+        let destination = try directory("MPC-PART--S")
+        let sourceURL = try kit(in: source)
+        let sourceBytes = try Data(contentsOf: sourceURL)
+        let originalSoundURL = source.appendingPathComponent("ORIGINAL.SND")
+        let soundBytes = try Data(contentsOf: originalSoundURL)
+        let collisionURL = destination.appendingPathComponent("SOULKIT.PGM")
+        let collisionBytes = Data("existing file must survive".utf8)
+        try collisionBytes.write(to: collisionURL)
+        let model = try testModel()
+        try await open(sourceURL, in: model)
+        model.setKitName("SOULKIT")
+
+        let task = try XCTUnwrap(model.exportKit(to: destination))
+        await task.value
+
+        let output = try XCTUnwrap(model.lastExportURL)
+        XCTAssertEqual(output.lastPathComponent, "SOULKIT1.PGM")
+        XCTAssertEqual(output.deletingLastPathComponent().resolvingSymlinksInPath(), destination.resolvingSymlinksInPath())
+        XCTAssertEqual(model.programURL, sourceURL)
+        XCTAssertEqual(model.kitName, "SOULKIT1")
+        XCTAssertFalse(model.isDirty)
+        XCTAssertFalse(model.busy)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertTrue(model.kitLocationLabel.contains("PART S"))
+        XCTAssertTrue(model.kitLocationLabel.contains("SOULKIT1.PGM"))
+        XCTAssertEqual(try Data(contentsOf: collisionURL), collisionBytes)
+        XCTAssertEqual(try Data(contentsOf: sourceURL), sourceBytes)
+        XCTAssertEqual(try Data(contentsOf: originalSoundURL), soundBytes)
+        XCTAssertEqual(try KitLoader.load(programURL: output).sounds.count, 1)
+    }
+
+    @MainActor
+    func testFailedExportPreservesDirtyDocumentAndLastSuccessfulLocation() async throws {
+        let folder = try directory("Source")
+        let destination = try directory("MPC-PART--S")
+        let sample = try nativeSound("KICK", in: folder)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        model.setKitName("SAVED")
+        await model.exportKit(to: destination)?.value
+        let saved = try XCTUnwrap(model.lastExportURL)
+        model.setKitName("EDITED")
+        model.selectPad(32)
+        let before = try XCTUnwrap(model.program?.bytes)
+        let missing = destination.appendingPathComponent("ABSENT", isDirectory: true)
+
+        let task = try XCTUnwrap(model.exportKit(to: missing))
+        await task.value
+
+        XCTAssertEqual(model.lastExportURL, saved)
+        XCTAssertEqual(model.program?.bytes, before)
+        XCTAssertEqual(model.kitName, "EDITED")
+        XCTAssertEqual(model.selectedPad, 32)
+        XCTAssertEqual(model.bank, 2)
+        XCTAssertEqual(model.padName(0), "KICK")
+        XCTAssertTrue(model.isDirty)
+        XCTAssertFalse(model.busy)
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertTrue(model.kitLocationLabel.contains("Modifié depuis l’export"))
+        XCTAssertTrue(model.kitLocationPath.hasSuffix("SAVED.PGM"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.path))
+    }
+
+    @MainActor
+    func testFreshLocalExportIsIndexedUsingItsActualCollisionResolvedURL() async throws {
+        let source = try directory("Source")
+        let destination = try directory("LocalExports")
+        let sample = try nativeSound("KICK", in: source)
+        let existing = destination.appendingPathComponent("SOUL.PGM")
+        try Data("keep this existing file".utf8).write(to: existing)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        model.setKitName("SOUL")
+        model.selectLocation(source)
+        model.libraryMode = .samples
+        model.kitSearch = "OTHER KIT"
+        XCTAssertTrue(model.libraryKits.isEmpty)
+
+        await model.exportKit(to: destination)?.value
+        await model.refreshLocations().value
+
+        let output = try XCTUnwrap(model.lastExportURL)
+        XCTAssertEqual(output.lastPathComponent, "SOUL1.PGM")
+        XCTAssertTrue(model.libraryKits.contains { $0.url == output.standardizedFileURL })
+        XCTAssertTrue(model.filteredKits.contains { $0.url == output.standardizedFileURL })
+        XCTAssertEqual(model.libraryMode, .kits)
+        XCTAssertNil(model.selectedLocation)
+        XCTAssertEqual(model.kitSearch, "")
+        XCTAssertTrue(model.locations.contains { $0.resolvingSymlinksInPath() == destination.resolvingSymlinksInPath() })
+        XCTAssertFalse(model.isDirty)
+        XCTAssertNil(model.libraryIssue)
+        XCTAssertEqual(try Data(contentsOf: existing), Data("keep this existing file".utf8))
+    }
+
+    @MainActor
+    func testSoundRenameUpdatesEverySharedPadWithoutChangingPCMAndRespectsBusyOrSameName() async throws {
+        let source = try directory("Source")
+        let sampleURL = try nativeSound("KICK", in: source)
+        let sourceBytes = try Data(contentsOf: sampleURL)
+        let model = try testModel()
+        await model.importURLs([sampleURL], atPad: 0)?.value
+        var shared = try XCTUnwrap(model.program)
+        let slot = try XCTUnwrap(shared.slot(forNote: shared.midiNote(forPad: 0)))
+        shared.assign(slot: slot, toNote: shared.midiNote(forPad: 16))
+        model.program = shared
+        model.selectPad(16)
+        let beforeSample = try XCTUnwrap(model.sound)
+        let beforeMemory = model.memoryBytes
+        model.isDirty = false
+
+        model.setSoundName("KICK")
+        XCTAssertFalse(model.isDirty)
+        XCTAssertEqual(model.program?.bytes, shared.bytes)
+        model.setSoundName("SOULKICK")
+
+        var expected = shared
+        expected.setSound(slot: slot, name: "SOULKICK", wordCount: beforeSample.frameCount * beforeSample.channels.count)
+        XCTAssertEqual(model.program?.bytes, expected.bytes)
+        XCTAssertEqual(model.program?.soundName(slot: slot), "SOULKICK")
+        XCTAssertEqual(model.padName(0), "SOULKICK")
+        XCTAssertEqual(model.padName(16), "SOULKICK")
+        XCTAssertEqual(model.sound?.name, "SOULKICK")
+        XCTAssertEqual(model.sound?.channels, beforeSample.channels)
+        XCTAssertEqual(model.sound?.start, beforeSample.start)
+        XCTAssertEqual(model.sound?.end, beforeSample.end)
+        XCTAssertEqual(model.sound?.frameCount, beforeSample.frameCount)
+        XCTAssertEqual(model.memoryBytes, beforeMemory)
+        XCTAssertEqual(model.program?.referencedSlots, [slot])
+        XCTAssertEqual(model.assignedPadCount, 2)
+        XCTAssertTrue(model.isDirty)
+        XCTAssertEqual(model.selectedPad, 16)
+        XCTAssertEqual(model.bank, 1)
+        XCTAssertEqual(try Data(contentsOf: sampleURL), sourceBytes)
+
+        model.isDirty = false
+        model.busy = true
+        model.setSoundName("BLOCKED")
+        XCTAssertEqual(model.program?.bytes, expected.bytes)
+        XCTAssertEqual(model.sound?.name, "SOULKICK")
+        XCTAssertFalse(model.isDirty)
+        model.busy = false
+        model.setSoundName("SOULKICK")
+        XCTAssertFalse(model.isDirty)
+    }
+
+    @MainActor
+    func testPendingDiscardBlocksDocumentActionsCancelKeepsTheKitAndApprovalCreatesANewKit() async throws {
+        let source = try directory("Source")
+        let sample = try nativeSound("KICK", in: source)
+        var decisions: [(Bool) -> Void] = []
+        let model = try testModel(discardPresenter: { decisions.append($0) })
+        await model.importURLs([sample], atPad: 20)?.value
+        model.setKitName("KEEP")
+        let beforeProgram = try XCTUnwrap(model.program?.bytes)
+        let beforeSound = try XCTUnwrap(model.sound)
+        let beforeMemory = model.memoryBytes
+        let beforeStatus = model.status
+        let provider = NSItemProvider()
+        provider.registerDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier, visibility: .all) { completion in
+            completion(sample.dataRepresentation, nil)
+            return nil
+        }
+        func assertUnchanged(_ action: String) {
+            XCTAssertEqual(model.program?.bytes, beforeProgram, action)
+            XCTAssertEqual(model.sound?.channels, beforeSound.channels, action)
+            XCTAssertEqual(model.sound?.name, beforeSound.name, action)
+            XCTAssertEqual(model.sound?.start, beforeSound.start, action)
+            XCTAssertEqual(model.sound?.end, beforeSound.end, action)
+            XCTAssertEqual(model.memoryBytes, beforeMemory, action)
+            XCTAssertEqual(model.kitName, "KEEP", action)
+            XCTAssertEqual(model.selectedPad, 20, action)
+            XCTAssertEqual(model.bank, 1, action)
+            XCTAssertEqual(model.status, beforeStatus, action)
+            XCTAssertTrue(model.isDirty, action)
+            XCTAssertFalse(model.busy, action)
+        }
+
+        model.newKit()
+        XCTAssertTrue(model.awaitingDiscardConfirmation)
+        XCTAssertTrue(model.documentActionsDisabled)
+        XCTAssertEqual(decisions.count, 1)
+        XCTAssertNil(model.importURLs([sample], atPad: 0))
+        assertUnchanged("import")
+        XCTAssertFalse(model.dropFiles([provider], onPad: 0))
+        assertUnchanged("drop")
+        XCTAssertNil(model.exportKit(to: source))
+        assertUnchanged("direct export")
+        model.exportKit()
+        XCTAssertFalse(model.showExportSheet)
+        assertUnchanged("export sheet")
+        model.newKit()
+        model.openProgram(source.appendingPathComponent("OTHER.PGM"))
+        XCTAssertEqual(decisions.count, 1, "A pending decision must not open a second confirmation.")
+        assertUnchanged("new/open")
+        model.setKitName("BLOCKED")
+        assertUnchanged("kit name")
+        model.setSoundName("BLOCKED")
+        assertUnchanged("sample name")
+        model.setTrim(start: 22, end: 400)
+        assertUnchanged("trim")
+        model.transform("normalize")
+        assertUnchanged("transform")
+        model.clearPad()
+        assertUnchanged("clear")
+        model.setPadTune(120)
+        assertUnchanged("tune")
+        model.selectPad(0)
+        assertUnchanged("pad selection")
+        model.assignSample(sample)
+        assertUnchanged("sample assignment")
+
+        let cancel = decisions.removeFirst()
+        cancel(false)
+        XCTAssertFalse(model.awaitingDiscardConfirmation)
+        XCTAssertFalse(model.documentActionsDisabled)
+        assertUnchanged("cancel")
+        model.setKitName("UNLOCKED")
+        XCTAssertEqual(model.kitName, "UNLOCKED")
+        model.newKit()
+        XCTAssertTrue(model.awaitingDiscardConfirmation)
+        XCTAssertEqual(decisions.count, 1)
+        let approve = decisions.removeFirst()
+        approve(true)
+
+        XCTAssertFalse(model.awaitingDiscardConfirmation)
+        XCTAssertFalse(model.documentActionsDisabled)
+        XCTAssertEqual(model.kitName, "NEWKIT")
+        XCTAssertEqual(model.program?.name, "NEWKIT")
+        XCTAssertTrue(model.program?.referencedSlots.isEmpty == true,
+                      "The confirmation flag must clear before the approved continuation creates the blank document.")
+        XCTAssertEqual(model.memoryBytes, 0)
+        XCTAssertNil(model.sound)
+        XCTAssertFalse(model.isDirty)
+        XCTAssertEqual(model.selectedPad, 0)
+        XCTAssertEqual(model.bank, 0)
+    }
+
+    @MainActor
+    func testExportSheetLocksDocumentEditingWhileAllowingItsKitNameField() async throws {
+        let source = try directory("Source")
+        let sample = try nativeSound("KICK", in: source)
+        var confirmations = 0
+        let model = try testModel(discardPresenter: { completion in
+            confirmations += 1
+            completion(false)
+        })
+        await model.importURLs([sample], atPad: 20)?.value
+        let beforeProgram = try XCTUnwrap(model.program?.bytes)
+        let beforeSound = try XCTUnwrap(model.sound)
+        let beforeMemory = model.memoryBytes
+        let beforeStatus = model.status
+        let provider = NSItemProvider()
+        provider.registerDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier, visibility: .all) { completion in
+            completion(sample.dataRepresentation, nil)
+            return nil
+        }
+
+        model.exportKit()
+        XCTAssertTrue(model.showExportSheet)
+        XCTAssertTrue(model.documentActionsDisabled)
+        XCTAssertFalse(model.documentLocked)
+        model.setKitName("SHEETNAME")
+        XCTAssertEqual(model.kitName, "SHEETNAME")
+        XCTAssertNil(model.importURLs([sample], atPad: 0))
+        XCTAssertFalse(model.dropFiles([provider], onPad: 0))
+        XCTAssertNil(model.exportKit(to: source))
+        model.newKit()
+        model.openProgram(source.appendingPathComponent("OTHER.PGM"))
+        model.setSoundName("BLOCKED")
+        model.setTrim(start: 22, end: 400)
+        model.transform("normalize")
+        model.clearPad()
+        model.setPadTune(120)
+        model.selectPad(0)
+        model.assignSample(sample)
+
+        XCTAssertEqual(model.program?.bytes, beforeProgram)
+        XCTAssertEqual(model.sound?.channels, beforeSound.channels)
+        XCTAssertEqual(model.sound?.name, beforeSound.name)
+        XCTAssertEqual(model.sound?.start, beforeSound.start)
+        XCTAssertEqual(model.sound?.end, beforeSound.end)
+        XCTAssertEqual(model.memoryBytes, beforeMemory)
+        XCTAssertEqual(model.kitName, "SHEETNAME")
+        XCTAssertEqual(model.selectedPad, 20)
+        XCTAssertEqual(model.bank, 1)
+        XCTAssertEqual(model.status, beforeStatus)
+        XCTAssertTrue(model.isDirty)
+        XCTAssertFalse(model.busy)
+        XCTAssertEqual(confirmations, 0, "An export sheet must block attempts to open a discard confirmation.")
+        model.showExportSheet = false
+        XCTAssertFalse(model.documentActionsDisabled)
+        model.selectPad(21)
+        XCTAssertEqual(model.selectedPad, 21)
+    }
+
+    @MainActor
+    func testBrowserRejectsChildAfterItsAncestorIsReplacedByAnOutsideSymlink() async throws {
+        let root = try directory("Samples")
+        let outside = try directory("Outside")
+        let ancestor = root.appendingPathComponent("Selected", isDirectory: true)
+        let child = ancestor.appendingPathComponent("Drums", isDirectory: true)
+        try FileManager.default.createDirectory(at: child, withIntermediateDirectories: true)
+        let inside = try nativeSound("INSIDE", in: child)
+        let outsideChild = outside.appendingPathComponent("Drums", isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideChild, withIntermediateDirectories: false)
+        _ = try nativeSound("OUTSIDE", in: outsideChild)
+        let model = try testModel()
+        model.selectedSampleRoot = root
+        await model.browseSamplesFolder(child)?.value
+        let before = model.sampleListing
+        XCTAssertEqual(before.samples, [inside.standardizedFileURL])
+        try FileManager.default.removeItem(at: ancestor)
+        try FileManager.default.createSymbolicLink(at: ancestor, withDestinationURL: outside)
+
+        XCTAssertNil(model.browseSamplesFolder(child))
+
+        XCTAssertEqual(model.sampleListing, before)
+        XCTAssertFalse(model.sampleListing.samples.contains { $0.lastPathComponent == "OUTSIDE.SND" })
+        XCTAssertNil(model.program)
+        XCTAssertFalse(model.isDirty)
+    }
+
+    @MainActor
+    func testAutomaticExportRecommendationRequiresAnEmptyPartWithKnownSufficientSpace() async throws {
+        let folder = try directory("Source")
+        let sample = try nativeSound("KICK", in: folder)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        let required = model.requiredExportFreeBytes
+        XCTAssertGreaterThan(required, model.estimatedExportBytes,
+                             "Allocation and directory overhead must be reserved in addition to file bytes.")
+        func part(_ letter: String, files: Int = 0, folders: Int = 0, audio: Int = 0,
+                  issues: [String] = [], available: Int64?) -> LibraryPartition {
+            LibraryPartition(url: folder.appendingPathComponent("MPC-PART--" + letter), letter: letter,
+                             kits: [], fileCount: files, folderCount: folders, audioCount: audio,
+                             sequenceCount: 0, issues: issues, availableBytes: available)
+        }
+        let occupiedWithSamplesOnly = part("A", files: 1, audio: 1, available: required * 2)
+        let occupiedWithUnknownFile = part("B", files: 1, available: required * 2)
+        let occupiedWithFolder = part("C", folders: 1, available: required * 2)
+        let incompleteScan = part("D", issues: ["Read incomplete"], available: required * 2)
+        let tooSmall = part("E", available: required - 1)
+        let unknownSpace = part("F", available: nil)
+        let exactFit = part("S", available: required)
+        let larger = part("Z", available: required * 2)
+        let unsuitable = [occupiedWithSamplesOnly, occupiedWithUnknownFile, occupiedWithFolder,
+                          incompleteScan, tooSmall, unknownSpace]
+        model.partitions = unsuitable + [exactFit, larger]
+        model.exportDestinationURL = folder
+
+        XCTAssertEqual(model.recommendedSDPartition, exactFit)
+        model.exportKit()
+
+        XCTAssertEqual(model.exportDestinationURL, exactFit.url)
+        XCTAssertTrue(model.showExportSheet, "A recommended destination still requires the export review sheet.")
+        XCTAssertTrue(model.isDirty)
+        XCTAssertFalse(model.busy)
+        model.showExportSheet = false
+        model.partitions = unsuitable
+        XCTAssertNil(model.recommendedSDPartition)
+        model.exportKit()
+        XCTAssertNil(model.exportDestinationURL)
+        XCTAssertTrue(model.showExportSheet)
+        XCTAssertTrue(model.isDirty)
+    }
+
+    @MainActor
+    func testKitSearchIncludesPartAndRelativeFolderAndRespectsLocationFilter() throws {
+        let a = try directory("MPC-PART--A")
+        let s = try directory("MPC-PART--S")
+        let first = LibraryKit(url: a.appendingPathComponent("KIT.PGM"), rootURL: a, partitionLetter: "A", relativeFolder: "")
+        let second = LibraryKit(url: s.appendingPathComponent("Live/KIT.PGM"), rootURL: s, partitionLetter: "S", relativeFolder: "Live")
+        let model = try testModel()
+        model.libraryKits = [first, second]
+        model.kitSearch = "part s"
+        XCTAssertEqual(model.filteredKits, [second])
+        model.kitSearch = "live"
+        XCTAssertEqual(model.filteredKits, [second])
+        model.kitSearch = "kit"
+        XCTAssertEqual(model.filteredKits, [first, second])
+        model.selectLocation(a)
+        XCTAssertEqual(model.filteredKits, [first])
+        model.showAllKits()
+        XCTAssertEqual(model.filteredKits, [first, second])
+    }
+}
+
+private final class LibraryDeferredProvider: @unchecked Sendable {
+    let provider = NSItemProvider()
+    private let lock = NSLock()
+    private var completion: ((Data?, Error?) -> Void)?
+
+    func store(_ value: @escaping (Data?, Error?) -> Void) {
+        lock.lock()
+        completion = value
+        lock.unlock()
+    }
+
+    func complete(_ data: Data) {
+        lock.lock()
+        let callback = completion
+        completion = nil
+        lock.unlock()
+        callback?(data, nil)
+    }
+}
+
+// Only the background loader waits; the test controls exactly when an old snapshot returns.
+private final class LibraryListingGate: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var listing: LibraryFolderListing?
+
+    func wait() -> LibraryFolderListing {
+        condition.lock()
+        defer { condition.unlock() }
+        let deadline = Date().addingTimeInterval(5)
+        while listing == nil {
+            if !condition.wait(until: deadline) {
+                return LibraryFolderListing(folders: [], samples: [], issue: "Test gate timed out")
+            }
+        }
+        return listing!
+    }
+
+    func release(_ value: LibraryFolderListing) {
+        condition.lock()
+        listing = value
+        condition.broadcast()
+        condition.unlock()
+    }
+}

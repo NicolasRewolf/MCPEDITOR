@@ -3,6 +3,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 import MPCCore
 
+enum LibraryMode: String, CaseIterable {
+    case kits = "Kits"
+    case samples = "Samples"
+}
+
 @MainActor
 final class StudioModel: ObservableObject {
     @Published var locations: [URL] = []
@@ -19,6 +24,39 @@ final class StudioModel: ObservableObject {
     @Published var sound: MPCSound?
     @Published var program: MPCProgram?
 
+    @Published var libraryMode: LibraryMode = .kits
+    @Published var partitions: [LibraryPartition] = []
+    @Published var libraryKits: [LibraryKit] = []
+    @Published var libraryScanning = false
+    @Published var kitSearch = ""
+    @Published var libraryIssue: String?
+    @Published var sampleRoots: [URL] = []
+    @Published var selectedSampleRoot: URL?
+    @Published var sampleFolder: URL?
+    @Published var sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
+    @Published var selectedSampleURL: URL?
+    @Published var sampleQuery = ""
+    @Published var samplePreviewBusy = false
+    @Published var samplePreviewStatus = "Sélectionne un sample pour l’écouter ou l’affecter à un pad."
+    @Published var lastExportURL: URL?
+    @Published private(set) var awaitingDiscardConfirmation = false
+    @Published private(set) var filePanelPresented = false
+    @Published var showExportSheet = false
+    @Published var exportDestinationURL: URL?
+
+    private var kitFolders: [URL] = []
+    private var libraryGeneration = 0
+    private var sampleBrowseGeneration = 0
+    private var samplePreviewGeneration = 0
+    private var volumeObservers: [NSObjectProtocol] = []
+    private var volumeRefreshTask: Task<Void, Never>?
+    private var libraryTask: Task<Void, Never>?
+    private var refreshPending = false
+    typealias DiscardPresenter = (@escaping (Bool) -> Void) -> Void
+    private let discardPresenter: DiscardPresenter?
+    private let preferences: UserDefaults
+    private let volumeProvider: () -> [URL]
+    private let sampleFolderLoader: @Sendable (URL) -> LibraryFolderListing
     private var sounds: [Int: MPCSound] = [:]
     private let audio = StudioAudio()
     private var generation = 0
@@ -41,46 +79,271 @@ final class StudioModel: ObservableObject {
         return program.tune(forNote: program.midiNote(forPad: selectedPad))
     }
 
-    func refreshLocations() {
-        let keys: Set<URLResourceKey> = [.volumeIsInternalKey, .volumeIsRemovableKey, .volumeIsEjectableKey]
-        let mounted = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: Array(keys),
-                                                           options: [.skipHiddenVolumes]) ?? []
-        let external = mounted.filter {
-            guard let values = try? $0.resourceValues(forKeys: keys) else { return false }
-            return values.volumeIsInternal == false || values.volumeIsRemovable == true || values.volumeIsEjectable == true
+    init(defaults: UserDefaults = .standard,
+         discardPresenter: DiscardPresenter? = nil,
+         volumeProvider: @escaping () -> [URL] = {
+             FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil,
+                                                  options: [.skipHiddenVolumes]) ?? []
+         },
+         sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) }) {
+        preferences = defaults
+        self.discardPresenter = discardPresenter
+        self.volumeProvider = volumeProvider
+        self.sampleFolderLoader = sampleFolderLoader
+        kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
+        sampleRoots = (defaults.stringArray(forKey: "library.sampleRoots") ?? []).map { URL(fileURLWithPath: $0) }
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
+            volumeObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.scheduleVolumeRefresh() }
+            })
         }
-        locations = Array(Set(locations + external)).filter { FileManager.default.fileExists(atPath: $0.path) }
-            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        if let selectedLocation { scan(selectedLocation) }
+    }
+
+    deinit {
+        volumeRefreshTask?.cancel()
+        for observer in volumeObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+    }
+
+    var documentLocked: Bool { busy || awaitingDiscardConfirmation || filePanelPresented }
+    var documentActionsDisabled: Bool { documentLocked || showExportSheet }
+
+    var filteredKits: [LibraryKit] {
+        libraryKits.filter { kit in
+            (selectedLocation == nil || kit.rootURL == selectedLocation?.standardizedFileURL) &&
+            (kitSearch.isEmpty || kit.title.localizedStandardContains(kitSearch) ||
+             kit.locationLabel.localizedStandardContains(kitSearch))
+        }
+    }
+
+    var filteredSampleFolders: [URL] {
+        sampleListing.folders.filter { sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) }
+    }
+
+    var filteredSamples: [URL] {
+        sampleListing.samples.filter { sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) }
+    }
+
+    var assignedPadCount: Int {
+        guard let program else { return 0 }
+        return (0..<64).filter { program.slot(forNote: program.midiNote(forPad: $0)) != nil }.count
+    }
+
+    var estimatedExportBytes: Int64 {
+        Int64(memoryBytes + (program?.referencedSlots.count ?? 0) * 38 + 4608)
+    }
+
+    private var exportFileSizes: [Int] {
+        guard let program else { return [4608] }
+        return program.referencedSlots.sorted().compactMap { sounds[$0] }.map { $0.frameCount * $0.channels.count * 2 + 38 } + [4608]
+    }
+
+    var requiredExportFreeBytes: Int64 {
+        let conservativeFAT = ExportVolumeSpace(allocationUnitBytes: 8192, availableBytes: 0)
+        return (try? ExportSpace.estimate(fileSizes: exportFileSizes, volume: conservativeFAT).requiredBytes) ?? Int64.max
+    }
+
+    func requiredExportFreeBytes(in partition: LibraryPartition) -> Int64 {
+        let space = partition.volumeSpace ?? ExportVolumeSpace(allocationUnitBytes: 8192, availableBytes: partition.availableBytes ?? 0)
+        return (try? ExportSpace.estimate(fileSizes: exportFileSizes, volume: space).requiredBytes) ?? Int64.max
+    }
+
+    nonisolated static func locationLabel(for url: URL) -> String {
+        let components = url.standardizedFileURL.pathComponents
+        if let part = components.first(where: { LibraryIndex.partitionLetter(for: URL(fileURLWithPath: "/" + $0)) != nil }) {
+            return "PART " + String(part.suffix(1))
+        }
+        return url.deletingLastPathComponent().lastPathComponent
+    }
+
+    var kitLocationLabel: String {
+        if let url = lastExportURL {
+            return "\(isDirty ? "Modifié depuis l’export" : "Exporté") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
+        }
+        if let url = programURL {
+            return "\(isDirty ? "Modifié en mémoire" : "Ouvert") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
+        }
+        return "Nouveau kit · non exporté"
+    }
+
+    var kitLocationPath: String { (lastExportURL ?? programURL)?.path ?? "" }
+    var selectedDestinationLabel: String {
+        guard let destination = exportDestinationURL else { return "Choisir une destination" }
+        return LibraryIndex.partitionLetter(for: destination).map { "PART \($0)" } ?? destination.lastPathComponent
+    }
+
+    func revealKitLocation() {
+        if let url = lastExportURL ?? programURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+    }
+
+    private func scheduleVolumeRefresh() {
+        volumeRefreshTask?.cancel()
+        volumeRefreshTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 350_000_000) }
+            catch { return }
+            self?.refreshLocations()
+        }
+    }
+
+    @discardableResult
+    func refreshLocations() -> Task<Void, Never> {
+        if let libraryTask {
+            refreshPending = true
+            return libraryTask
+        }
+        libraryGeneration += 1
+        let token = libraryGeneration
+        let mounted = volumeProvider()
+        // Retain known PARTs after disconnection, with an explicit unavailable scan.
+        let partURLs = Array(Set(mounted.filter { LibraryIndex.partitionLetter(for: $0) != nil } + partitions.map(\.url)))
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let folders = kitFolders
+        libraryScanning = true
+        let task = Task {
+            let result = await Task.detached(priority: .utility) {
+                let parts = partURLs.map { LibraryIndex.scanPartition($0) }
+                var kits = parts.flatMap(\.kits)
+                var issues = parts.flatMap(\.issues)
+                for folder in folders {
+                    do { kits += try LibraryIndex.scanKits(in: folder) }
+                    catch { issues.append(error.localizedDescription) }
+                }
+                kits = Array(Dictionary(kits.map { ($0.url, $0) }, uniquingKeysWith: { first, _ in first }).values)
+                    .sorted { $0.title == $1.title ? $0.url.path < $1.url.path :
+                        $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+                return (parts, kits, issues)
+            }.value
+            guard token == self.libraryGeneration else { return }
+            self.partitions = result.0
+            self.libraryKits = result.1
+            self.locations = partURLs + folders
+            self.programs = self.filteredKits.map(\.url)
+            self.libraryIssue = result.2.isEmpty ? nil : result.2.joined(separator: "\n")
+            self.libraryScanning = false
+            self.libraryTask = nil
+            if let folder = self.sampleFolder { self.browseSamplesFolder(folder) }
+            if self.refreshPending {
+                self.refreshPending = false
+                self.refreshLocations()
+            }
+        }
+        libraryTask = task
+        return task
     }
 
     func chooseFolder() {
-        guard !busy else { return }
+        guard !documentLocked else { return }
         let panel = NSOpenPanel()
-        panel.title = "Ouvrir une partition ou un dossier de kits"
-        panel.prompt = "Ouvrir"
+        panel.title = "Ajouter un dossier de kits"
+        panel.prompt = "Ajouter"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        if !locations.contains(url) { locations.append(url) }
-        selectLocation(url)
+        presentFilePanel(panel) { [weak self] response in
+            guard response == .OK, let self, let url = panel.url?.standardizedFileURL else { return }
+            if !self.kitFolders.contains(url) { self.kitFolders.append(url) }
+            self.preferences.set(self.kitFolders.map(\.path), forKey: "library.kitFolders")
+            self.selectLocation(url)
+            self.refreshLocations()
+        }
     }
 
+    /// Browsing is independent from the in-memory document, including while it is dirty.
     func selectLocation(_ url: URL) {
-        guard !busy, confirmDiscard() else { return }
-        generation += 1
-        audio.stop()
-        selectedLocation = url
-        programURL = nil
-        program = nil
-        sound = nil
-        sounds = [:]
-        isDirty = false
-        missing = []
-        errorMessage = nil
-        if scan(url) {
-            status = "\(programs.count) programme(s) dans \(url.lastPathComponent)."
+        selectedLocation = url.standardizedFileURL
+        programs = filteredKits.map(\.url)
+        selectSampleRoot(url)
+    }
+
+    func showAllKits() {
+        selectedLocation = nil
+        programs = filteredKits.map(\.url)
+    }
+
+    func chooseSampleFolder() {
+        guard !documentLocked else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Ajouter une source de samples"
+        panel.prompt = "Ajouter"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        presentFilePanel(panel) { [weak self] response in
+            guard response == .OK, let self, let url = panel.url?.standardizedFileURL else { return }
+            if !self.sampleRoots.contains(url) { self.sampleRoots.append(url) }
+            self.preferences.set(self.sampleRoots.map(\.path), forKey: "library.sampleRoots")
+            self.selectSampleRoot(url)
         }
+    }
+
+    func selectSampleRoot(_ url: URL) {
+        selectedSampleRoot = url.standardizedFileURL
+        sampleQuery = ""
+        browseSamplesFolder(url)
+    }
+
+    @discardableResult
+    func browseSamplesFolder(_ url: URL) -> Task<Void, Never>? {
+        guard let root = selectedSampleRoot?.standardizedFileURL else { return nil }
+        let folder = url.standardizedFileURL
+        guard folder.pathComponents.starts(with: root.pathComponents),
+              folder.resolvingSymlinksInPath().pathComponents.starts(with: root.resolvingSymlinksInPath().pathComponents) else { return nil }
+        sampleBrowseGeneration += 1
+        stop()
+        let token = sampleBrowseGeneration
+        sampleFolder = folder
+        selectedSampleURL = nil
+        samplePreviewBusy = false
+        sampleQuery = ""
+        sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
+        samplePreviewStatus = "Lecture du dossier…"
+        let loader = sampleFolderLoader
+        return Task {
+            let listing = await Task.detached(priority: .utility) { loader(folder) }.value
+            guard token == self.sampleBrowseGeneration else { return }
+            self.sampleListing = listing
+            self.samplePreviewStatus = listing.issue == nil ? "\(listing.samples.count) samples dans ce dossier." : "Dossier indisponible. Rebranche le disque puis actualise."
+        }
+    }
+
+    func sampleGoUp() {
+        guard let folder = sampleFolder, folder != selectedSampleRoot else { return }
+        browseSamplesFolder(folder.deletingLastPathComponent())
+    }
+
+    func selectSample(_ url: URL) {
+        if selectedSampleURL != url { stop() }
+        selectedSampleURL = url
+        samplePreviewStatus = "Prêt à écouter · \(url.lastPathComponent)"
+    }
+
+    func previewSample(_ url: URL) {
+        guard !documentActionsDisabled, !samplePreviewBusy else { return }
+        selectedSampleURL = url
+        samplePreviewGeneration += 1
+        let token = samplePreviewGeneration
+        samplePreviewBusy = true
+        samplePreviewStatus = "Préparation de \(url.lastPathComponent)…"
+        Task {
+            do {
+                let sample = try await Task.detached(priority: .userInitiated) { try AudioImporter.load(url) }.value
+                guard token == self.samplePreviewGeneration else { return }
+                self.audio.stop()
+                try self.audio.play(sample)
+                self.samplePreviewBusy = false
+                self.samplePreviewStatus = "Écoute · \(url.lastPathComponent)"
+            } catch {
+                guard token == self.samplePreviewGeneration else { return }
+                self.samplePreviewBusy = false
+                self.samplePreviewStatus = "Écoute impossible : \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func assignSample(_ url: URL) {
+        guard !documentActionsDisabled else { return }
+        samplePreviewGeneration += 1
+        samplePreviewBusy = false
+        audio.stop()
+        importURLs([url], atPad: selectedPad)
     }
 
     @discardableResult
@@ -101,12 +364,19 @@ final class StudioModel: ObservableObject {
     }
 
     func openProgram(_ url: URL) {
-        guard !busy, confirmDiscard() else { return }
+        guard !documentActionsDisabled else { return }
+        requestDiscard { [weak self] approved in
+            if approved { self?.beginOpenProgram(url) }
+        }
+    }
+
+    private func beginOpenProgram(_ url: URL) {
+        guard !documentActionsDisabled else { return }
         generation += 1
         let token = generation
         busy = true
         errorMessage = nil
-        audio.stop()
+        stop()
         status = "Ouverture de \(url.lastPathComponent)…"
         Task {
             do {
@@ -118,6 +388,7 @@ final class StudioModel: ObservableObject {
                 self.sounds = loaded.sounds
                 self.missing = loaded.missing
                 self.programURL = url
+                self.lastExportURL = nil
                 self.kitName = url.deletingPathExtension().lastPathComponent
                 self.isDirty = false
                 self.busy = false
@@ -138,14 +409,22 @@ final class StudioModel: ObservableObject {
     }
 
     func newKit() {
-        guard !busy, confirmDiscard() else { return }
+        guard !documentActionsDisabled else { return }
+        requestDiscard { [weak self] approved in
+            if approved { self?.makeNewKit() }
+        }
+    }
+
+    private func makeNewKit() {
+        guard !documentActionsDisabled else { return }
         generation += 1
-        audio.stop()
+        stop()
         program = MPCProgram.blank(name: "NEWKIT")
         sounds = [:]
         missing = []
         kitName = "NEWKIT"
         programURL = nil
+        lastExportURL = nil
         bank = 0
         selectedPad = 0
         sound = nil
@@ -155,7 +434,7 @@ final class StudioModel: ObservableObject {
     }
 
     func selectPad(_ index: Int) {
-        guard (0..<64).contains(index) else { return }
+        guard !documentActionsDisabled, (0..<64).contains(index) else { return }
         selectedPad = index
         bank = index / 16
         updateSound()
@@ -174,31 +453,42 @@ final class StudioModel: ObservableObject {
     }
 
     func playPad(_ index: Int) {
+        guard !documentActionsDisabled else { return }
         selectPad(index)
         guard let sound, let program else { return }
         do { try audio.play(sound, tune: program.tune(forNote: program.midiNote(forPad: index))) }
         catch { errorMessage = "Écoute impossible : \(error.localizedDescription)" }
     }
 
-    func stop() { audio.stop() }
+    func stop() {
+        samplePreviewGeneration += 1
+        if samplePreviewBusy || samplePreviewStatus.hasPrefix("Écoute ·") { samplePreviewStatus = "Écoute arrêtée." }
+        samplePreviewBusy = false
+        audio.stop()
+    }
 
     func importAudio() {
-        guard !busy else { return }
+        guard !documentActionsDisabled else { return }
         let panel = NSOpenPanel()
         panel.title = "Importer des samples sur les pads"
         panel.prompt = "Importer"
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.audio, UTType(filenameExtension: "snd") ?? .data]
-        guard panel.runModal() == .OK else { return }
-        importURLs(panel.urls, atPad: selectedPad)
+        let pad = selectedPad
+        let token = generation
+        presentFilePanel(panel) { [weak self] response in
+            guard response == .OK, let self, token == self.generation else { return }
+            self.importURLs(panel.urls, atPad: pad)
+        }
     }
 
     func dropFiles(_ providers: [NSItemProvider], onPad: Int) -> Bool {
-        guard !busy else { return false }
+        guard !documentActionsDisabled else { return false }
         let accepted = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
         guard !accepted.isEmpty else { return false }
         let token = generation
+        stop()
         // Reserve the entire operation before provider resolution can suspend.
         busy = true
         errorMessage = nil
@@ -307,8 +597,9 @@ final class StudioModel: ObservableObject {
 
     @discardableResult
     func importURLs(_ urls: [URL], atPad: Int) -> Task<Void, Never>? {
-        guard !busy, !urls.isEmpty else { return nil }
+        guard !documentActionsDisabled, !urls.isEmpty else { return nil }
         let token = generation
+        stop()
         busy = true
         errorMessage = nil
         status = "Conversion audio vers 44,1 kHz…"
@@ -340,13 +631,22 @@ final class StudioModel: ObservableObject {
     }
 
     func setKitName(_ value: String) {
-        guard !busy, value != kitName else { return }
+        guard !documentLocked, value != kitName else { return }
         kitName = value
         isDirty = true
     }
 
+    func setSoundName(_ name: String) {
+        guard !documentActionsDisabled, var sample = sound, sample.name != name, var updated = program,
+              let slot = updated.slot(forNote: updated.midiNote(forPad: selectedPad)) else { return }
+        sample.name = name
+        updated.setSound(slot: slot, name: name, wordCount: sample.frameCount * sample.channels.count)
+        program = updated
+        replaceSelected(sample)
+    }
+
     func setTrim(start: Int, end: Int) {
-        guard !busy, var sample = sound else { return }
+        guard !documentActionsDisabled, var sample = sound else { return }
         let lo = min(max(0, start), max(0, sample.frameCount - 1))
         sample.start = lo
         sample.end = min(sample.frameCount, max(lo + 1, end))
@@ -354,7 +654,7 @@ final class StudioModel: ObservableObject {
     }
 
     func transform(_ kind: String) {
-        guard !busy, let sound else { return }
+        guard !documentActionsDisabled, let sound else { return }
         switch kind {
         case "trim":
             guard sound.end - sound.start >= 441 else {
@@ -377,7 +677,7 @@ final class StudioModel: ObservableObject {
     }
 
     func setPadTune(_ value: Int) {
-        guard !busy, var updated = program else { return }
+        guard !documentActionsDisabled, var updated = program else { return }
         updated.setTune(min(120, max(-120, value)), forNote: updated.midiNote(forPad: selectedPad))
         program = updated
         isDirty = true
@@ -398,41 +698,92 @@ final class StudioModel: ObservableObject {
         sound = sounds[slot]
     }
 
+    var recommendedSDPartition: LibraryPartition? {
+        partitions.first { $0.isEmpty && ($0.availableBytes ?? -1) >= requiredExportFreeBytes(in: $0) }
+    }
+
     func exportKit() {
-        guard !busy, var program else { return }
+        guard !documentActionsDisabled, program != nil else { return }
+        exportDestinationURL = recommendedSDPartition?.url
+        showExportSheet = true
+    }
+
+    func chooseExportFolder() {
+        guard !documentLocked else { return }
         let panel = NSOpenPanel()
-        panel.title = "Exporter un nouveau kit dans une partition"
-        panel.prompt = "Exporter ici"
+        panel.title = "Choisir le dossier d’export"
+        panel.prompt = "Choisir"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
-        panel.directoryURL = selectedLocation ?? programURL?.deletingLastPathComponent()
-        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        panel.directoryURL = exportDestinationURL
+        presentFilePanel(panel) { [weak self] response in
+            if response == .OK { self?.exportDestinationURL = panel.url }
+        }
+    }
+
+    func exportKitToDestination() {
+        guard !documentLocked, let destination = exportDestinationURL else { return }
+        showExportSheet = false
+        exportKit(to: destination)
+    }
+
+    @discardableResult
+    func exportKit(to destination: URL) -> Task<Void, Never>? {
+        guard !documentActionsDisabled, var program else { return nil }
         program.name = kitName
         let exportProgram = program
         let pool = sounds
         let name = kitName
         busy = true
-        status = "Export du programme et des samples…"
-        Task {
+        errorMessage = nil
+        samplePreviewGeneration += 1
+        samplePreviewBusy = false
+        audio.stop()
+        status = "Export vers \(selectedDestinationLabel)…"
+        return Task {
             do {
                 let output = try await Task.detached(priority: .userInitiated) {
-                    try KitExport.export(program: exportProgram, sounds: pool, name: name, to: destination)
+                    return try KitExport.export(program: exportProgram, sounds: pool, name: name, to: destination)
                 }.value
                 self.busy = false
                 self.isDirty = false
-                self.status = "Export terminé : \(output.lastPathComponent). Éjecte la carte depuis le Finder après utilisation."
-                if self.selectedLocation == destination { self.scan(destination) }
+                self.lastExportURL = output
+                self.libraryMode = .kits
+                self.selectedLocation = nil
+                self.kitSearch = ""
+                self.kitName = output.deletingPathExtension().lastPathComponent
+                if LibraryIndex.partitionLetter(for: destination) == nil && !self.kitFolders.contains(destination) {
+                    self.kitFolders.append(destination)
+                    self.preferences.set(self.kitFolders.map(\.path), forKey: "library.kitFolders")
+                }
+                self.status = "Export terminé · \(Self.locationLabel(for: output)) · \(output.lastPathComponent)."
+                self.refreshLocations()
             } catch {
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "L’export n’a pas abouti."
+                self.status = "L’export n’a pas abouti ; le kit est conservé."
             }
         }
     }
 
+    private func presentFilePanel(_ panel: NSOpenPanel,
+                                  completion: @escaping (NSApplication.ModalResponse) -> Void) {
+        guard !documentLocked else { return }
+        filePanelPresented = true
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            self?.filePanelPresented = false
+            completion(response)
+        }
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeKey }) {
+            panel.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            panel.begin(completionHandler: finish)
+        }
+    }
+
     func clearPad() {
-        guard !busy, var updated = program else { return }
+        guard !documentActionsDisabled, var updated = program else { return }
         let note = updated.midiNote(forPad: selectedPad)
         let oldSlot = updated.slot(forNote: note)
         updated.assign(slot: nil, toNote: note)
@@ -445,18 +796,33 @@ final class StudioModel: ObservableObject {
         isDirty = true
     }
 
-    func confirmClose() -> Bool {
-        guard !busy else { NSSound.beep(); return false }
-        return confirmDiscard()
+    func requestClose(_ completion: @escaping (Bool) -> Void) {
+        guard !documentActionsDisabled else { NSSound.beep(); completion(false); return }
+        stop()
+        requestDiscard(completion)
     }
 
-    private func confirmDiscard() -> Bool {
-        guard isDirty else { return true }
+    private func requestDiscard(_ completion: @escaping (Bool) -> Void) {
+        guard !awaitingDiscardConfirmation else { completion(false); return }
+        guard isDirty else { completion(true); return }
+        awaitingDiscardConfirmation = true
+        let approval: (Bool) -> Void = { [weak self] approved in
+            self?.awaitingDiscardConfirmation = false
+            completion(approved)
+        }
+        if let discardPresenter { discardPresenter(approval); return }
         let alert = NSAlert()
-        alert.messageText = "Des modifications n’ont pas été exportées."
-        alert.informativeText = "Continuer abandonnera les modifications en mémoire. Les fichiers d’origine restent disponibles."
+        alert.messageText = "Des modifications n’ont pas été enregistrées."
+        alert.informativeText = "Continuer ne les enregistrera pas. Les fichiers d’origine restent disponibles."
         alert.addButton(withTitle: "Continuer")
         alert.addButton(withTitle: "Annuler")
-        return alert.runModal() == .alertFirstButtonReturn
+        let finish: (NSApplication.ModalResponse) -> Void = { response in
+            approval(response == .alertFirstButtonReturn)
+        }
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeKey }) {
+            alert.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(alert.runModal())
+        }
     }
 }
