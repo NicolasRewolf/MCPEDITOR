@@ -18,7 +18,6 @@ struct SoundRangeWarning: Identifiable, Sendable {
 @MainActor
 final class StudioModel: ObservableObject {
     @Published var locations: [URL] = []
-    @Published var programs: [URL] = []
     @Published var selectedLocation: URL?
     @Published var programURL: URL?
     @Published var kitName = "NEWKIT"
@@ -74,7 +73,6 @@ final class StudioModel: ObservableObject {
     private var sounds: [Int: MPCSound] = [:]
     private let audio = StudioAudio()
     private var generation = 0
-    private var missing: [String] = []
     private var dropTask: Task<Void, Never>?
     private var dropResolution: ItemProviderResolution?
 
@@ -302,7 +300,6 @@ final class StudioModel: ObservableObject {
                 if self.lastExportURL?.standardizedFileURL == deletedURL { self.lastExportURL = nil }
                 if wasCurrent { self.isDirty = true }
                 self.libraryKits.removeAll { $0.url == deletedURL }
-                self.programs.removeAll { $0.standardizedFileURL == deletedURL }
                 self.busy = false
                 self.status = "\(deletedURL.lastPathComponent) mis à la corbeille. Les samples et les séquences sont conservés."
                 self.refreshLocations()
@@ -365,7 +362,6 @@ final class StudioModel: ObservableObject {
             self.partitions = result.0
             self.libraryKits = result.1
             self.locations = partURLs + folders
-            self.programs = self.filteredKits.map(\.url)
             self.libraryIssue = result.2.isEmpty ? nil : result.2.joined(separator: "\n")
             self.libraryScanning = false
             self.libraryTask = nil
@@ -398,13 +394,11 @@ final class StudioModel: ObservableObject {
     /// Browsing is independent from the in-memory document, including while it is dirty.
     func selectLocation(_ url: URL) {
         selectedLocation = url.standardizedFileURL
-        programs = filteredKits.map(\.url)
         selectSampleRoot(url)
     }
 
     func showAllKits() {
         selectedLocation = nil
-        programs = filteredKits.map(\.url)
     }
 
     func chooseSampleFolder() {
@@ -504,23 +498,6 @@ final class StudioModel: ObservableObject {
         importURLs([url], atPad: selectedPad)
     }
 
-    @discardableResult
-    func scan(_ url: URL) -> Bool {
-        do {
-            programs = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isRegularFileKey],
-                options: [.skipsHiddenFiles]).filter {
-                    $0.pathExtension.lowercased() == "pgm" && (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
-                }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-            errorMessage = nil
-            return true
-        } catch {
-            programs = []
-            errorMessage = "Impossible de lire ce dossier : \(error.localizedDescription)"
-            status = "Le dossier est indisponible."
-            return false
-        }
-    }
-
     func openProgram(_ url: URL) {
         guard !documentActionsDisabled else { return }
         requestDiscard { [weak self] approved in
@@ -546,7 +523,6 @@ final class StudioModel: ObservableObject {
                 self.program = loaded.program
                 self.sounds = loaded.sounds
                 self.audioRangeReports = reports
-                self.missing = loaded.missing
                 self.programURL = url
                 self.lastExportURL = nil
                 self.kitName = url.deletingPathExtension().lastPathComponent
@@ -582,7 +558,6 @@ final class StudioModel: ObservableObject {
         program = MPCProgram.blank(name: "NEWKIT")
         sounds = [:]
         audioRangeReports = [:]
-        missing = []
         kitName = "NEWKIT"
         programURL = nil
         lastExportURL = nil

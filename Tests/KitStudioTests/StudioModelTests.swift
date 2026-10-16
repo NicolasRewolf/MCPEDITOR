@@ -180,22 +180,6 @@ final class StudioModelTests: XCTestCase {
     }
 
     @MainActor
-    func testMissingDirectoryClearsStaleProgramsAndSuccessClearsError() throws {
-        let folder = try temporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let pgm = folder.appendingPathComponent("KIT.PGM")
-        try MPCProgram.blank(name: "KIT").bytes.write(to: pgm)
-        let model = StudioModel()
-        XCTAssertTrue(model.scan(folder))
-        XCTAssertEqual(model.programs.map { $0.resolvingSymlinksInPath() }, [pgm.resolvingSymlinksInPath()])
-        XCTAssertFalse(model.scan(folder.appendingPathComponent("ABSENT")))
-        XCTAssertTrue(model.programs.isEmpty)
-        XCTAssertNotNil(model.errorMessage)
-        XCTAssertTrue(model.scan(folder))
-        XCTAssertNil(model.errorMessage)
-    }
-
-    @MainActor
     func testNameBindingSameValueDoesNotMarkKitDirty() {
         let model = StudioModel()
         model.newKit()

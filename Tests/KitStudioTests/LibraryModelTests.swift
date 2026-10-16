@@ -20,11 +20,13 @@ final class LibraryModelTests: XCTestCase {
     @MainActor
     private func testModel(
         discardPresenter: StudioModel.DiscardPresenter? = nil,
+        kitFolders: [URL] = [],
         sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) }
     ) throws -> StudioModel {
         let suiteName = "LibraryModelTests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(kitFolders.map(\.path), forKey: "library.kitFolders")
         addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
         return StudioModel(defaults: defaults, discardPresenter: discardPresenter,
                            volumeProvider: { [] }, sampleFolderLoader: sampleFolderLoader)
@@ -154,9 +156,40 @@ final class LibraryModelTests: XCTestCase {
 
         XCTAssertEqual(model.sampleListing.samples, [kick, snare].map(\.standardizedFileURL))
         XCTAssertNil(model.sampleListing.issue)
-        XCTAssertTrue(model.programs.isEmpty)
+        XCTAssertTrue(model.filteredKits.isEmpty)
         XCTAssertNil(model.program)
         XCTAssertFalse(model.isDirty)
+    }
+
+    @MainActor
+    func testUnavailableKitFolderClearsStaleLibraryAndRecoveryClearsItsIssueWithoutChangingDocument() async throws {
+        let folder = try directory("SavedKits")
+        let source = try kit(in: folder, pad: 0)
+        let model = try testModel(kitFolders: [folder])
+        try await open(source, in: model)
+        let originalProgram = try XCTUnwrap(model.program?.bytes)
+        let originalSample = try XCTUnwrap(model.sound)
+        await model.refreshLocations().value
+        XCTAssertEqual(model.libraryKits.map(\.url), [source.standardizedFileURL])
+        XCTAssertNil(model.libraryIssue)
+
+        let moved = folder.deletingLastPathComponent().appendingPathComponent("DisconnectedKits")
+        try FileManager.default.moveItem(at: folder, to: moved)
+        await model.refreshLocations().value
+        XCTAssertTrue(model.libraryKits.isEmpty)
+        XCTAssertTrue(model.filteredKits.isEmpty)
+        XCTAssertNotNil(model.libraryIssue)
+        XCTAssertEqual(model.program?.bytes, originalProgram)
+        XCTAssertEqual(model.sound?.channels, originalSample.channels)
+        XCTAssertFalse(model.isDirty)
+
+        try FileManager.default.moveItem(at: moved, to: folder)
+        await model.refreshLocations().value
+        XCTAssertEqual(model.libraryKits.map(\.url), [source.standardizedFileURL])
+        XCTAssertNil(model.libraryIssue)
+        XCTAssertEqual(model.program?.bytes, originalProgram)
+        XCTAssertEqual(model.programURL, source)
+        XCTAssertEqual(try Data(contentsOf: source), originalProgram)
     }
 
     @MainActor
