@@ -14,6 +14,7 @@ for bundle in "$BIN_DIR"/*.bundle; do
     [ -d "$bundle" ] || continue
     cp -R "$bundle" "$APP/Contents/Resources/"
 done
+cp -R "$PROJECT_DIR/Notices" "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -23,8 +24,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>MPC Kit Studio</string>
 <key>CFBundleDisplayName</key><string>MPC Kit Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.4.0</string>
-<key>CFBundleVersion</key><string>10</string>
+<key>CFBundleShortVersionString</key><string>0.5.0</string>
+<key>CFBundleVersion</key><string>11</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
@@ -39,4 +40,6 @@ ditto "$APP" "$DMG_STAGE/MPC Kit Studio.app"
 ln -s /Applications "$DMG_STAGE/Applications"
 hdiutil create -volname "MPC Kit Studio" -srcfolder "$DMG_STAGE" \
     -format UDZO "$PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.dmg"
+python3 scripts/release-manifest.py create "$PROJECT_DIR/dist"
+python3 scripts/release-manifest.py verify "$PROJECT_DIR/dist"
 echo "Application prête : $PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.dmg"

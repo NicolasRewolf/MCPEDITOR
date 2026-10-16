@@ -17,6 +17,8 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    avec leur emplacement visible sur chaque ligne. Un `.PGM` correspond à un kit.
 2. Créer un nouveau kit, puis glisser des WAV, AIFF ou SND sur les pads. Une sélection multiple
    remplit les pads suivants dans l’ordre de la sélection, jusqu’à D16.
+   Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le kit disponible
+   et conserve ses modifications ; un retour tardif du fournisseur est ignoré.
 3. Dans **Samples**, parcourir une PART ou ajouter un dossier du SSD : les sons existants apparaissent
    même sans programme. Sélectionner un son, l’écouter, puis l’affecter au pad choisi, ou le glisser sur un pad.
    La recherche filtre le dossier courant ; les sous-dossiers s’ouvrent séparément.
@@ -36,6 +38,9 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
 Chaque enregistrement crée un nouveau programme et ses sons ; les fichiers existants sont conservés.
 Un nom ASCII libre de huit caractères est choisi en cas de collision. Le kit ouvert d’origine reste
 identifié séparément de la dernière copie enregistrée. Les dossiers ajoutés sont mémorisés localement.
+Le titre interne du programme est conservé lors d’une copie sans édition, même s’il diffère du nom
+du fichier. Modifier explicitement le nom du kit modifie aussi ce titre ; un suffixe attribué pour
+éviter une collision ne le modifie pas.
 La notion de PART vide exclut les fichiers cachés macOS : elle exige l’absence de toute entrée visible
 et un parcours complet sans erreur. Une PART contenant uniquement des samples, séquences ou dossiers
 n’est donc jamais choisie automatiquement comme vide.
@@ -64,6 +69,9 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
 - Un import multiple est préparé intégralement avant de remplacer le kit en mémoire.
   Un fichier invalide, un dépassement de mémoire ou un lot dépassant D16 laisse le kit précédent intact.
   Les sons de moins de 441 points et les valeurs audio non finies sont refusés à l'import.
+- Un sample Float dépassant la plage −1…+1 reste intact en mémoire, avec un diagnostic de crête.
+  L’export est bloqué pour éviter un écrêtage silencieux. **Normaliser les samples concernés**
+  applique un gain à ta demande ; remplacer le sample permet aussi de poursuivre.
 - La préécoute joue les samples avec leur accordage. Elle ne reproduit pas
   les filtres, enveloppes, couches, modes d'affectation ou convertisseurs audio de la MPC.
 - Les sons absents, ambigus ou non pris en charge empêchent l'export.
@@ -72,9 +80,12 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
   après le PCM déclaré sont signalés à l'import puis omis à l'export.
 - Plafond du prototype : 32 Mio de PCM par kit ; vérifier la RAM réellement installée dans la MPC.
 - Seuls les sons référencés sont exportés ; l'inventaire inutilisé est vidé.
-  Le PGM est écrit après les SND. Un échec entraîne le retrait des seuls fichiers créés
-  par cet export, avec signalement si le retrait échoue. Une coupure d'alimentation
-  ne constitue pas une transaction atomique de tout le kit.
+  Les SND sont écrits avant le programme. Celui-ci est préparé sous une extension `.TMP`,
+  synchronisé, puis publié en `.PGM` sans remplacement d’un nom existant.
+  En cas d’échec, les noms créés restent sur place et sont signalés : aucun nettoyage
+  automatique ne risque de supprimer un fichier repris par un autre écrivain.
+  Une coupure d’alimentation ne constitue pas une transaction atomique de tout le kit.
+  Une interruption peut laisser des SND ou un TMP à examiner ; ne pas les effacer aveuglément.
 - Les modifications sont en mémoire jusqu'à l'export. Il n'y a pas encore de sauvegarde
   de projet de travail, d'annulation générale ou de restauration de session.
 
@@ -88,7 +99,11 @@ bash scripts/build-app.sh
 ```
 
 Le script lance les tests, compile pour arm64, assemble et signe localement l'application.
-Résultat : `dist/MPC-Kit-Studio-Apple-Silicon.dmg` et `.zip`.
+Résultat : `dist/MPC-Kit-Studio-Apple-Silicon.dmg`, `.zip` et `release-manifest.json`.
+Le manifeste relève commit, état des sources, version/build, outils et empreintes des sources,
+archives et fichiers de l’app. La vérification décompresse le ZIP courant et contrôle sa ressource,
+son exécutable et sa signature. En CI, ce même livrable est ensuite lancé sur un runner isolé ;
+le processus et sa fenêtre sont contrôlés séparément. Ce n’est pas une attestation indépendante.
 Les tests du cœur se lancent séparément avec `swift test`.
 Les tests de l'application contrôlent aussi les conversions WAV/AIFF mono/stéréo
 à 44,1/48/96 kHz, le budget des lots, les curseurs natifs et le rendu audio hors ligne.
@@ -101,4 +116,7 @@ Ces contrôles ne remplacent pas une écoute humaine ni un chargement sur la MPC
 - Modèle : `ressources/incoming/01_izzyreal_mpc/test-resources/RealMpc3000/Pgm/PROGRAM.pgm`,
   SHA Git `7f9a42740821e6f8b7286b978d2481a8217df20b`.
 - [Provenance du corpus](../../knowledge/source_corroboration.yaml).
+La [notice du modèle et la licence présente dans son dépôt source](Notices/PROVENANCE.md)
+sont incluses dans les ressources de l’application. Les droits de redistribution de cette capture
+restent à clarifier avant une diffusion plus large.
 Le travail de l'application ne relance pas la recherche ROM UNDERSTAND.

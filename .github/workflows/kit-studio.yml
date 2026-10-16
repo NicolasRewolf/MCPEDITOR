@@ -1,14 +1,16 @@
 name: MPC Kit Studio - Mac
 on:
   push:
-    branches: [feature/mpc-kit-studio]
+    branches: [main, feature/mpc-kit-studio]
     paths:
       - 'mac/KitStudio/**'
       - '.github/workflows/kit-studio.yml'
+      - '.github/workflows/kit-studio-verify.yml'
   pull_request:
     paths:
       - 'mac/KitStudio/**'
       - '.github/workflows/kit-studio.yml'
+      - '.github/workflows/kit-studio-verify.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,17 +18,5 @@ concurrency:
   group: kit-studio-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  build:
-    runs-on: macos-14
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Compiler, tester et assembler l'application Apple Silicon
-        run: bash mac/KitStudio/scripts/build-app.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MPC-Kit-Studio-Apple-Silicon
-          path: |
-            mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.zip
-            mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.dmg
-          retention-days: 14
+  build-and-verify:
+    uses: ./.github/workflows/kit-studio-verify.yml

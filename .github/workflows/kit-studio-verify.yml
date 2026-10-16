@@ -1,95 +1,35 @@
-name: Verify delivered MPC Kit Studio archive
+name: Build and verify current MPC Kit Studio archive
 on:
-  push:
-    branches: [feature/mpc-kit-studio]
-    paths: ['.github/workflows/kit-studio-verify.yml']
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  verify-delivered-archive:
-    runs-on: macos-14
-    timeout-minutes: 5
+  current-archive:
+    runs-on: macos-15
+    timeout-minutes: 20
     steps:
-      - name: Download the exact previously delivered artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - name: Test and package the current revision
+        run: bash mac/KitStudio/scripts/build-app.sh
+      - name: Verify this job's exact archives, commit, resources and signature
+        run: >-
+          python3 mac/KitStudio/scripts/release-manifest.py verify mac/KitStudio/dist
+          --expect-commit "$GITHUB_SHA" --require-clean
+      - name: Verify the extracted archive launches with a visible window
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNPACKED="$(mktemp -d "$RUNNER_TEMP/kit-studio-launch.XXXXXX")"
+          trap 'rm -rf "$UNPACKED"' EXIT
+          ditto -x -k mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.zip "$UNPACKED"
+          swift mac/KitStudio/scripts/verify-ci-launch.swift "$UNPACKED/MPC Kit Studio.app"
+      - uses: actions/upload-artifact@v4
         with:
           name: MPC-Kit-Studio-Apple-Silicon
-          run-id: 38643481529
-          github-token: ${{ github.token }}
-          path: delivered
-      - name: Check archive, executable, resources and signature
-        shell: bash
-        run: |
-          set -euo pipefail
-          ZIP="$GITHUB_WORKSPACE/delivered/MPC-Kit-Studio-Apple-Silicon.zip"
-          UNPACKED="$RUNNER_TEMP/kit-studio-delivered"
-          unzip -tq "$ZIP"
-          ditto -x -k "$ZIP" "$UNPACKED"
-          APP="$UNPACKED/MPC Kit Studio.app"
-          BIN="$APP/Contents/MacOS/KitStudio"
-          export APP BIN
-          test -x "$BIN"
-          test -f "$APP/Contents/Resources/KitStudio_MPCCore.bundle/Default.pgm"
-          plutil -lint "$APP/Contents/Info.plist"
-          file "$BIN"
-          lipo -archs "$BIN"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          otool -L "$BIN"
-          python3 - <<'PY'
-          import os, pathlib, zipfile, json
-          archive = pathlib.Path("delivered/MPC-Kit-Studio-Apple-Silicon.zip")
-          app = pathlib.Path(os.environ["APP"])
-          binary = pathlib.Path(os.environ["BIN"])
-          with zipfile.ZipFile(archive) as z:
-              report = {
-                  "zip_bytes": archive.stat().st_size,
-                  "app_file_bytes": sum(p.stat().st_size for p in app.rglob("*") if p.is_file()),
-                  "executable_bytes": binary.stat().st_size,
-                  "archive_entries": len(z.infolist()),
-                  "resource_bytes": (app / "Contents/Resources/KitStudio_MPCCore.bundle/Default.pgm").stat().st_size
-              }
-              print(json.dumps(report, indent=2))
-              print("\n".join(z.namelist()))
-          PY
-      - name: Open the extracted application and verify a visible window
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP="$RUNNER_TEMP/kit-studio-delivered/MPC Kit Studio.app"
-          cat > "$RUNNER_TEMP/check-kit-window.swift" <<'SWIFT'
-          import AppKit
-          import CoreGraphics
-          import Foundation
-          var observedProcess = false
-          for _ in 0..<40 {
-              if let app = NSWorkspace.shared.runningApplications.first(where: {
-                  $0.bundleIdentifier == "com.nicolasrewolf.mpckitstudio"
-              }) {
-                  observedProcess = true
-                  let pid = Int(app.processIdentifier)
-                  let rows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
-                                                       kCGNullWindowID) as? [[String: Any]] ?? []
-                  for row in rows {
-                      guard row[kCGWindowOwnerPID as String] as? Int == pid,
-                            let bounds = row[kCGWindowBounds as String] as? [String: Any],
-                            let width = bounds["Width"] as? Double,
-                            let height = bounds["Height"] as? Double,
-                            width >= 500, height >= 300 else { continue }
-                      print("LAUNCH_OK: KitStudio running; visible application window \(Int(width))x\(Int(height)).")
-                      exit(0)
-                  }
-              }
-              RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-          }
-          fputs("LAUNCH_NOT_CONFIRMED: process observed = \(observedProcess); no visible window found.\n", stderr)
-          exit(1)
-          SWIFT
-          open -n "$APP"
-          swift "$RUNNER_TEMP/check-kit-window.swift"
-      - name: Stop the verification instance
-        if: always()
-        shell: bash
-        run: |
-          pgrep -x KitStudio | xargs -I{} kill {} || true
+          path: |
+            mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.zip
+            mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.dmg
+            mac/KitStudio/dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14
