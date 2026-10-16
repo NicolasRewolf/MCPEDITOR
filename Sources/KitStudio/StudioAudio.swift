@@ -35,13 +35,10 @@ enum AudioImporter {
         }) else {
             throw StudioError.message("Ce fichier contient une valeur audio non finie (NaN ou infini).")
         }
-        var supplied = false
+        let conversionInput = AudioConversionInput(input)
         var conversionError: NSError?
         let result = converter.convert(to: output, error: &conversionError) { _, status in
-            if supplied { status.pointee = .endOfStream; return nil }
-            supplied = true
-            status.pointee = .haveData
-            return input
+            conversionInput.next(status)
         }
         if let conversionError { throw conversionError }
         guard result != .error, output.frameLength > 0, let pcm = output.floatChannelData else {
@@ -96,6 +93,29 @@ enum AudioImporter {
     }
 }
 
+/// Narrow bridge for AVAudioConverterInputBlock's SDK Sendable contract. The
+/// buffer is fully populated and validated before ownership enters this wrapper;
+/// neither the loader nor this wrapper mutates it afterwards. The single-feed
+/// state is locked, and the buffer is retained for the whole conversion as the
+/// AVAudioConverterInputBlock documentation requires. No global AVFoundation
+/// Sendable conformance or preconcurrency suppression is introduced.
+private final class AudioConversionInput: @unchecked Sendable {
+    private let buffer: AVAudioPCMBuffer
+    private let lock = NSLock()
+    private var supplied = false
+
+    init(_ buffer: AVAudioPCMBuffer) { self.buffer = buffer }
+
+    func next(_ status: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !supplied else { status.pointee = .endOfStream; return nil }
+        supplied = true
+        status.pointee = .haveData
+        return buffer
+    }
+}
+
 @MainActor
 final class StudioAudio {
     private let engine: AVAudioEngine
@@ -142,7 +162,7 @@ final class StudioAudio {
     func stop() { for (player, _) in voices { player.stop() } }
 }
 
-enum StudioError: LocalizedError {
+enum StudioError: LocalizedError, Sendable {
     case message(String)
     var errorDescription: String? {
         switch self { case .message(let message): return message }

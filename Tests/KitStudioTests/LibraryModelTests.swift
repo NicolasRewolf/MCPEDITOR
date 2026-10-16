@@ -482,6 +482,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertFalse(model.documentLocked)
         model.setKitName("SHEETNAME")
         XCTAssertEqual(model.kitName, "SHEETNAME")
+        var expectedProgram = try MPCProgram(data: beforeProgram)
+        expectedProgram.name = "SHEETNAME"
         XCTAssertNil(model.importURLs([sample], atPad: 0))
         XCTAssertFalse(model.dropFiles([provider], onPad: 0))
         XCTAssertNil(model.exportKit(to: source))
@@ -495,7 +497,7 @@ final class LibraryModelTests: XCTestCase {
         model.selectPad(0)
         model.assignSample(sample)
 
-        XCTAssertEqual(model.program?.bytes, beforeProgram)
+        XCTAssertEqual(model.program?.bytes, expectedProgram.bytes)
         XCTAssertEqual(model.sound?.channels, beforeSound.channels)
         XCTAssertEqual(model.sound?.name, beforeSound.name)
         XCTAssertEqual(model.sound?.start, beforeSound.start)

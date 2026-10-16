@@ -100,12 +100,17 @@ struct StudioView: View {
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
                 .help(model.kitLocationPath)
+                if model.programTitle != model.kitName {
+                    Text("Titre sur la MPC : \(model.programTitle)")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                }
             }
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 6) {
                 Text(ByteCountFormatter.string(fromByteCount: Int64(model.memoryBytes), countStyle: .memory))
                     .font(.system(size: 18, weight: .medium, design: .monospaced))
-                Text("AUDIO · PCM 16 BITS / 44,1 kHz")
+                Text("EXPORT · PCM 16 BITS / 44,1 kHz")
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(StudioPalette.muted)
             }
@@ -200,12 +205,17 @@ struct StudioView: View {
                 .lineLimit(1)
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
+            if model.resolvingDroppedFiles {
+                Button("Annuler le dépôt", action: model.cancelDroppedFiles)
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Annuler la lecture des fichiers déposés")
+            }
             Spacer()
-            Text("Écoute des samples ; filtre et enveloppes à vérifier sur la MPC.")
+            Text("Préécoute Float ; filtre et enveloppes à vérifier sur la MPC.")
                 .font(.system(size: 10))
                 .foregroundStyle(StudioPalette.muted)
                 .lineLimit(1)
-                .help("La préécoute joue le sample avec son accordage. Elle ne simule pas le moteur audio de la MPC3000.")
+                .help("La préécoute joue le PCM Float de travail avec son accordage. L’export le quantifie en PCM 16 bits. Le moteur audio de la MPC3000 n’est pas simulé.")
         }
         .padding(.horizontal, 18)
         .frame(height: 32)
@@ -312,6 +322,12 @@ private struct SampleEditor: View {
             }
             ScrollView(.vertical, showsIndicators: true) {
                 if let sound = model.sound, sound.frameCount > 0 {
+                    if let warning = model.selectedAudioRangeWarning {
+                        Text("Crête \(String(format: "%.2f", warning.report.peakMagnitude)) : ce sample dépasse le niveau du PCM 16 bits. Normalise-le avant l’export pour éviter l’écrêtage.")
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     loadedEditor(sound)
                 } else {
                     emptyEditor

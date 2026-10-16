@@ -472,6 +472,12 @@ struct ExportDestinationSheet: View {
                     )
                     .textFieldStyle(.roundedBorder)
                     .disabled(model.documentLocked)
+                    Text("Titre sur la MPC : \(model.programTitle)")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                    Text("Modifier ce nom renomme aussi le titre du programme. Un suffixe de fichier choisi automatiquement ne change pas ce titre.")
+                        .font(.caption2)
+                        .foregroundStyle(StudioPalette.muted)
                 }
                 VStack(alignment: .trailing, spacing: 5) {
                     Text(
@@ -489,6 +495,17 @@ struct ExportDestinationSheet: View {
                 )
                 .font(.callout)
                 .foregroundStyle(.yellow)
+            }
+            if let issue = model.exportAudioIssue {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(issue)
+                        .font(.caption)
+                        .foregroundStyle(.yellow)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Normaliser les samples concernés", action: model.normalizeOverrangeSamples)
+                        .buttonStyle(.bordered)
+                        .disabled(model.documentLocked)
+                }
             }
             DisclosureGroup("Changer la destination", isExpanded: $changeDestination) {
                 Text("PARTITIONS SD")
@@ -561,7 +578,7 @@ struct ExportDestinationSheet: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(
                     model.exportDestinationURL == nil || model.program == nil || model.documentLocked
-                        || model.exportDestinationIssue != nil || capacityTooSmall)
+                        || model.exportDestinationIssue != nil || model.exportAudioIssue != nil || capacityTooSmall)
             }
         }
         .padding(24)

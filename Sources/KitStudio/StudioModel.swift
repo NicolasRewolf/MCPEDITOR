@@ -3,9 +3,16 @@ import SwiftUI
 import UniformTypeIdentifiers
 import MPCCore
 
-enum LibraryMode: String, CaseIterable {
+enum LibraryMode: String, CaseIterable, Sendable {
     case kits = "Kits"
     case samples = "Samples"
+}
+
+struct SoundRangeWarning: Identifiable, Sendable {
+    let slot: Int
+    let name: String
+    let report: PCM16RangeReport
+    var id: Int { slot }
 }
 
 @MainActor
@@ -19,10 +26,12 @@ final class StudioModel: ObservableObject {
     @Published var selectedPad = 0
     @Published var isDirty = false
     @Published var busy = false
+    @Published private(set) var resolvingDroppedFiles = false
     @Published var status = "Choisis une partition ou ouvre un dossier de kits."
     @Published var errorMessage: String?
     @Published var sound: MPCSound?
     @Published var program: MPCProgram?
+    @Published private(set) var audioRangeReports: [Int: PCM16RangeReport] = [:]
 
     @Published var libraryMode: LibraryMode = .kits
     @Published var partitions: [LibraryPartition] = []
@@ -50,7 +59,7 @@ final class StudioModel: ObservableObject {
     private var libraryGeneration = 0
     private var sampleBrowseGeneration = 0
     private var samplePreviewGeneration = 0
-    private var volumeObservers: [NSObjectProtocol] = []
+    private var volumeObservation: WorkspaceMountObservation?
     private var volumeRefreshTask: Task<Void, Never>?
     private var libraryTask: Task<Void, Never>?
     private var refreshPending = false
@@ -66,6 +75,8 @@ final class StudioModel: ObservableObject {
     private let audio = StudioAudio()
     private var generation = 0
     private var missing: [String] = []
+    private var dropTask: Task<Void, Never>?
+    private var dropResolution: ItemProviderResolution?
 
     var memoryBytes: Int {
         guard let program else { return 0 }
@@ -82,6 +93,47 @@ final class StudioModel: ObservableObject {
     var padTune: Int {
         guard let program else { return 0 }
         return program.tune(forNote: program.midiNote(forPad: selectedPad))
+    }
+
+    /// The program title is independent of the DOS filename allocated for a copy.
+    var programTitle: String { program?.name ?? kitName }
+
+    var exportAudioWarnings: [SoundRangeWarning] {
+        guard let program else { return [] }
+        return program.referencedSlots.sorted().compactMap { slot in
+            guard let report = audioRangeReports[slot],
+                  report.outOfRangeSampleCount > 0 || report.nonFiniteSampleCount > 0 else { return nil }
+            return SoundRangeWarning(slot: slot, name: sounds[slot]?.name ?? program.soundName(slot: slot), report: report)
+        }
+    }
+
+    var selectedAudioRangeWarning: SoundRangeWarning? {
+        guard let program, let slot = program.slot(forNote: program.midiNote(forPad: selectedPad)) else { return nil }
+        return exportAudioWarnings.first { $0.slot == slot }
+    }
+
+    var exportAudioIssue: String? {
+        let warnings = exportAudioWarnings
+        guard !warnings.isEmpty else { return nil }
+        let peak = warnings.map(\.report.peakMagnitude).max() ?? 0
+        return "\(warnings.count) sample(s) dépassent le niveau maximal du PCM 16 bits (crête \(String(format: "%.2f", peak))). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail."
+    }
+
+    /// The user explicitly chooses the gain change; imports and exports never
+    /// silently normalize or clamp the in-memory Float samples.
+    func normalizeOverrangeSamples() {
+        guard !documentLocked else { return }
+        let affected = exportAudioWarnings
+        guard !affected.isEmpty else { return }
+        for warning in affected {
+            guard let sample = sounds[warning.slot], warning.report.nonFiniteSampleCount == 0 else { continue }
+            let normalized = sample.normalized()
+            sounds[warning.slot] = normalized
+            audioRangeReports[warning.slot] = normalized.pcm16RangeReport
+        }
+        updateSound()
+        isDirty = true
+        status = "Samples hors plage normalisés en mémoire à ta demande ; les sources sont conservées."
     }
 
     init(defaults: UserDefaults = .standard,
@@ -101,17 +153,16 @@ final class StudioModel: ObservableObject {
         self.sampleFolderLoader = sampleFolderLoader
         kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
         sampleRoots = (defaults.stringArray(forKey: "library.sampleRoots") ?? []).map { URL(fileURLWithPath: $0) }
-        let center = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
-            volumeObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.scheduleVolumeRefresh() }
-            })
+        volumeObservation = WorkspaceMountObservation(center: NSWorkspace.shared.notificationCenter,
+            names: [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification]) { [weak self] _ in
+            Task { @MainActor in self?.scheduleVolumeRefresh() }
         }
     }
 
     deinit {
         volumeRefreshTask?.cancel()
-        for observer in volumeObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        dropTask?.cancel()
+        dropResolution?.cancel()
     }
 
     var documentLocked: Bool { busy || awaitingDiscardConfirmation || filePanelPresented || awaitingKitTrashConfirmation }
@@ -487,12 +538,14 @@ final class StudioModel: ObservableObject {
         status = "Ouverture de \(url.lastPathComponent)…"
         Task {
             do {
-                let loaded = try await Task.detached(priority: .userInitiated) {
-                    try KitLoader.load(programURL: url)
+                let (loaded, reports) = try await Task.detached(priority: .userInitiated) {
+                    let loaded = try KitLoader.load(programURL: url)
+                    return (loaded, loaded.sounds.mapValues(\.pcm16RangeReport))
                 }.value
                 guard token == self.generation else { return }
                 self.program = loaded.program
                 self.sounds = loaded.sounds
+                self.audioRangeReports = reports
                 self.missing = loaded.missing
                 self.programURL = url
                 self.lastExportURL = nil
@@ -528,6 +581,7 @@ final class StudioModel: ObservableObject {
         stop()
         program = MPCProgram.blank(name: "NEWKIT")
         sounds = [:]
+        audioRangeReports = [:]
         missing = []
         kitName = "NEWKIT"
         programURL = nil
@@ -598,50 +652,58 @@ final class StudioModel: ObservableObject {
         stop()
         // Reserve the entire operation before provider resolution can suspend.
         busy = true
+        resolvingDroppedFiles = true
         errorMessage = nil
         status = "Lecture des fichiers déposés…"
-        Task {
+        dropTask = Task {
             do {
                 var urls: [URL] = []
                 for (index, provider) in accepted.enumerated() {
-                    let url = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
-                        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
-                            let prefix = "Impossible de lire le fichier déposé \(index + 1)."
-                            if let error {
-                                continuation.resume(throwing: StudioError.message("\(prefix) \(error.localizedDescription)"))
-                                return
-                            }
-                            let url: URL?
-                            if let data = item as? Data {
-                                url = URL(dataRepresentation: data, relativeTo: nil)
-                            } else {
-                                url = item as? URL
-                            }
-                            guard let url, url.isFileURL else {
-                                continuation.resume(throwing: StudioError.message(prefix))
-                                return
-                            }
-                            continuation.resume(returning: url)
-                        }
-                    }
+                    try Task.checkCancellation()
+                    let resolution = ItemProviderResolution()
+                    self.dropResolution = resolution
+                    let url = try await resolution.resolve(provider, index: index)
+                    guard token == self.generation else { return }
+                    self.dropResolution = nil
                     urls.append(url)
                 }
                 guard token == self.generation else { return }
+                self.resolvingDroppedFiles = false
                 await self.importResolvedURLs(urls, atPad: onPad, token: token)
+                self.dropTask = nil
             } catch {
                 guard token == self.generation else { return }
+                self.dropResolution = nil
+                self.dropTask = nil
+                self.resolvingDroppedFiles = false
                 self.busy = false
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = error is CancellationError ? nil : error.localizedDescription
                 self.status = "Import interrompu ; le kit est conservé."
             }
         }
         return true
     }
 
-    struct PreparedImport {
+    /// Only the provider phase is cancellable; once decoding starts, the bounded
+    /// batch finishes atomically. No source or document is changed by cancellation.
+    func cancelDroppedFiles() {
+        guard resolvingDroppedFiles else { return }
+        generation += 1
+        dropTask?.cancel()
+        dropResolution?.cancel()
+        dropTask = nil
+        dropResolution = nil
+        resolvingDroppedFiles = false
+        busy = false
+        errorMessage = nil
+        status = "Dépôt annulé ; le kit et ses modifications sont conservés."
+    }
+
+    struct PreparedImport: Sendable {
         let program: MPCProgram
         let sounds: [Int: MPCSound]
         let importedCount: Int
+        let rangeReports: [Int: PCM16RangeReport]
     }
 
     /// Prepare the complete batch on copies; the model commits it only after every file succeeds.
@@ -699,7 +761,8 @@ final class StudioModel: ObservableObject {
             let currentReferences = updated.referencedSlots
             pool = pool.filter { currentReferences.contains($0.key) }
         }
-        return PreparedImport(program: updated, sounds: pool, importedCount: urls.count)
+        return PreparedImport(program: updated, sounds: pool, importedCount: urls.count,
+                              rangeReports: pool.mapValues(\.pcm16RangeReport))
     }
 
     @discardableResult
@@ -725,10 +788,11 @@ final class StudioModel: ObservableObject {
             guard token == self.generation else { return }
             self.program = prepared.program
             self.sounds = prepared.sounds
+            self.audioRangeReports = prepared.rangeReports
             self.busy = false
             self.isDirty = true
             self.selectPad(atPad)
-            self.status = "\(prepared.importedCount) sample(s) importé(s)."
+            self.status = self.exportAudioIssue ?? "\(prepared.importedCount) sample(s) importé(s)."
         } catch {
             guard token == self.generation else { return }
             self.busy = false
@@ -740,6 +804,7 @@ final class StudioModel: ObservableObject {
     func setKitName(_ value: String) {
         guard !documentLocked, value != kitName else { return }
         kitName = value
+        program?.name = value
         isDirty = true
     }
 
@@ -749,7 +814,7 @@ final class StudioModel: ObservableObject {
         sample.name = name
         updated.setSound(slot: slot, name: name, wordCount: sample.frameCount * sample.channels.count)
         program = updated
-        replaceSelected(sample)
+        replaceSelected(sample, updateRangeReport: false)
     }
 
     func setTrim(start: Int, end: Int) {
@@ -757,7 +822,7 @@ final class StudioModel: ObservableObject {
         let lo = min(max(0, start), max(0, sample.frameCount - 1))
         sample.start = lo
         sample.end = min(sample.frameCount, max(lo + 1, end))
-        replaceSelected(sample)
+        replaceSelected(sample, updateRangeReport: false)
     }
 
     func transform(_ kind: String) {
@@ -790,9 +855,10 @@ final class StudioModel: ObservableObject {
         isDirty = true
     }
 
-    private func replaceSelected(_ sample: MPCSound) {
+    private func replaceSelected(_ sample: MPCSound, updateRangeReport: Bool = true) {
         guard let program, let slot = program.slot(forNote: program.midiNote(forPad: selectedPad)) else { return }
         sounds[slot] = sample
+        if updateRangeReport { audioRangeReports[slot] = sample.pcm16RangeReport }
         sound = sample
         isDirty = true
     }
@@ -859,8 +925,12 @@ final class StudioModel: ObservableObject {
 
     @discardableResult
     func exportKit(to destination: URL, expectedDestination: ExportDestination? = nil) -> Task<Void, Never>? {
-        guard !documentActionsDisabled, var program else { return nil }
-        program.name = kitName
+        guard !documentActionsDisabled, let program else { return nil }
+        if let issue = exportAudioIssue {
+            errorMessage = issue
+            status = "L’export attend ta décision sur le niveau des samples ; le kit est conservé."
+            return nil
+        }
         let exportProgram = program
         let pool = sounds
         let name = kitName
@@ -923,6 +993,7 @@ final class StudioModel: ObservableObject {
         updated.assign(slot: nil, toNote: note)
         if let oldSlot, !updated.referencedSlots.contains(oldSlot) {
             sounds.removeValue(forKey: oldSlot)
+            audioRangeReports.removeValue(forKey: oldSlot)
             updated.setSound(slot: oldSlot, name: "", wordCount: 0)
         }
         program = updated
