@@ -1,7 +1,8 @@
 import AppKit
 import Combine
 import Foundation
-import MPCCore
+import Darwin
+@testable import MPCCore
 import UniformTypeIdentifiers
 import XCTest
 @testable import KitStudio
@@ -217,7 +218,7 @@ final class LibraryModelTests: XCTestCase {
     @MainActor
     func testExportCollisionReportsActualCopyWhilePreservingLoadedOrigin() async throws {
         let source = try directory("Origin")
-        let destination = try directory("MPC-PART--S")
+        let destination = try directory("LocalDestination")
         let sourceURL = try kit(in: source)
         let sourceBytes = try Data(contentsOf: sourceURL)
         let originalSoundURL = source.appendingPathComponent("ORIGINAL.SND")
@@ -240,7 +241,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertFalse(model.isDirty)
         XCTAssertFalse(model.busy)
         XCTAssertNil(model.errorMessage)
-        XCTAssertTrue(model.kitLocationLabel.contains("PART S"))
+        XCTAssertTrue(model.kitLocationLabel.contains("LocalDestination"))
         XCTAssertTrue(model.kitLocationLabel.contains("SOULKIT1.PGM"))
         XCTAssertEqual(try Data(contentsOf: collisionURL), collisionBytes)
         XCTAssertEqual(try Data(contentsOf: sourceURL), sourceBytes)
@@ -251,7 +252,7 @@ final class LibraryModelTests: XCTestCase {
     @MainActor
     func testFailedExportPreservesDirtyDocumentAndLastSuccessfulLocation() async throws {
         let folder = try directory("Source")
-        let destination = try directory("MPC-PART--S")
+        let destination = try directory("LocalDestination")
         let sample = try nativeSound("KICK", in: folder)
         let model = try testModel()
         await model.importURLs([sample], atPad: 0)?.value
@@ -540,6 +541,21 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertFalse(model.isDirty)
     }
 
+
+    private func fixtureMountedReceipt(_ url: URL) throws -> ExportDestination {
+        let resolved = try XCTUnwrap(url.path.withCString { realpath($0, nil) })
+        defer { free(resolved) }
+        let canonical = URL(fileURLWithPath: String(cString: resolved), isDirectory: true)
+        var info = stat()
+        XCTAssertEqual(canonical.path.withCString { lstat($0, &info) }, 0)
+        let occupied = Int64(info.st_blocks) * 512
+        let environment = ExportDestination.Environment(
+            mount: { _ in .init(filesystem: "msdos", identifier: "fixture", mountedFrom: "fixture", mountPoint: canonical) },
+            fatUsage: { _ in .init(allocationUnitBytes: 8192, occupiedBytes: occupied) }
+        )
+        return try ExportDestination.capture(at: url, environment: environment)
+    }
+
     @MainActor
     func testAutomaticExportRecommendationRequiresAnEmptyPartWithKnownSufficientSpace() async throws {
         let folder = try directory("Source")
@@ -550,21 +566,26 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertGreaterThan(required, model.estimatedExportBytes,
                              "Allocation and directory overhead must be reserved in addition to file bytes.")
         func part(_ letter: String, files: Int = 0, folders: Int = 0, audio: Int = 0,
-                  issues: [String] = [], available: Int64?) -> LibraryPartition {
-            LibraryPartition(url: folder.appendingPathComponent("MPC-PART--" + letter), letter: letter,
-                             kits: [], fileCount: files, folderCount: folders, audioCount: audio,
-                             sequenceCount: 0, issues: issues, availableBytes: available)
+                  issues: [String] = [], available: Int64?, verifiedMount: Bool = true) throws -> LibraryPartition {
+            let url = folder.appendingPathComponent("MPC-PART--" + letter, isDirectory: true)
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+            let receipt = verifiedMount ? try fixtureMountedReceipt(url) : nil
+            return LibraryPartition(url: url, letter: letter,
+                                    kits: [], fileCount: files, folderCount: folders, audioCount: audio,
+                                    sequenceCount: 0, issues: issues, availableBytes: available,
+                                    exportDestination: receipt)
         }
-        let occupiedWithSamplesOnly = part("A", files: 1, audio: 1, available: required * 2)
-        let occupiedWithUnknownFile = part("B", files: 1, available: required * 2)
-        let occupiedWithFolder = part("C", folders: 1, available: required * 2)
-        let incompleteScan = part("D", issues: ["Read incomplete"], available: required * 2)
-        let tooSmall = part("E", available: required - 1)
-        let unknownSpace = part("F", available: nil)
-        let exactFit = part("S", available: required)
-        let larger = part("Z", available: required * 2)
+        let occupiedWithSamplesOnly = try part("A", files: 1, audio: 1, available: required * 2)
+        let occupiedWithUnknownFile = try part("B", files: 1, available: required * 2)
+        let occupiedWithFolder = try part("C", folders: 1, available: required * 2)
+        let incompleteScan = try part("D", issues: ["Read incomplete"], available: required * 2)
+        let tooSmall = try part("E", available: required - 1)
+        let unknownSpace = try part("F", available: nil)
+        let exactFit = try part("S", available: required)
+        let larger = try part("Z", available: required * 2)
+        let unverifiedMount = try part("G", available: required * 2, verifiedMount: false)
         let unsuitable = [occupiedWithSamplesOnly, occupiedWithUnknownFile, occupiedWithFolder,
-                          incompleteScan, tooSmall, unknownSpace]
+                          incompleteScan, tooSmall, unknownSpace, unverifiedMount]
         model.partitions = unsuitable + [exactFit, larger]
         model.exportDestinationURL = folder
 
@@ -572,6 +593,8 @@ final class LibraryModelTests: XCTestCase {
         model.exportKit()
 
         XCTAssertEqual(model.exportDestinationURL, exactFit.url)
+        XCTAssertTrue(model.exportDestinationReceipt?.requireEmpty == true,
+                      "The original proposal identity must remain coupled to a fresh empty check at write time.")
         XCTAssertTrue(model.showExportSheet, "A recommended destination still requires the export review sheet.")
         XCTAssertTrue(model.isDirty)
         XCTAssertFalse(model.busy)
@@ -602,6 +625,73 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertEqual(model.filteredKits, [first])
         model.showAllKits()
         XCTAssertEqual(model.filteredKits, [first, second])
+    }
+
+    @MainActor
+    func testExportSheetCarriesSelectedFolderIdentityAndRefusesAReplacementBeforeAnyWrite() async throws {
+        let source = try directory("Source")
+        let destination = try directory("LocalDestination")
+        let original = destination.appendingPathComponent("KEEP.SND")
+        let originalBytes = Data("preserve the selected folder".utf8)
+        try originalBytes.write(to: original)
+        let sample = try nativeSound("KICK", in: source)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        model.exportKit()
+        model.selectExportFolder(destination)
+        XCTAssertNotNil(model.exportDestinationReceipt)
+        XCTAssertNil(model.exportDestinationIssue)
+        let displaced = destination.deletingLastPathComponent().appendingPathComponent("OriginalDestination")
+        try FileManager.default.moveItem(at: destination, to: displaced)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
+        let finished = expectation(description: "Stale selected destination refused")
+        let observation = model.$busy.dropFirst().filter { !$0 }.sink { _ in finished.fulfill() }
+
+        model.exportKitToDestination()
+        await fulfillment(of: [finished], timeout: 3)
+        observation.cancel()
+
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertNil(model.lastExportURL)
+        XCTAssertTrue(model.isDirty)
+        XCTAssertEqual(model.padName(0), "KICK")
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: destination.path).isEmpty)
+        XCTAssertEqual(try Data(contentsOf: displaced.appendingPathComponent("KEEP.SND")), originalBytes)
+    }
+
+    @MainActor
+    func testManualPartSelectionRefusesUnverifiedSnapshotsAndLocksAPreviouslyEmptyChoice() async throws {
+        let source = try directory("Source")
+        let local = try directory("LocalDestination")
+        let partURL = try directory("MPC-PART--S")
+        let receipt = try fixtureMountedReceipt(partURL)
+        let empty = LibraryPartition(url: partURL, letter: "S", kits: [], fileCount: 0, folderCount: 0,
+                                     audioCount: 0, sequenceCount: 0, issues: [], availableBytes: 8_000_000,
+                                     exportDestination: receipt)
+        let suspect = LibraryPartition(url: partURL, letter: "S", kits: [], fileCount: 0, folderCount: 0,
+                                       audioCount: 0, sequenceCount: 0, issues: ["FAT inventory incomplete"],
+                                       availableBytes: 8_000_000, exportDestination: receipt)
+        let sample = try nativeSound("KICK", in: source)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        model.exportKit()
+        model.selectExportFolder(local)
+        let originalReceipt = model.exportDestinationReceipt
+
+        model.selectExportPartition(suspect)
+        XCTAssertEqual(model.exportDestinationURL, local)
+        XCTAssertEqual(model.exportDestinationReceipt, originalReceipt)
+        model.selectExportPartition(empty)
+        XCTAssertEqual(model.exportDestinationURL, partURL)
+        XCTAssertTrue(model.exportDestinationReceipt?.requireEmpty == true)
+        model.partitions = [suspect]
+        XCTAssertNotNil(model.exportDestinationIssue)
+        model.exportKitToDestination()
+
+        XCTAssertTrue(model.showExportSheet)
+        XCTAssertFalse(model.busy)
+        XCTAssertNil(model.lastExportURL)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: partURL.path).isEmpty)
     }
 }
 

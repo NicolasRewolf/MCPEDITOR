@@ -41,8 +41,10 @@ final class StudioModel: ObservableObject {
     @Published var lastExportURL: URL?
     @Published private(set) var awaitingDiscardConfirmation = false
     @Published private(set) var filePanelPresented = false
+    @Published private(set) var awaitingKitTrashConfirmation = false
     @Published var showExportSheet = false
     @Published var exportDestinationURL: URL?
+    @Published private(set) var exportDestinationReceipt: ExportDestination?
 
     private var kitFolders: [URL] = []
     private var libraryGeneration = 0
@@ -53,7 +55,10 @@ final class StudioModel: ObservableObject {
     private var libraryTask: Task<Void, Never>?
     private var refreshPending = false
     typealias DiscardPresenter = (@escaping (Bool) -> Void) -> Void
+    typealias TrashPresenter = (KitTrash.Prepared, @escaping (Bool) -> Void) -> Void
     private let discardPresenter: DiscardPresenter?
+    private let trashPresenter: TrashPresenter?
+    private let trashOperation: KitTrash.Operation
     private let preferences: UserDefaults
     private let volumeProvider: () -> [URL]
     private let sampleFolderLoader: @Sendable (URL) -> LibraryFolderListing
@@ -81,6 +86,8 @@ final class StudioModel: ObservableObject {
 
     init(defaults: UserDefaults = .standard,
          discardPresenter: DiscardPresenter? = nil,
+         trashPresenter: TrashPresenter? = nil,
+         trashOperation: @escaping KitTrash.Operation = { try KitTrash.systemTrash($0) },
          volumeProvider: @escaping () -> [URL] = {
              FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil,
                                                   options: [.skipHiddenVolumes]) ?? []
@@ -88,6 +95,8 @@ final class StudioModel: ObservableObject {
          sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) }) {
         preferences = defaults
         self.discardPresenter = discardPresenter
+        self.trashPresenter = trashPresenter
+        self.trashOperation = trashOperation
         self.volumeProvider = volumeProvider
         self.sampleFolderLoader = sampleFolderLoader
         kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
@@ -105,7 +114,7 @@ final class StudioModel: ObservableObject {
         for observer in volumeObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
     }
 
-    var documentLocked: Bool { busy || awaitingDiscardConfirmation || filePanelPresented }
+    var documentLocked: Bool { busy || awaitingDiscardConfirmation || filePanelPresented || awaitingKitTrashConfirmation }
     var documentActionsDisabled: Bool { documentLocked || showExportSheet }
 
     var filteredKits: [LibraryKit] {
@@ -163,7 +172,7 @@ final class StudioModel: ObservableObject {
         if let url = programURL {
             return "\(isDirty ? "Modifié en mémoire" : "Ouvert") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
         }
-        return "Nouveau kit · non exporté"
+        return "Kit en mémoire · non enregistré"
     }
 
     var kitLocationPath: String { (lastExportURL ?? programURL)?.path ?? "" }
@@ -172,8 +181,86 @@ final class StudioModel: ObservableObject {
         return LibraryIndex.partitionLetter(for: destination).map { "PART \($0)" } ?? destination.lastPathComponent
     }
 
+    var exportDestinationIssue: String? {
+        guard let destination = exportDestinationURL else { return nil }
+        if let part = partitions.first(where: { $0.url == destination.standardizedFileURL }), !part.issues.isEmpty {
+            return "Cette PART doit être vérifiée avant l’enregistrement. Actualise la bibliothèque."
+        }
+        guard exportDestinationReceipt?.url.standardizedFileURL == destination.standardizedFileURL else {
+            return "Choisis à nouveau la destination pour vérifier son emplacement."
+        }
+        return nil
+    }
+
     func revealKitLocation() {
         if let url = lastExportURL ?? programURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+    }
+
+    /// A kit is a program. Its samples and sequences remain independent on disk.
+    @discardableResult
+    func requestTrashKit(_ kit: LibraryKit) -> Task<Void, Never>? {
+        guard !documentActionsDisabled else { return nil }
+        awaitingKitTrashConfirmation = true
+        stop()
+        errorMessage = nil
+        return Task {
+            do {
+                let prepared = try await Task.detached(priority: .userInitiated) {
+                    try KitTrash.prepare(kit.url)
+                }.value
+                let confirmation: (Bool) -> Void = { [weak self] approved in
+                    guard let self, self.awaitingKitTrashConfirmation else { return }
+                    if approved { self.moveConfirmedKitToTrash(prepared) }
+                    else { self.awaitingKitTrashConfirmation = false }
+                }
+                if let trashPresenter = self.trashPresenter {
+                    trashPresenter(prepared, confirmation)
+                    return
+                }
+                let alert = NSAlert()
+                alert.messageText = "Mettre \(prepared.url.lastPathComponent) à la corbeille ?"
+                alert.informativeText = "Ce kit est le programme .PGM situé ici :\n\(prepared.url.path)\n\nLes samples .SND et les séquences .SEQ restent sur le disque. Cette action libère très peu d’espace. Le kit ouvert reste en mémoire ; tu peux l’enregistrer à nouveau."
+                alert.addButton(withTitle: "Mettre à la corbeille")
+                alert.addButton(withTitle: "Annuler")
+                alert.buttons.first?.hasDestructiveAction = true
+                let finish: (NSApplication.ModalResponse) -> Void = { response in
+                    confirmation(response == .alertFirstButtonReturn)
+                }
+                if let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeKey }) {
+                    alert.beginSheetModal(for: window, completionHandler: finish)
+                } else { finish(alert.runModal()) }
+            } catch {
+                self.awaitingKitTrashConfirmation = false
+                self.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func moveConfirmedKitToTrash(_ prepared: KitTrash.Prepared) {
+        busy = true
+        awaitingKitTrashConfirmation = false
+        let operation = trashOperation
+        Task {
+            do {
+                _ = try await Task.detached(priority: .userInitiated) {
+                    try KitTrash.move(prepared, operation: operation)
+                }.value
+                let deletedURL = prepared.url.standardizedFileURL
+                let wasCurrent = (self.lastExportURL ?? self.programURL)?.standardizedFileURL == deletedURL
+                if self.programURL?.standardizedFileURL == deletedURL { self.programURL = nil }
+                if self.lastExportURL?.standardizedFileURL == deletedURL { self.lastExportURL = nil }
+                if wasCurrent { self.isDirty = true }
+                self.libraryKits.removeAll { $0.url == deletedURL }
+                self.programs.removeAll { $0.standardizedFileURL == deletedURL }
+                self.busy = false
+                self.status = "\(deletedURL.lastPathComponent) mis à la corbeille. Les samples et les séquences sont conservés."
+                self.refreshLocations()
+            } catch {
+                self.busy = false
+                self.errorMessage = error.localizedDescription
+                self.status = "La mise à la corbeille n’a pas abouti ; le kit en mémoire est conservé."
+            }
+        }
     }
 
     private func scheduleVolumeRefresh() {
@@ -193,18 +280,28 @@ final class StudioModel: ObservableObject {
         }
         libraryGeneration += 1
         let token = libraryGeneration
-        let mounted = volumeProvider()
+        let mounted = Set(volumeProvider().map(\.standardizedFileURL))
         // Retain known PARTs after disconnection, with an explicit unavailable scan.
-        let partURLs = Array(Set(mounted.filter { LibraryIndex.partitionLetter(for: $0) != nil } + partitions.map(\.url)))
+        let partURLs = Array(Set(mounted.filter { LibraryIndex.partitionLetter(for: $0) != nil }).union(partitions.map(\.url)))
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
         let folders = kitFolders
         libraryScanning = true
         let task = Task {
             let result = await Task.detached(priority: .utility) {
-                let parts = partURLs.map { LibraryIndex.scanPartition($0) }
+                let parts = partURLs.map { url in
+                    guard mounted.contains(url) else {
+                        return LibraryPartition(url: url, letter: LibraryIndex.partitionLetter(for: url) ?? url.lastPathComponent,
+                                                kits: [], fileCount: 0, folderCount: 0, audioCount: 0,
+                                                sequenceCount: 0, issues: ["Cette PART n’est plus montée. Rebranche la SD puis actualise."],
+                                                availableBytes: nil)
+                    }
+                    return LibraryIndex.scanPartition(url)
+                }
                 var kits = parts.flatMap(\.kits)
                 var issues = parts.flatMap(\.issues)
                 for folder in folders {
+                    if let part = partURLs.first(where: { folder.pathComponents.starts(with: $0.pathComponents) }),
+                       !mounted.contains(part) { continue }
                     do { kits += try LibraryIndex.scanKits(in: folder) }
                     catch { issues.append(error.localizedDescription) }
                 }
@@ -284,6 +381,16 @@ final class StudioModel: ObservableObject {
     func browseSamplesFolder(_ url: URL) -> Task<Void, Never>? {
         guard let root = selectedSampleRoot?.standardizedFileURL else { return nil }
         let folder = url.standardizedFileURL
+        if let part = partitions.first(where: { folder.pathComponents.starts(with: $0.url.pathComponents) }),
+           !Set(volumeProvider().map(\.standardizedFileURL)).contains(part.url) {
+            sampleBrowseGeneration += 1
+            stop()
+            sampleFolder = folder
+            selectedSampleURL = nil
+            sampleListing = LibraryFolderListing(folders: [], samples: [], issue: "Cette PART n’est plus montée. Rebranche la SD puis actualise.")
+            samplePreviewStatus = "PART indisponible."
+            return nil
+        }
         guard folder.pathComponents.starts(with: root.pathComponents),
               folder.resolvingSymlinksInPath().pathComponents.starts(with: root.resolvingSymlinksInPath().pathComponents) else { return nil }
         sampleBrowseGeneration += 1
@@ -699,13 +806,34 @@ final class StudioModel: ObservableObject {
     }
 
     var recommendedSDPartition: LibraryPartition? {
-        partitions.first { $0.isEmpty && ($0.availableBytes ?? -1) >= requiredExportFreeBytes(in: $0) }
+        partitions.first {
+            $0.isEmpty && $0.exportDestination?.isMountedMPCPartition == true &&
+            ($0.availableBytes ?? -1) >= requiredExportFreeBytes(in: $0)
+        }
     }
 
     func exportKit() {
         guard !documentActionsDisabled, program != nil else { return }
-        exportDestinationURL = recommendedSDPartition?.url
+        let recommended = recommendedSDPartition
+        exportDestinationURL = recommended?.url
+        exportDestinationReceipt = recommended?.exportDestination?.requiringEmpty()
         showExportSheet = true
+    }
+
+    func selectExportPartition(_ partition: LibraryPartition) {
+        guard !documentLocked, partition.issues.isEmpty,
+              let receipt = partition.exportDestination, receipt.isMountedMPCPartition else { return }
+        exportDestinationURL = partition.url
+        exportDestinationReceipt = partition.isEmpty ? receipt.requiringEmpty() : receipt
+    }
+
+    func selectExportFolder(_ url: URL) {
+        guard !documentLocked else { return }
+        do {
+            let receipt = try ExportDestination.capture(at: url)
+            exportDestinationURL = url.standardizedFileURL
+            exportDestinationReceipt = receipt
+        } catch { errorMessage = error.localizedDescription }
     }
 
     func chooseExportFolder() {
@@ -718,18 +846,19 @@ final class StudioModel: ObservableObject {
         panel.canCreateDirectories = false
         panel.directoryURL = exportDestinationURL
         presentFilePanel(panel) { [weak self] response in
-            if response == .OK { self?.exportDestinationURL = panel.url }
+            if response == .OK, let url = panel.url { self?.selectExportFolder(url) }
         }
     }
 
     func exportKitToDestination() {
-        guard !documentLocked, let destination = exportDestinationURL else { return }
+        guard !documentLocked, let destination = exportDestinationURL,
+              let receipt = exportDestinationReceipt, exportDestinationIssue == nil else { return }
         showExportSheet = false
-        exportKit(to: destination)
+        exportKit(to: destination, expectedDestination: receipt)
     }
 
     @discardableResult
-    func exportKit(to destination: URL) -> Task<Void, Never>? {
+    func exportKit(to destination: URL, expectedDestination: ExportDestination? = nil) -> Task<Void, Never>? {
         guard !documentActionsDisabled, var program else { return nil }
         program.name = kitName
         let exportProgram = program
@@ -744,7 +873,8 @@ final class StudioModel: ObservableObject {
         return Task {
             do {
                 let output = try await Task.detached(priority: .userInitiated) {
-                    return try KitExport.export(program: exportProgram, sounds: pool, name: name, to: destination)
+                    return try KitExport.export(program: exportProgram, sounds: pool, name: name, to: destination,
+                                                expectedDestination: expectedDestination)
                 }.value
                 self.busy = false
                 self.isDirty = false
@@ -770,12 +900,16 @@ final class StudioModel: ObservableObject {
     private func presentFilePanel(_ panel: NSOpenPanel,
                                   completion: @escaping (NSApplication.ModalResponse) -> Void) {
         guard !documentLocked else { return }
+        // The save dialog is already a sheet. Present its folder picker on the
+        // active leaf rather than queueing another sheet behind the main window.
+        var host = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeKey })
+        while let attached = host?.attachedSheet { host = attached }
         filePanelPresented = true
         let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             self?.filePanelPresented = false
             completion(response)
         }
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeKey }) {
+        if let window = host {
             panel.beginSheetModal(for: window, completionHandler: finish)
         } else {
             panel.begin(completionHandler: finish)

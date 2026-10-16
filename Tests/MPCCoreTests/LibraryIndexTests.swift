@@ -8,6 +8,14 @@ import Glibc
 #endif
 
 final class LibraryIndexTests: XCTestCase {
+    // These index fixtures are local directories, not mounted MPC cards. Exercise the
+    // read-only index and its FAT seam separately from production destination eligibility.
+    private func scanPartition(_ url: URL, maximumDepth: Int = 8, maximumEntries: Int = 50_000,
+                               fatVolumeProbe: @escaping (Int32) throws -> LibraryIndex.FATVolumeUsage? = { _ in nil }) -> LibraryPartition {
+        LibraryIndex.scanPartition(url, maximumDepth: maximumDepth, maximumEntries: maximumEntries,
+                                   fatVolumeProbe: fatVolumeProbe)
+    }
+
     private func directory(named name: String = "Library") throws -> URL {
         let container = FileManager.default.temporaryDirectory
             .appendingPathComponent("LibraryIndexTests-" + UUID().uuidString)
@@ -40,7 +48,7 @@ final class LibraryIndexTests: XCTestCase {
         try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: false)
         _ = try file("KIT.PGM", in: hidden)
 
-        let part = LibraryIndex.scanPartition(folder)
+        let part = scanPartition(folder)
         XCTAssertEqual(part.letter, "Z")
         XCTAssertTrue(part.isEmpty)
         XCTAssertEqual(part.fileCount, 0)
@@ -60,7 +68,7 @@ final class LibraryIndexTests: XCTestCase {
         let kit = try file("NESTED.pgm", in: nested)
         _ = try file("SNARE.WAV", in: nested)
 
-        let part = LibraryIndex.scanPartition(folder)
+        let part = scanPartition(folder)
         XCTAssertFalse(part.isEmpty)
         XCTAssertTrue(part.issues.isEmpty)
         XCTAssertEqual(part.fileCount, 6)
@@ -78,8 +86,8 @@ final class LibraryIndexTests: XCTestCase {
         let second = try directory(named: "MPC-PART--B")
         _ = try file("KIT.PGM", in: first)
         _ = try file("KIT.PGM", in: second)
-        let a = try XCTUnwrap(LibraryIndex.scanPartition(first).kits.first)
-        let b = try XCTUnwrap(LibraryIndex.scanPartition(second).kits.first)
+        let a = try XCTUnwrap(scanPartition(first).kits.first)
+        let b = try XCTUnwrap(scanPartition(second).kits.first)
         XCTAssertEqual(a.title, b.title)
         XCTAssertNotEqual(a.id, b.id)
         XCTAssertEqual(a.locationLabel, "PART A")
@@ -113,14 +121,14 @@ final class LibraryIndexTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("LinkedFolder"), withDestinationURL: external)
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("LINK.PGM"), withDestinationURL: outsideKit)
 
-        let part = LibraryIndex.scanPartition(folder)
+        let part = scanPartition(folder)
         XCTAssertFalse(part.isEmpty)
         XCTAssertEqual(part.fileCount, 2)
         XCTAssertTrue(part.kits.isEmpty)
         XCTAssertTrue(part.issues.isEmpty)
         XCTAssertTrue(LibraryIndex.listSamples(in: folder).folders.isEmpty)
         let linkedRoot = folder.appendingPathComponent("LinkedFolder")
-        XCTAssertFalse(LibraryIndex.scanPartition(linkedRoot).isEmpty)
+        XCTAssertFalse(scanPartition(linkedRoot).isEmpty)
         XCTAssertThrowsError(try LibraryIndex.scanKits(in: linkedRoot))
     }
 
@@ -131,7 +139,7 @@ final class LibraryIndexTests: XCTestCase {
         try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: false)
         _ = try file("DEEP.PGM", in: nested)
 
-        let part = LibraryIndex.scanPartition(folder, maximumDepth: 0)
+        let part = scanPartition(folder, maximumDepth: 0)
         XCTAssertEqual(part.kits.map(\.url), [direct])
         XCTAssertFalse(part.issues.isEmpty)
         XCTAssertFalse(part.isEmpty)
@@ -141,7 +149,7 @@ final class LibraryIndexTests: XCTestCase {
     func testEntryLimitReportsPartialScanAndBoundsProcessedEntries() throws {
         let folder = try directory()
         for number in 0..<4 { _ = try file("\(number).PGM", in: folder) }
-        let part = LibraryIndex.scanPartition(folder, maximumEntries: 2)
+        let part = scanPartition(folder, maximumEntries: 2)
         XCTAssertEqual(part.fileCount, 2)
         XCTAssertEqual(part.kits.count, 2)
         XCTAssertFalse(part.issues.isEmpty)
@@ -155,7 +163,7 @@ final class LibraryIndexTests: XCTestCase {
         let regular = try file("REGULAR", in: folder)
         let missing = folder.appendingPathComponent("Missing")
         for root in [missing, regular] {
-            let part = LibraryIndex.scanPartition(root)
+            let part = scanPartition(root)
             XCTAssertFalse(part.isEmpty)
             XCTAssertFalse(part.issues.isEmpty)
             XCTAssertThrowsError(try LibraryIndex.scanKits(in: root))
@@ -165,9 +173,9 @@ final class LibraryIndexTests: XCTestCase {
 
     func testRescanAfterRootDisappearsDoesNotReuseAnEmptySnapshot() throws {
         let folder = try directory()
-        XCTAssertTrue(LibraryIndex.scanPartition(folder).isEmpty)
+        XCTAssertTrue(scanPartition(folder).isEmpty)
         try FileManager.default.removeItem(at: folder)
-        let disconnected = LibraryIndex.scanPartition(folder)
+        let disconnected = scanPartition(folder)
         XCTAssertFalse(disconnected.isEmpty)
         XCTAssertFalse(disconnected.issues.isEmpty)
         XCTAssertNil(disconnected.availableBytes)
@@ -180,7 +188,7 @@ final class LibraryIndexTests: XCTestCase {
         guard !FileManager.default.isReadableFile(atPath: folder.path) else {
             throw XCTSkip("This test process can read directories despite permission bits.")
         }
-        let part = LibraryIndex.scanPartition(folder)
+        let part = scanPartition(folder)
         XCTAssertFalse(part.isEmpty)
         XCTAssertFalse(part.issues.isEmpty)
         XCTAssertThrowsError(try LibraryIndex.scanKits(in: folder))
@@ -197,7 +205,7 @@ final class LibraryIndexTests: XCTestCase {
     func testApparentlyEmptyFATWithUnexplainedOccupiedClustersIsNotEmpty() throws {
         let folder = try directory(named: "MPC-PART--A")
         let known = try allocatedBytes(at: folder)
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             .init(allocationUnitBytes: 8192, occupiedBytes: known + 6_103_040)
         })
         XCTAssertEqual(part.fileCount, 0)
@@ -212,7 +220,7 @@ final class LibraryIndexTests: XCTestCase {
         try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: false)
         let log = try file("events", in: hidden)
         let known = try [folder, hidden, log].reduce(Int64(0)) { try $0 + allocatedBytes(at: $1) }
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             .init(allocationUnitBytes: 8192, occupiedBytes: known)
         })
         XCTAssertTrue(part.isEmpty)
@@ -224,7 +232,7 @@ final class LibraryIndexTests: XCTestCase {
     func testEmptyFATHasNoAllowanceForAnUnexplainedAllocationUnit() throws {
         let folder = try directory()
         let known = try allocatedBytes(at: folder)
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             .init(allocationUnitBytes: 8192, occupiedBytes: known + 8192)
         })
         XCTAssertFalse(part.isEmpty)
@@ -233,7 +241,7 @@ final class LibraryIndexTests: XCTestCase {
 
     func testFATProbeFailurePreventsEmptyClaim() throws {
         let folder = try directory()
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
         })
         XCTAssertFalse(part.isEmpty)
@@ -245,7 +253,7 @@ final class LibraryIndexTests: XCTestCase {
         let native = folder.appendingPathComponent("EXISTING.SND")
         let bytes = Data([1, 2, 3])
         var calls = 0
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             calls += 1
             // The initial Foundation scan was empty; the independent native inventory must disagree.
             if calls == 1 { try bytes.write(to: native) }
@@ -262,7 +270,7 @@ final class LibraryIndexTests: XCTestCase {
         let outside = try directory(named: "Outside")
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent(".linked"),
                                                  withDestinationURL: outside)
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             .init(allocationUnitBytes: 8192, occupiedBytes: 0)
         })
         XCTAssertFalse(part.isEmpty)
@@ -278,8 +286,8 @@ final class LibraryIndexTests: XCTestCase {
         let probe: (Int32) throws -> LibraryIndex.FATVolumeUsage? = { _ in
             .init(allocationUnitBytes: 8192, occupiedBytes: 0)
         }
-        let shallow = LibraryIndex.scanPartition(folder, maximumDepth: 0, fatVolumeProbe: probe)
-        let truncated = LibraryIndex.scanPartition(folder, maximumEntries: 1, fatVolumeProbe: probe)
+        let shallow = scanPartition(folder, maximumDepth: 0, fatVolumeProbe: probe)
+        let truncated = scanPartition(folder, maximumEntries: 1, fatVolumeProbe: probe)
         XCTAssertFalse(shallow.isEmpty)
         XCTAssertFalse(truncated.isEmpty)
         XCTAssertFalse(shallow.issues.isEmpty)
@@ -290,7 +298,7 @@ final class LibraryIndexTests: XCTestCase {
         let folder = try directory()
         let known = try allocatedBytes(at: folder)
         var calls = 0
-        let part = LibraryIndex.scanPartition(folder, fatVolumeProbe: { _ in
+        let part = scanPartition(folder, fatVolumeProbe: { _ in
             calls += 1
             return .init(allocationUnitBytes: 8192, occupiedBytes: known + (calls == 1 ? 0 : 8192))
         })

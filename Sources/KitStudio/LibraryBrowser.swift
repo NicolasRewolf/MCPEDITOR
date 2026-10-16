@@ -135,17 +135,28 @@ struct LibraryBrowser: View {
                             )
                         }
                         ForEach(model.filteredKits, id: \.url) { kit in
-                            BrowserRow(
-                                title: kit.title,
-                                subtitle: "\(kit.locationLabel) · \(kit.url.lastPathComponent)",
-                                symbol: "square.grid.3x3",
-                                selected: (model.lastExportURL ?? model.programURL) == kit.url,
-                                path: kit.url.path
-                            ) { model.openProgram(kit.url) }
+                            HStack(spacing: 0) {
+                                BrowserRow(
+                                    title: kit.title,
+                                    subtitle: "\(kit.locationLabel) · \(kit.url.lastPathComponent)",
+                                    symbol: "square.grid.3x3",
+                                    selected: (model.lastExportURL ?? model.programURL) == kit.url,
+                                    path: kit.url.path
+                                ) { model.openProgram(kit.url) }
+                                .accessibilityLabel("\(kit.title), \(kit.locationLabel)")
+                                .accessibilityHint("Ouvrir ce programme MPC")
+                                Menu {
+                                    kitActions(kit)
+                                } label: { Image(systemName: "ellipsis") }
+                                .menuStyle(.borderlessButton)
+                                .menuIndicator(.hidden)
+                                .frame(width: 28)
+                                .help("Actions pour \(kit.url.lastPathComponent)")
+                                .accessibilityLabel("Actions pour \(kit.title), \(kit.locationLabel)")
+                            }
                             .id(kit.url)
                             .disabled(model.documentActionsDisabled)
-                            .accessibilityLabel("\(kit.title), \(kit.locationLabel)")
-                            .accessibilityHint("Ouvrir ce programme MPC")
+                            .contextMenu { kitActions(kit) }
                         }
                     }
                     .padding(.trailing, 4)
@@ -162,6 +173,15 @@ struct LibraryBrowser: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder
+    private func kitActions(_ kit: LibraryKit) -> some View {
+        Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([kit.url]) }
+        Button("Mettre le programme à la corbeille…", role: .destructive) {
+            model.requestTrashKit(kit)
+        }
+        .disabled(model.documentActionsDisabled)
     }
 
     private var sampleBrowser: some View {
@@ -451,7 +471,7 @@ struct ExportDestinationSheet: View {
                         )
                     )
                     .textFieldStyle(.roundedBorder)
-                    .disabled(model.busy)
+                    .disabled(model.documentLocked)
                 }
                 VStack(alignment: .trailing, spacing: 5) {
                     Text(
@@ -501,7 +521,7 @@ struct ExportDestinationSheet: View {
                 }
                 Button("Choisir un autre dossier…", action: model.chooseExportFolder)
                     .buttonStyle(.bordered)
-                    .disabled(model.busy)
+                    .disabled(model.documentLocked)
             }
             VStack(alignment: .leading, spacing: 5) {
                 Label(model.selectedDestinationLabel, systemImage: "folder")
@@ -517,6 +537,11 @@ struct ExportDestinationSheet: View {
                         .font(.caption)
                         .foregroundStyle(.yellow)
                 }
+                if let issue = model.exportDestinationIssue {
+                    Text(issue)
+                        .font(.caption)
+                        .foregroundStyle(.yellow)
+                }
             }
             Text(
                 "Un programme .PGM et ses sons .SND seront créés. Les fichiers existants sont conservés ; un nom libre est choisi si nécessaire."
@@ -527,7 +552,7 @@ struct ExportDestinationSheet: View {
             HStack {
                 Button("Annuler") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                    .disabled(model.busy)
+                    .disabled(model.documentLocked)
                 Spacer()
                 Button(
                     "Enregistrer sur \(model.selectedDestinationLabel)", action: model.exportKitToDestination
@@ -535,15 +560,15 @@ struct ExportDestinationSheet: View {
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(
-                    model.exportDestinationURL == nil || model.program == nil || model.busy
-                        || capacityTooSmall)
+                    model.exportDestinationURL == nil || model.program == nil || model.documentLocked
+                        || model.exportDestinationIssue != nil || capacityTooSmall)
             }
         }
         .padding(24)
         .frame(width: 580)
         .onAppear { changeDestination = model.exportDestinationURL == nil }
         .background(StudioPalette.background)
-        .interactiveDismissDisabled(model.busy)
+        .interactiveDismissDisabled(model.documentLocked)
     }
 
     private func destinationRow(_ partition: LibraryPartition) -> some View {
@@ -559,7 +584,7 @@ struct ExportDestinationSheet: View {
                 ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + " libres"
             } ?? "Espace inconnu"
         return Button {
-            model.exportDestinationURL = partition.url
+            model.selectExportPartition(partition)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle")
@@ -583,7 +608,7 @@ struct ExportDestinationSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(model.busy)
+        .disabled(model.documentLocked || !partition.issues.isEmpty || partition.exportDestination?.isMountedMPCPartition != true)
         .help(
             partition.url.path
                 + (partition.issues.isEmpty ? "" : "\n" + partition.issues.joined(separator: "\n"))

@@ -28,6 +28,10 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
 6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. La **Carte de la SD**
    reste disponible en bas de la bibliothèque pour consulter le rangement.
 7. Éjecter la SD depuis le Finder, la remettre dans la MPC et charger le `.PGM` indiqué.
+8. Pour retirer un kit de la bibliothèque, ouvrir son menu **⋯** ou faire un clic droit,
+   puis **Mettre le programme à la corbeille…**. La confirmation indique son chemin exact.
+   Les `.SND` et `.SEQ` restent sur le disque ; une PART contenant encore des samples reste occupée.
+   Si le kit était ouvert, sa copie en mémoire reste disponible et peut être enregistrée à nouveau.
 
 Chaque enregistrement crée un nouveau programme et ses sons ; les fichiers existants sont conservés.
 Un nom ASCII libre de huit caractères est choisi en cas de collision. Le kit ouvert d’origine reste
@@ -37,6 +41,12 @@ et un parcours complet sans erreur. Une PART contenant uniquement des samples, s
 n’est donc jamais choisie automatiquement comme vide.
 Une lecture FAT dont l’espace occupé n’est pas expliqué par l’inventaire reste « À vérifier »
 et n’est pas proposée automatiquement comme destination vide.
+L’identité du dossier et du volume est conservée jusqu’au clic sur Enregistrer, puis revérifiée
+avant les créations. Une PART annoncée vide doit encore l’être à cet instant. Les destinations
+non vérifiables, y compris par un choix de dossier personnalisé, restent protégées en lecture.
+Un nom de programme présent plusieurs fois interdit également sa mise à la corbeille.
+Si macOS refuse l’accès à un dossier caché nécessaire au contrôle, l’app signale le refus ;
+le kit peut être enregistré dans un dossier local vérifiable sur le Mac.
 
 Commencer sur une **copie d'un kit dans un dossier local**, puis valider un petit export sur la MPC.
 Aucun aller-retour matériel n'a encore été effectué par ce projet.

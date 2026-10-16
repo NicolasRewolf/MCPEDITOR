@@ -67,6 +67,7 @@ public struct KitExport {
         var closeFile: (Int32) -> Int32 = { close($0) }
         var canIdentifyEmptyFile: (Int32) -> Bool = { KitExport.canIdentifyEmptyFile($0) }
         var volumeSpace: (Int32) throws -> ExportVolumeSpace = { try ExportSpace.volume(directoryFD: $0) }
+        var destinationEnvironment = ExportDestination.Environment()
     }
 
     /// `name` chooses the new PGM filename. The program's internal title and
@@ -75,9 +76,10 @@ public struct KitExport {
         program: MPCProgram,
         sounds: [Int: MPCSound],
         name: String,
-        to destination: URL
+        to destination: URL,
+        expectedDestination: ExportDestination? = nil
     ) throws -> URL {
-        try export(program: program, sounds: sounds, name: name, to: destination, io: FileIO())
+        try export(program: program, sounds: sounds, name: name, to: destination, expectedDestination: expectedDestination, io: FileIO())
     }
 
     static func export(
@@ -85,6 +87,7 @@ public struct KitExport {
         sounds: [Int: MPCSound],
         name: String,
         to destination: URL,
+        expectedDestination: ExportDestination? = nil,
         io: FileIO
     ) throws -> URL {
         let slots = program.referencedSlots.sorted()
@@ -110,13 +113,13 @@ public struct KitExport {
             pcmBytes = nextTotal
         }
 
-        guard destination.isFileURL else { throw KitExportError.invalidDestination }
-        let directory = destination.standardizedFileURL.resolvingSymlinksInPath()
-        let directoryFD = directory.path.withCString {
-            open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
-        }
-        guard directoryFD >= 0 else { throw KitExportError.invalidDestination }
+        let receipt = try expectedDestination ?? ExportDestination.capture(
+            at: destination, environment: io.destinationEnvironment)
+        let directory = receipt.url
+        let directoryFD = try receipt.openWriteDirectory(selectedURL: destination)
         defer { _ = close(directoryFD) }
+        try receipt.validate(directoryFD: directoryFD, selectedURL: destination,
+                             environment: io.destinationEnvironment)
 
         // Foundation filters AppleDouble entries even without skipHiddenFiles. Read the
         // complete native name inventory so orphan metadata can reserve its counterpart.
@@ -159,6 +162,10 @@ public struct KitExport {
         guard estimate.requiredBytes <= volume.availableBytes else {
             throw ExportSpaceError.insufficientSpace(required: estimate.requiredBytes, available: volume.availableBytes)
         }
+
+        // Recheck after encoding and capacity probes, immediately before the first exclusive creation.
+        try receipt.validate(directoryFD: directoryFD, selectedURL: destination,
+                             environment: io.destinationEnvironment)
 
         var created: [CreatedFile] = []
         do {
@@ -227,29 +234,7 @@ public struct KitExport {
     }
 
     private static func existingNames(directoryFD: Int32) throws -> [String] {
-        let descriptor = dup(directoryFD)
-        guard descriptor >= 0 else { throw KitExportError.io(file: "dossier d’export", code: errno) }
-        guard let stream = fdopendir(descriptor) else {
-            let code = errno
-            _ = close(descriptor)
-            throw KitExportError.io(file: "dossier d’export", code: code)
-        }
-        defer { _ = closedir(stream) }
-        var names: [String] = []
-        while true {
-            errno = 0
-            guard let entry = readdir(stream) else {
-                if errno != 0 { throw KitExportError.io(file: "dossier d’export", code: errno) }
-                break
-            }
-            let name = withUnsafePointer(to: &entry.pointee.d_name) { pointer in
-                pointer.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: entry.pointee.d_name)) {
-                    String(cString: $0)
-                }
-            }
-            if name != ".", name != ".." { names.append(name) }
-        }
-        return names
+        try ExportDestination.nativeNames(directoryFD: directoryFD)
     }
 
     private static func writeExclusively(

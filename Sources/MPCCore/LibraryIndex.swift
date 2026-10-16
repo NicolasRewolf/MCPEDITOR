@@ -39,10 +39,12 @@ public struct LibraryPartition: Equatable, Sendable {
     public let issues: [String]
     public let availableBytes: Int64?
     public let volumeSpace: ExportVolumeSpace?
+    public let exportDestination: ExportDestination?
 
     public init(url: URL, letter: String, kits: [LibraryKit], fileCount: Int,
                 folderCount: Int, audioCount: Int, sequenceCount: Int,
-                issues: [String], availableBytes: Int64?, volumeSpace: ExportVolumeSpace? = nil) {
+                issues: [String], availableBytes: Int64?, volumeSpace: ExportVolumeSpace? = nil,
+                exportDestination: ExportDestination? = nil) {
         self.url = url.standardizedFileURL
         self.letter = letter
         self.kits = kits
@@ -53,6 +55,7 @@ public struct LibraryPartition: Equatable, Sendable {
         self.issues = issues
         self.availableBytes = availableBytes
         self.volumeSpace = volumeSpace
+        self.exportDestination = exportDestination
     }
 
     /// Unknown files, links, folders, read errors and truncation all prevent an empty claim.
@@ -100,17 +103,26 @@ public enum LibraryIndex {
     public static func scanPartition(_ url: URL, maximumDepth: Int = 8,
                                      maximumEntries: Int = 50_000) -> LibraryPartition {
         scanPartition(url, maximumDepth: maximumDepth, maximumEntries: maximumEntries,
-                      fatVolumeProbe: fatVolumeUsage)
+                      fatVolumeProbe: fatVolumeUsage,
+                      destinationCapture: { try ExportDestination.capture(at: $0, requireEmpty: $1) })
     }
 
     /// A narrow seam lets tests reproduce a misleading empty directory with occupied FAT clusters.
     struct FATVolumeUsage {
         let allocationUnitBytes: Int64
         let occupiedBytes: Int64
+        let rootAllocationIsFixed: Bool
+
+        init(allocationUnitBytes: Int64, occupiedBytes: Int64, rootAllocationIsFixed: Bool = false) {
+            self.allocationUnitBytes = allocationUnitBytes
+            self.occupiedBytes = occupiedBytes
+            self.rootAllocationIsFixed = rootAllocationIsFixed
+        }
     }
 
     static func scanPartition(_ url: URL, maximumDepth: Int = 8, maximumEntries: Int = 50_000,
-                              fatVolumeProbe: (Int32) throws -> FATVolumeUsage?) -> LibraryPartition {
+                              fatVolumeProbe: @escaping (Int32) throws -> FATVolumeUsage?,
+                              destinationCapture: ((URL, Bool) throws -> ExportDestination)? = nil) -> LibraryPartition {
         let result = scan(url, recursive: true, maximumDepth: maximumDepth,
                           maximumEntries: maximumEntries)
         let space = result.issues.isEmpty ? try? ExportSpace.volume(at: url) : nil
@@ -121,143 +133,47 @@ public enum LibraryIndex {
                                              maximumEntries: maximumEntries, volumeProbe: fatVolumeProbe) {
             issues.append(issue)
         }
+        var destination: ExportDestination?
+        if issues.isEmpty, let destinationCapture {
+            do { destination = try destinationCapture(url, result.fileCount == 0 && result.folderCount == 0) }
+            catch { issues.append(error.localizedDescription) }
+        }
         return LibraryPartition(
             url: url, letter: partitionLetter(for: url) ?? url.lastPathComponent,
             kits: result.kits, fileCount: result.fileCount, folderCount: result.folderCount,
             audioCount: result.samples.count, sequenceCount: result.sequenceCount,
-            issues: issues, availableBytes: space?.availableBytes, volumeSpace: space
+            issues: issues, availableBytes: space?.availableBytes, volumeSpace: space,
+            exportDestination: destination
         )
     }
 
-    private struct EmptyInventoryError: LocalizedError {
-        let detail: String
-        var errorDescription: String? { detail }
-    }
-
     private static func fatVolumeUsage(_ descriptor: Int32) throws -> FATVolumeUsage? {
-        #if canImport(Darwin)
-        var filesystem = statfs()
-        guard fstatfs(descriptor, &filesystem) == 0 else {
-            throw EmptyInventoryError(detail: "Le format de la partition ne peut pas être vérifié.")
-        }
-        let name = withUnsafePointer(to: &filesystem.f_fstypename) { pointer in
-            pointer.withMemoryRebound(to: CChar.self, capacity: Int(MFSNAMELEN)) { String(cString: $0) }
-        }
-        guard name == "msdos" else { return nil }
-        var values = statvfs()
-        guard fstatvfs(descriptor, &values) == 0,
-              values.f_frsize > 0, values.f_blocks >= values.f_bfree else {
-            throw EmptyInventoryError(detail: "L’occupation FAT ne peut pas être vérifiée.")
-        }
-        let unit = UInt64(values.f_frsize)
-        let (occupied, overflow) = UInt64(values.f_blocks - values.f_bfree).multipliedReportingOverflow(by: unit)
-        guard !overflow, unit <= UInt64(Int64.max), occupied <= UInt64(Int64.max) else {
-            throw EmptyInventoryError(detail: "L’occupation FAT ne peut pas être calculée.")
-        }
-        return FATVolumeUsage(allocationUnitBytes: Int64(unit), occupiedBytes: Int64(occupied))
-        #else
-        return nil
-        #endif
+        guard let usage = try ExportDestination.nativeFATUsage(descriptor) else { return nil }
+        return FATVolumeUsage(allocationUnitBytes: usage.allocationUnitBytes,
+                              occupiedBytes: usage.occupiedBytes, rootAllocationIsFixed: usage.rootAllocationIsFixed)
     }
 
-    /// This detects unexplained occupied FAT clusters, not an atomic filesystem snapshot.
-    /// Include hidden metadata and the root allocation; any uncertainty prevents an empty claim.
+    /// The same native inventory protects both the recommendation and the eventual write.
     private static func verifyEmptyFATInventory(
         _ url: URL, maximumDepth: Int, maximumEntries: Int,
-        volumeProbe: (Int32) throws -> FATVolumeUsage?
+        volumeProbe: @escaping (Int32) throws -> FATVolumeUsage?
     ) -> String? {
         let descriptor = url.path.withCString { open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
         guard descriptor >= 0 else { return "La partition vide ne peut pas être vérifiée." }
         defer { _ = close(descriptor) }
+        var environment = ExportDestination.Environment()
+        environment.fatUsage = { descriptor in
+            guard let usage = try volumeProbe(descriptor) else { return nil }
+            return .init(allocationUnitBytes: usage.allocationUnitBytes,
+                         occupiedBytes: usage.occupiedBytes, rootAllocationIsFixed: usage.rootAllocationIsFixed)
+        }
         do {
-            guard let before = try volumeProbe(descriptor) else { return nil }
-            guard maximumDepth >= 0, maximumEntries > 0,
-                  before.allocationUnitBytes > 0, before.occupiedBytes >= 0 else {
-                throw EmptyInventoryError(detail: "La vérification de la partition vide est incomplète.")
-            }
-            var root = stat()
-            guard fstat(descriptor, &root) == 0 else {
-                throw EmptyInventoryError(detail: "L’allocation de la racine ne peut pas être vérifiée.")
-            }
-            var accounted: Int64 = 0
-            var visited = 0
-            var allocatedIdentities: Set<String> = []
-            func account(_ info: stat) throws {
-                guard info.st_dev == root.st_dev, info.st_blocks >= 0 else {
-                    throw EmptyInventoryError(detail: "L’inventaire FAT traverse un emplacement indéterminé.")
-                }
-                let (bytes, byteOverflow) = Int64(info.st_blocks).multipliedReportingOverflow(by: 512)
-                let (total, totalOverflow) = accounted.addingReportingOverflow(bytes)
-                guard !byteOverflow, !totalOverflow else {
-                    throw EmptyInventoryError(detail: "L’allocation de l’inventaire FAT ne peut pas être calculée.")
-                }
-                if bytes > 0, !allocatedIdentities.insert("\(info.st_dev):\(info.st_ino)").inserted {
-                    throw EmptyInventoryError(detail: "L’inventaire FAT contient des allocations répétées.")
-                }
-                accounted = total
-            }
-            func inventory(_ directory: Int32, depth: Int) throws {
-                let copy = dup(directory)
-                guard copy >= 0 else { throw EmptyInventoryError(detail: "L’inventaire FAT ne peut pas être ouvert.") }
-                guard let stream = fdopendir(copy) else {
-                    _ = close(copy)
-                    throw EmptyInventoryError(detail: "L’inventaire FAT ne peut pas être ouvert.")
-                }
-                defer { _ = closedir(stream) }
-                var names: Set<String> = []
-                while true {
-                    errno = 0
-                    guard let entry = readdir(stream) else {
-                        guard errno == 0 else { throw EmptyInventoryError(detail: "L’inventaire FAT ne peut pas être lu entièrement.") }
-                        break
-                    }
-                    let name = withUnsafePointer(to: &entry.pointee.d_name) { pointer in
-                        pointer.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: entry.pointee.d_name)) {
-                            String(cString: $0)
-                        }
-                    }
-                    if name == "." || name == ".." { continue }
-                    guard visited < maximumEntries, names.insert(name).inserted else {
-                        throw EmptyInventoryError(detail: "L’inventaire FAT est incomplet ou contient des entrées répétées.")
-                    }
-                    visited += 1
-                    // The first scan claimed there were no visible entries at the root.
-                    guard depth != 0 || name.hasPrefix(".") else {
-                        throw EmptyInventoryError(detail: "L’inventaire FAT révèle des fichiers absents du premier relevé. Actualise la bibliothèque.")
-                    }
-                    var info = stat()
-                    let read = name.withCString { fstatat(directory, $0, &info, AT_SYMLINK_NOFOLLOW) }
-                    guard read == 0 else { throw EmptyInventoryError(detail: "Une entrée de l’inventaire FAT est indisponible.") }
-                    let type = info.st_mode & mode_t(S_IFMT)
-                    guard type == mode_t(S_IFREG) || type == mode_t(S_IFDIR) else {
-                        throw EmptyInventoryError(detail: "L’inventaire FAT contient un lien ou un type d’entrée indéterminé.")
-                    }
-                    try account(info)
-                    if type == mode_t(S_IFDIR) {
-                        guard depth < maximumDepth else { throw EmptyInventoryError(detail: "La profondeur de l’inventaire FAT dépasse la limite.") }
-                        let child = name.withCString { openat(directory, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
-                        guard child >= 0 else { throw EmptyInventoryError(detail: "Un dossier caché FAT ne peut pas être parcouru.") }
-                        defer { _ = close(child) }
-                        var opened = stat()
-                        guard fstat(child, &opened) == 0, opened.st_dev == info.st_dev, opened.st_ino == info.st_ino else {
-                            throw EmptyInventoryError(detail: "Un dossier FAT a changé pendant la vérification.")
-                        }
-                        try inventory(child, depth: depth + 1)
-                    }
-                }
-            }
-            try account(root)
-            try inventory(descriptor, depth: 0)
-            guard let after = try volumeProbe(descriptor), after.allocationUnitBytes == before.allocationUnitBytes,
-                  after.occupiedBytes >= 0 else {
-                throw EmptyInventoryError(detail: "L’occupation FAT a changé de manière indéterminée.")
-            }
-            let occupied = max(before.occupiedBytes, after.occupiedBytes)
-            // No unobserved metadata allowance: unexplained allocation remains unknown.
-            guard occupied <= accounted else {
-                throw EmptyInventoryError(detail: "La partition ne peut pas être considérée vide : \(occupied - accounted) octets occupés ne sont pas expliqués par son inventaire.")
-            }
+            try ExportDestination.verifyFATInventory(directoryFD: descriptor, requireEmpty: true,
+                                                       maximumDepth: maximumDepth, maximumEntries: maximumEntries,
+                                                       environment: environment, allowNonFAT: true)
             return nil
+        } catch ExportDestinationError.notEmpty {
+            return "L’inventaire FAT révèle des fichiers absents du premier relevé. Actualise la bibliothèque."
         } catch {
             return "Vérification de la partition vide impossible. \(error.localizedDescription)"
         }
