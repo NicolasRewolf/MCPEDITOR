@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MPCFormatError: LocalizedError {
+public enum MPCFormatError: LocalizedError, Sendable {
     case invalid(String)
     case unsupported(String)
     case tooLarge
@@ -32,9 +32,17 @@ private enum MPCBytes {
     }
 }
 
+/// Signal range before PCM16 conversion. The normalized endpoints -1 and +1
+/// are valid; +1 quantizes to 32767 because PCM16 is asymmetric.
+public struct PCM16RangeReport: Equatable, Sendable {
+    public let peakMagnitude: Float
+    public let outOfRangeSampleCount: Int
+    public let nonFiniteSampleCount: Int
+}
+
 /// Native revision-2 SND. Audio uses planar, normalized PCM at 44,100 Hz.
 /// Header bytes without an established meaning survive a read/edit/write cycle.
-public struct MPCSound {
+public struct MPCSound: Sendable {
     public var name: String
     public var channels: [[Float]]
     public var start: Int
@@ -46,6 +54,24 @@ public struct MPCSound {
     public private(set) var trailingByteCount: Int = 0
     public var frameCount: Int { channels.first?.count ?? 0 }
     public static let maximumFileBytes = 32 * 1024 * 1024
+
+    /// Inspects the working audio without clipping, normalizing or editing it.
+    /// Non-finite values are counted separately and excluded from the finite peak.
+    public var pcm16RangeReport: PCM16RangeReport {
+        var peak: Float = 0
+        var outOfRange = 0
+        var nonFinite = 0
+        for channel in channels {
+            for sample in channel {
+                guard sample.isFinite else { nonFinite += 1; continue }
+                peak = max(peak, abs(sample))
+                if sample < -1 || sample > 1 { outOfRange += 1 }
+            }
+        }
+        return PCM16RangeReport(peakMagnitude: peak,
+                                outOfRangeSampleCount: outOfRange,
+                                nonFiniteSampleCount: nonFinite)
+    }
 
     public init(name: String, channels: [[Float]], start: Int = 0, end: Int? = nil,
                 volume: Int = 100, tune: Int = 0) {
@@ -198,7 +224,7 @@ public struct MPCSound {
 }
 
 /// One native PGM; unknown bytes are retained verbatim when editing known fields.
-public struct MPCProgram {
+public struct MPCProgram: Sendable {
     public var bytes: Data
     private static let image = 2690
     private static let assignments = image + 62
@@ -210,6 +236,35 @@ public struct MPCProgram {
             throw MPCFormatError.unsupported("signature PGM native 07 00 attendue.")
         }
         bytes = Data(Array(data))
+    }
+
+    /// Decoding retains the whole image for inspection, including malformed known
+    /// fields. Loading a playable kit and exporting must validate it explicitly.
+    /// No unknown byte or invalid assignment is repaired by this check.
+    public func validateKnownFields() throws {
+        guard bytes.count == 4608 else {
+            throw MPCFormatError.invalid("un PGM natif doit mesurer 4 608 octets.")
+        }
+        let b = Array(bytes)
+        guard b[0] == 7 && b[1] == 0 else {
+            throw MPCFormatError.unsupported("signature PGM native 07 00 attendue.")
+        }
+        for note in 35...98 {
+            let value = b[Self.assignments + (note - 35) * 24]
+            guard value < 128 || value == 0xFF else {
+                throw MPCFormatError.invalid(
+                    "note MIDI \(note) : index de son \(value) ; 0…127 ou 255 (vide) attendu.")
+            }
+        }
+        for pad in 0..<64 {
+            let value = b[Self.padMap + pad]
+            guard (35...98).contains(value) else {
+                let bank = ["A", "B", "C", "D"][pad / 16]
+                let label = bank + String(format: "%02d", pad % 16 + 1)
+                throw MPCFormatError.invalid(
+                    "pad \(label) : note MIDI \(value) ; 35…98 attendu.")
+            }
+        }
     }
 
     /// Start from a reference MPC3000 program rather than guessing mixer/global defaults.

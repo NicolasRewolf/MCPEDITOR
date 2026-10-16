@@ -1,13 +1,13 @@
 import Foundation
 
-public struct LoadedKit {
+public struct LoadedKit: Sendable {
     public let program: MPCProgram
     public let sounds: [Int: MPCSound]
     /// Referenced sounds that are absent, ambiguous, unreadable or unsupported.
     public let missing: [String]
 }
 
-public enum KitLoaderError: LocalizedError {
+public enum KitLoaderError: LocalizedError, Sendable {
     case memoryLimitExceeded
 
     public var errorDescription: String? {
@@ -68,6 +68,7 @@ public enum KitLoader {
     public static func load(programURL: URL) throws -> LoadedKit {
         // Read one byte beyond the native size, rather than allocating an arbitrary PGM file.
         let program = try MPCProgram(data: readFile(programURL, limit: 4609))
+        try program.validateKnownFields()
         let folder = programURL.deletingLastPathComponent()
         let files = try FileManager.default.contentsOfDirectory(
             at: folder, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]

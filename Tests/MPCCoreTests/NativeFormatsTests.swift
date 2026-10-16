@@ -148,4 +148,86 @@ final class NativeFormatsTests: XCTestCase {
         var invalid = program.bytes; invalid[0] = 1
         XCTAssertThrowsError(try MPCProgram(data: invalid))
     }
+
+    func testPCM16RangeReportIdentifiesRealClippingWithoutEditingAudio() throws {
+        let source = MPCSound(name: "FLOAT", channels: [
+            [Float](repeating: 0, count: 435) + [-1.25, -1, 0, Float(32767) / 32768, 1, 1.25]
+        ])
+        let report = source.pcm16RangeReport
+        XCTAssertEqual(report.peakMagnitude, 1.25)
+        XCTAssertEqual(report.outOfRangeSampleCount, 2)
+        XCTAssertEqual(report.nonFiniteSampleCount, 0)
+        let encoded = try source.encoded()
+        XCTAssertEqual(source.channels[0].suffix(6), [-1.25, -1, 0, Float(32767) / 32768, 1, 1.25])
+        let decoded = try MPCSound.decode(encoded)
+        XCTAssertEqual(decoded.channels[0].suffix(6), [-1, -1, 0, Float(32767) / 32768,
+                                                       Float(32767) / 32768, Float(32767) / 32768])
+        XCTAssertEqual(source.normalized().pcm16RangeReport.outOfRangeSampleCount, 0)
+        XCTAssertEqual(decoded.pcm16RangeReport.outOfRangeSampleCount, 0)
+        let nonFinite = MPCSound(name: "INVALID", channels: [[.nan, .infinity, -.infinity, -0.5]])
+            .pcm16RangeReport
+        XCTAssertEqual(nonFinite.peakMagnitude, 0.5)
+        XCTAssertEqual(nonFinite.outOfRangeSampleCount, 0)
+        XCTAssertEqual(nonFinite.nonFiniteSampleCount, 3)
+    }
+
+    func testAll65536PCM16WordsSurviveDecodeAndReencodeExactly() throws {
+        var bytes = [UInt8](repeating: 0, count: 38)
+        bytes[0] = 1; bytes[1] = 2; bytes[2] = 65; bytes[19] = 100
+        for offset in [26, 30] { bytes[offset + 2] = 1 } // 65,536 frames, little endian.
+        for integer in Int(Int16.min)...Int(Int16.max) {
+            let bits = UInt16(bitPattern: Int16(integer))
+            bytes.append(UInt8(truncatingIfNeeded: bits))
+            bytes.append(UInt8(truncatingIfNeeded: bits >> 8))
+        }
+        let source = Data(bytes)
+        let decoded = try MPCSound.decode(source)
+        XCTAssertEqual(decoded.frameCount, 65536)
+        XCTAssertEqual(decoded.pcm16RangeReport.outOfRangeSampleCount, 0)
+        XCTAssertEqual(try decoded.encoded().dropFirst(38), source.dropFirst(38))
+    }
+
+    func testSeededMalformedInputsAndKnownByteMutationsStayBounded() throws {
+        var state: UInt64 = 0x4d504333303030
+        func random() -> UInt64 {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return state
+        }
+        for index in 0..<3000 {
+            let count = Int(random() % 4700)
+            var data = Data((0..<count).map { _ in UInt8(truncatingIfNeeded: random() >> 32) })
+            if index % 3 == 0 && data.count >= 2 { data[0] = 1; data[1] = 2 }
+            if index % 5 == 0 && data.count >= 38 {
+                data[21] = UInt8(index % 2)
+                for offset in 22..<34 { data[offset] = 0 }
+                data[30] = UInt8(index % 255 + 1)
+            }
+            if let sound = try? MPCSound.decode(data) {
+                XCTAssertTrue((1...2).contains(sound.channels.count))
+                XCTAssertLessThanOrEqual(sound.start, sound.end)
+                XCTAssertLessThanOrEqual(sound.end, sound.frameCount)
+                XCTAssertTrue(sound.channels.allSatisfy {
+                    $0.count == sound.frameCount && $0.allSatisfy(\.isFinite)
+                })
+            }
+            if let program = try? MPCProgram(data: data) {
+                XCTAssertEqual(program.bytes, data)
+                _ = try? program.validateKnownFields()
+            }
+        }
+        let source = MPCProgram.blank(name: "MUTATE").bytes
+        for position in [0, 1, 2690, 2752, 2753, 2761, 4544, 4607] {
+            for value in UInt8.min...UInt8.max {
+                var bytes = source
+                bytes[position] = value
+                if let program = try? MPCProgram(data: bytes) {
+                    XCTAssertEqual(program.bytes, bytes)
+                    _ = try? program.validateKnownFields()
+                    _ = program.name; _ = program.soundNames; _ = program.referencedSlots
+                    for pad in 0..<64 { _ = program.midiNote(forPad: pad) }
+                    for note in 35...98 { _ = program.tune(forNote: note) }
+                }
+            }
+        }
+    }
 }
