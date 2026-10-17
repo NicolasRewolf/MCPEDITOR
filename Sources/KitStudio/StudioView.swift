@@ -32,7 +32,7 @@ struct StudioView: View {
                     .disabled(model.documentActionsDisabled)
                 Button(action: model.importAudio) { Label("Importer", systemImage: "square.and.arrow.down") }
                     .disabled(model.program == nil || model.documentActionsDisabled)
-                Button(action: model.exportKit) { Label("Enregistrer le kit…", systemImage: "square.and.arrow.up") }
+                Button(action: model.exportKit) { Label("Enregistrer une copie…", systemImage: "square.and.arrow.up") }
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }
         }
@@ -184,7 +184,7 @@ struct StudioView: View {
                     .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Enregistrer le kit…", action: model.exportKit)
+                Button("Enregistrer une copie…", action: model.exportKit)
                     .buttonStyle(.bordered)
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }

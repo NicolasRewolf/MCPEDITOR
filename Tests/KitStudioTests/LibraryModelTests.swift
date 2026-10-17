@@ -297,6 +297,200 @@ final class LibraryModelTests: XCTestCase {
     }
 
     @MainActor
+    func testOverlappingKitRootsFilterByProgramLocationWithoutDuplicatingKits() async throws {
+        let parent = try directory("Kits")
+        let soul = parent.appendingPathComponent("Soul", isDirectory: true)
+        let sibling = parent.appendingPathComponent("Soulful", isDirectory: true)
+        try FileManager.default.createDirectory(at: soul, withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: false)
+        let soulKit = try kit(in: soul)
+        let siblingKit = try kit(in: sibling)
+
+        for roots in [[parent, soul], [soul, parent]] {
+            let model = try testModel(kitFolders: roots)
+            await model.refreshLocations().value
+            XCTAssertEqual(Set(model.libraryKits.map(\.url)), Set([soulKit, siblingKit]))
+            XCTAssertEqual(model.libraryKits.count, 2)
+            model.selectedLocation = soul
+            XCTAssertEqual(model.filteredKits.map(\.url), [soulKit], "A first-scanned parent must not hide a child kit or include a similarly named sibling.")
+            model.selectedLocation = parent
+            XCTAssertEqual(Set(model.filteredKits.map(\.url)), Set([soulKit, siblingKit]))
+            XCTAssertEqual(model.filteredKits.count, 2)
+            model.kitSearch = "NOT FOUND"
+            XCTAssertTrue(model.filteredKits.isEmpty)
+        }
+    }
+
+    @MainActor
+    func testKitFolderInsideAPartRetainsItsDeduplicatedProgram() async throws {
+        let part = try directory("MPC-PART--S")
+        let soul = part.appendingPathComponent("Soul", isDirectory: true)
+        try FileManager.default.createDirectory(at: soul, withIntermediateDirectories: false)
+        let source = try kit(in: soul)
+        let model = try testModel(kitFolders: [soul], mountedVolumes: [part])
+
+        await model.refreshLocations().value
+        XCTAssertEqual(model.libraryKits.map(\.url), [source])
+        XCTAssertEqual(model.libraryKits.first?.rootURL, part)
+        model.selectedLocation = soul
+        XCTAssertEqual(model.filteredKits.map(\.url), [source])
+        model.selectedLocation = part
+        XCTAssertEqual(model.filteredKits.map(\.url), [source])
+    }
+
+    @MainActor
+    func testRefreshPreservesSampleQuerySelectionAndPreviewState() async throws {
+        let folder = try directory("Samples")
+        let kick = try nativeSound("KICK", in: folder)
+        _ = try nativeSound("SNARE", in: folder)
+        let model = try testModel()
+        model.selectedSampleRoot = folder
+        await model.browseSamplesFolder(folder)?.value
+        model.sampleQuery = "kick"
+        model.selectSample(kick)
+        let previewStatus = model.samplePreviewStatus
+
+        await model.refreshLocations().value
+
+        XCTAssertEqual(model.sampleQuery, "kick")
+        XCTAssertEqual(model.filteredSamples, [kick])
+        XCTAssertEqual(model.selectedSampleURL, kick)
+        XCTAssertEqual(model.samplePreviewStatus, previewStatus)
+        XCTAssertFalse(model.samplePreviewBusy)
+        XCTAssertEqual(model.sampleFolder, folder)
+    }
+
+    @MainActor
+    func testRefreshInvalidatesMissingOrUnreadableSampleWithoutClearingSearch() async throws {
+        let folder = try directory("Samples")
+        let kick = try nativeSound("KICK", in: folder)
+        let snare = try nativeSound("SNARE", in: folder)
+        let model = try testModel()
+        model.selectedSampleRoot = folder
+        await model.browseSamplesFolder(folder)?.value
+        model.sampleQuery = "kick"
+        model.selectSample(kick)
+        try FileManager.default.removeItem(at: kick)
+
+        await model.refreshLocations().value
+
+        XCTAssertEqual(model.sampleQuery, "kick")
+        XCTAssertNil(model.selectedSampleURL)
+        XCTAssertFalse(model.samplePreviewBusy)
+        XCTAssertEqual(model.sampleListing.samples, [snare])
+        model.selectSample(snare)
+        model.samplePreviewBusy = true
+        try FileManager.default.removeItem(at: folder)
+
+        await model.refreshLocations().value
+
+        XCTAssertEqual(model.sampleQuery, "kick")
+        XCTAssertNil(model.selectedSampleURL)
+        XCTAssertFalse(model.samplePreviewBusy)
+        XCTAssertTrue(model.sampleListing.samples.isEmpty)
+        XCTAssertNotNil(model.sampleListing.issue)
+        XCTAssertTrue(model.samplePreviewStatus.contains("indisponible"))
+    }
+
+    @MainActor
+    func testRefreshDisconnectedPartInvalidatesCachedSampleAndPendingPreview() async throws {
+        let part = try directory("MPC-PART--S")
+        let sample = try nativeSound("KICK", in: part)
+        let model = try testModel()
+        model.selectedSampleRoot = part
+        await model.browseSamplesFolder(part)?.value
+        model.selectSample(sample)
+        model.sampleQuery = "kick"
+        model.samplePreviewBusy = true
+        model.partitions = [LibraryPartition(url: part, letter: "S", kits: [], fileCount: 1, folderCount: 0,
+                                             audioCount: 1, sequenceCount: 0, issues: [], availableBytes: nil)]
+
+        await model.refreshLocations().value
+
+        XCTAssertNil(model.selectedSampleURL)
+        XCTAssertFalse(model.samplePreviewBusy)
+        XCTAssertEqual(model.sampleQuery, "kick")
+        XCTAssertTrue(model.sampleListing.samples.isEmpty)
+        XCTAssertTrue(model.sampleListing.issue?.contains("plus montée") == true)
+        XCTAssertEqual(model.samplePreviewStatus, "PART indisponible.")
+    }
+
+    @MainActor
+    func testLateRefreshCannotReplaceNewerFolderNavigation() async throws {
+        let root = try directory("Samples")
+        let old = root.appendingPathComponent("Old", isDirectory: true)
+        let next = root.appendingPathComponent("Next", isDirectory: true)
+        let oldSample = old.appendingPathComponent("KICK.SND")
+        let nextSample = next.appendingPathComponent("SNARE.SND")
+        let requested = expectation(description: "Refresh is waiting")
+        let gate = LibraryListingGate()
+        let oldListing = LibraryFolderListing(folders: [], samples: [oldSample], issue: nil)
+        defer { gate.release(oldListing) }
+        let model = try testModel(sampleFolderLoader: { folder in
+            if folder == old {
+                requested.fulfill()
+                return gate.wait()
+            }
+            return LibraryFolderListing(folders: [], samples: [nextSample], issue: nil)
+        })
+        model.selectedSampleRoot = root
+        model.sampleFolder = old
+        model.sampleListing = oldListing
+        model.selectSample(oldSample)
+        model.sampleQuery = "kick"
+        let refresh = model.refreshLocations()
+        await fulfillment(of: [requested], timeout: 3)
+
+        await model.browseSamplesFolder(next)?.value
+        XCTAssertEqual(model.sampleQuery, "", "Explicit navigation must still reset the previous folder's query.")
+        XCTAssertNil(model.selectedSampleURL)
+        model.selectSample(nextSample)
+        model.sampleQuery = "snare"
+        let previewStatus = model.samplePreviewStatus
+        gate.release(oldListing)
+        await refresh.value
+
+        XCTAssertEqual(model.sampleFolder, next)
+        XCTAssertEqual(model.sampleListing.samples, [nextSample])
+        XCTAssertEqual(model.selectedSampleURL, nextSample)
+        XCTAssertEqual(model.sampleQuery, "snare")
+        XCTAssertEqual(model.samplePreviewStatus, previewStatus)
+    }
+
+    @MainActor
+    func testRefreshValidatesTheLatestSampleSelectionInsteadOfRestoringItsOldSelection() async throws {
+        let root = try directory("Samples")
+        let kick = root.appendingPathComponent("KICK.SND")
+        let snare = root.appendingPathComponent("SNARE.SND")
+        let listing = LibraryFolderListing(folders: [], samples: [kick, snare], issue: nil)
+        let requested = expectation(description: "Refresh is waiting")
+        let gate = LibraryListingGate()
+        defer { gate.release(listing) }
+        let model = try testModel(sampleFolderLoader: { _ in
+            requested.fulfill()
+            return gate.wait()
+        })
+        model.selectedSampleRoot = root
+        model.sampleFolder = root
+        model.sampleListing = listing
+        model.selectSample(kick)
+        model.sampleQuery = "kick"
+        let refresh = model.refreshLocations()
+        await fulfillment(of: [requested], timeout: 3)
+
+        model.selectSample(snare)
+        model.sampleQuery = "snare"
+        let previewStatus = model.samplePreviewStatus
+        gate.release(listing)
+        await refresh.value
+
+        XCTAssertEqual(model.selectedSampleURL, snare)
+        XCTAssertEqual(model.sampleQuery, "snare")
+        XCTAssertEqual(model.samplePreviewStatus, previewStatus)
+        XCTAssertEqual(model.filteredSamples, [snare])
+    }
+
+    @MainActor
     func testOlderFolderResultCannotReplaceTheLatestUnavailableFolder() async throws {
         let root = try directory("Samples")
         let old = root.appendingPathComponent("Old", isDirectory: true)
@@ -415,7 +609,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.isDirty)
         XCTAssertFalse(model.busy)
         XCTAssertNotNil(model.errorMessage)
-        XCTAssertTrue(model.kitLocationLabel.contains("Modifié depuis l’export"))
+        XCTAssertTrue(model.kitLocationLabel.contains("Modifié depuis la dernière copie"))
         XCTAssertTrue(model.kitLocationPath.hasSuffix("SAVED.PGM"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: saved.path))
@@ -596,7 +790,7 @@ final class LibraryModelTests: XCTestCase {
     }
 
     @MainActor
-    func testExportSheetLocksDocumentEditingWhileAllowingItsKitNameField() async throws {
+    func testExportSheetLocksDocumentEditingAndCancellationPreservesTheKit() async throws {
         let source = try directory("Source")
         let sample = try nativeSound("KICK", in: source)
         var confirmations = 0
@@ -609,6 +803,8 @@ final class LibraryModelTests: XCTestCase {
         let beforeSound = try XCTUnwrap(model.sound)
         let beforeMemory = model.memoryBytes
         let beforeStatus = model.status
+        let beforeName = model.kitName
+        let beforeDirty = model.isDirty
         let provider = NSItemProvider()
         provider.registerDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier, visibility: .all) { completion in
             completion(sample.dataRepresentation, nil)
@@ -620,9 +816,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.documentActionsDisabled)
         XCTAssertFalse(model.documentLocked)
         model.setKitName("SHEETNAME")
-        XCTAssertEqual(model.kitName, "SHEETNAME")
-        var expectedProgram = try MPCProgram(data: beforeProgram)
-        expectedProgram.name = "SHEETNAME"
+        XCTAssertEqual(model.kitName, beforeName)
         XCTAssertNil(model.importURLs([sample], atPad: 0))
         XCTAssertFalse(model.dropFiles([provider], onPad: 0))
         XCTAssertNil(model.exportKit(to: source))
@@ -636,21 +830,27 @@ final class LibraryModelTests: XCTestCase {
         model.selectPad(0)
         model.assignSample(sample)
 
-        XCTAssertEqual(model.program?.bytes, expectedProgram.bytes)
+        XCTAssertEqual(model.program?.bytes, beforeProgram)
         XCTAssertEqual(model.sound?.channels, beforeSound.channels)
         XCTAssertEqual(model.sound?.name, beforeSound.name)
         XCTAssertEqual(model.sound?.start, beforeSound.start)
         XCTAssertEqual(model.sound?.end, beforeSound.end)
         XCTAssertEqual(model.memoryBytes, beforeMemory)
-        XCTAssertEqual(model.kitName, "SHEETNAME")
+        XCTAssertEqual(model.kitName, beforeName)
         XCTAssertEqual(model.selectedPad, 20)
         XCTAssertEqual(model.bank, 1)
         XCTAssertEqual(model.status, beforeStatus)
-        XCTAssertTrue(model.isDirty)
+        XCTAssertEqual(model.isDirty, beforeDirty)
         XCTAssertFalse(model.busy)
         XCTAssertEqual(confirmations, 0, "An export sheet must block attempts to open a discard confirmation.")
         model.showExportSheet = false
         XCTAssertFalse(model.documentActionsDisabled)
+        XCTAssertEqual(model.program?.bytes, beforeProgram)
+        XCTAssertEqual(model.kitName, beforeName)
+        XCTAssertEqual(model.isDirty, beforeDirty)
+        XCTAssertNil(model.lastExportURL)
+        model.setKitName("AFTERCANCEL")
+        XCTAssertEqual(model.kitName, "AFTERCANCEL")
         model.selectPad(21)
         XCTAssertEqual(model.selectedPad, 21)
     }
@@ -680,6 +880,16 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertFalse(model.sampleListing.samples.contains { $0.lastPathComponent == "OUTSIDE.SND" })
         XCTAssertNil(model.program)
         XCTAssertFalse(model.isDirty)
+
+        model.selectSample(inside)
+        model.sampleQuery = "inside"
+        await model.refreshLocations().value
+
+        XCTAssertNil(model.selectedSampleURL, "A refresh must not leave a cached selection pointing outside its source.")
+        XCTAssertFalse(model.samplePreviewBusy)
+        XCTAssertEqual(model.sampleQuery, "inside")
+        XCTAssertTrue(model.sampleListing.samples.isEmpty)
+        XCTAssertNotNil(model.sampleListing.issue)
     }
 
 

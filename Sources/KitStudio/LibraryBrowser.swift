@@ -472,28 +472,20 @@ struct ExportDestinationSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 7) {
-                Text("Enregistrer le kit")
+                Text("Enregistrer une copie du kit")
                     .font(.title2.bold())
-                Text("Ton kit sera prêt à charger depuis la SD sur ta MPC.")
+                Text("Le programme et ses samples seront copiés dans l’emplacement choisi.")
                     .font(.callout)
                     .foregroundStyle(StudioPalette.muted)
             }
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Nom du kit").font(.caption)
-                    TextField(
-                        "Nom du kit",
-                        text: Binding(
-                            get: { model.kitName }, set: { model.setKitName($0) }
-                        )
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(model.documentLocked)
+                    Text(model.kitName)
+                        .font(.headline)
+                        .textSelection(.enabled)
                     Text("Titre sur la MPC : \(model.programTitle)")
                         .font(.caption)
-                        .foregroundStyle(StudioPalette.muted)
-                    Text("Modifier ce nom renomme aussi le titre du programme. Un suffixe de fichier choisi automatiquement ne change pas ce titre.")
-                        .font(.caption2)
                         .foregroundStyle(StudioPalette.muted)
                 }
                 VStack(alignment: .trailing, spacing: 5) {
@@ -508,7 +500,7 @@ struct ExportDestinationSheet: View {
             }
             if model.exportDestinationURL == nil {
                 Text(
-                    "Aucune PART vide n’offre assez d’espace. Choisis une autre destination ou libère une PART depuis ta MPC."
+                    "Aucune destination proposée. Choisis un emplacement pour cette copie."
                 )
                 .font(.callout)
                 .foregroundStyle(.yellow)
@@ -592,7 +584,7 @@ struct ExportDestinationSheet: View {
                     .disabled(model.documentLocked)
                 Spacer()
                 Button(
-                    "Enregistrer sur \(model.selectedDestinationLabel)", action: model.exportKitToDestination
+                    "Enregistrer la copie", action: model.exportKitToDestination
                 )
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)

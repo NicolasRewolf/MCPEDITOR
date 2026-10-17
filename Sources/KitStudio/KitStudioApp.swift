@@ -32,7 +32,7 @@ struct KitStudioApp: App {
                     .disabled(model.documentLocked)
             }
             CommandGroup(replacing: .saveItem) {
-                Button("Enregistrer le kit…", action: model.exportKit)
+                Button("Enregistrer une copie…", action: model.exportKit)
                     .keyboardShortcut("s")
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }

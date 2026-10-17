@@ -54,7 +54,11 @@ final class ExportDestinationValidationTests: XCTestCase {
         XCTAssertFalse(model.busy)
         XCTAssertFalse(model.documentLocked, "The save sheet's Cancel button must remain enabled.")
         XCTAssertTrue(model.documentActionsDisabled)
+        let programBeforeAttempt = model.program?.bytes
         model.setKitName("EDITED DURING CHECK")
+        XCTAssertEqual(model.kitName, "KEEP")
+        XCTAssertEqual(model.program?.bytes, programBeforeAttempt,
+                       "Choosing a destination must not edit the document behind Cancel.")
         let editedProgram = model.program?.bytes
         model.exportKitToDestination()
         XCTAssertTrue(model.showExportSheet)

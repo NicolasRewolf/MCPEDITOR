@@ -24,7 +24,7 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    La recherche filtre le dossier courant ; les sous-dossiers s’ouvrent séparément.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Parcourir la bibliothèque ne remplace jamais le kit en mémoire.
-5. **Enregistrer le kit…** propose une PART vide disposant d’assez d’espace, avec une réserve pour
+5. **Enregistrer une copie…** propose une PART vide disposant d’assez d’espace, avec une réserve pour
    l’allocation des fichiers. Valider, ou ouvrir **Changer la destination**. Sans PART adaptée,
    l’application demande une autre destination. Aucun déplacement de kits existants n’est automatique.
 6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. La **Carte de la SD**
@@ -35,7 +35,9 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    Les `.SND` et `.SEQ` restent sur le disque ; une PART contenant encore des samples reste occupée.
    Si le kit était ouvert, sa copie en mémoire reste disponible et peut être enregistrée à nouveau.
 
-Chaque enregistrement crée un nouveau programme et ses sons ; les fichiers existants sont conservés.
+Chaque enregistrement crée une nouvelle copie du programme et de ses sons ; les fichiers existants sont conservés.
+Le nom se modifie dans l’en-tête du kit. La fenêtre d’enregistrement le présente en lecture seule
+et sert à choisir la destination ; l’annuler ne renomme pas le programme.
 Un nom ASCII libre de huit caractères est choisi en cas de collision. Le kit ouvert d’origine reste
 identifié séparément de la dernière copie enregistrée. Les dossiers ajoutés sont mémorisés localement.
 Le titre interne du programme est conservé lors d’une copie sans édition, même s’il diffère du nom

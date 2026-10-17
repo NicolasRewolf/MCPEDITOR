@@ -174,8 +174,9 @@ final class StudioModel: ObservableObject {
     var documentActionsDisabled: Bool { documentLocked || showExportSheet || validatingExportDestination }
 
     var filteredKits: [LibraryKit] {
-        libraryKits.filter { kit in
-            (selectedLocation == nil || kit.rootURL == selectedLocation?.standardizedFileURL) &&
+        let selectedPath = selectedLocation?.standardizedFileURL.pathComponents
+        return libraryKits.filter { kit in
+            (selectedPath.map { kit.url.pathComponents.starts(with: $0) } ?? true) &&
             (kitSearch.isEmpty || kit.title.localizedStandardContains(kitSearch) ||
              kit.locationLabel.localizedStandardContains(kitSearch))
         }
@@ -254,7 +255,7 @@ final class StudioModel: ObservableObject {
 
     var kitLocationLabel: String {
         if let url = lastExportURL {
-            return "\(isDirty ? "Modifié depuis l’export" : "Exporté") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
+            return "\(isDirty ? "Modifié depuis la dernière copie" : "Dernière copie") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
         }
         if let url = programURL {
             return "\(isDirty ? "Modifié en mémoire" : "Ouvert") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
@@ -402,9 +403,11 @@ final class StudioModel: ObservableObject {
             self.libraryKits = result.1
             self.locations = partURLs + folders
             self.libraryIssue = result.2.isEmpty ? nil : result.2.joined(separator: "\n")
+            if let folder = self.sampleFolder {
+                await self.loadSamplesFolder(folder, preservingSelection: true)?.value
+            }
             self.libraryScanning = false
             self.libraryTask = nil
-            if let folder = self.sampleFolder { self.browseSamplesFolder(folder) }
             if self.refreshPending {
                 self.refreshPending = false
                 self.refreshLocations()
@@ -463,34 +466,48 @@ final class StudioModel: ObservableObject {
 
     @discardableResult
     func browseSamplesFolder(_ url: URL) -> Task<Void, Never>? {
+        loadSamplesFolder(url, preservingSelection: false)
+    }
+
+    private func loadSamplesFolder(_ url: URL, preservingSelection: Bool) -> Task<Void, Never>? {
         guard let root = selectedSampleRoot?.standardizedFileURL else { return nil }
         let folder = url.standardizedFileURL
         if let part = partitions.first(where: { folder.pathComponents.starts(with: $0.url.pathComponents) }),
            !Set(volumeProvider().map(\.standardizedFileURL)).contains(part.url) {
-            sampleBrowseGeneration += 1
-            stop()
-            sampleFolder = folder
-            selectedSampleURL = nil
-            sampleListing = LibraryFolderListing(folders: [], samples: [], issue: "Cette PART n’est plus montée. Rebranche la SD puis actualise.")
-            samplePreviewStatus = "PART indisponible."
+            invalidateSampleFolder(folder, issue: "Cette PART n’est plus montée. Rebranche la SD puis actualise.",
+                                   status: "PART indisponible.")
             return nil
         }
         guard folder.pathComponents.starts(with: root.pathComponents),
-              folder.resolvingSymlinksInPath().pathComponents.starts(with: root.resolvingSymlinksInPath().pathComponents) else { return nil }
+              folder.resolvingSymlinksInPath().pathComponents.starts(with: root.resolvingSymlinksInPath().pathComponents) else {
+            if preservingSelection {
+                invalidateSampleFolder(folder, issue: "Ce dossier ne se trouve plus dans la source de samples sélectionnée.",
+                                       status: "Dossier indisponible.")
+            }
+            return nil
+        }
         sampleBrowseGeneration += 1
-        stop()
         let token = sampleBrowseGeneration
         sampleFolder = folder
-        selectedSampleURL = nil
-        samplePreviewBusy = false
-        sampleQuery = ""
-        sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
-        samplePreviewStatus = "Lecture du dossier…"
+        if !preservingSelection {
+            stop()
+            selectedSampleURL = nil
+            sampleQuery = ""
+            sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
+            samplePreviewStatus = "Lecture du dossier…"
+        }
         let loader = sampleFolderLoader
         return Task {
             let listing = await Task.detached(priority: .utility) { loader(folder) }.value
             guard token == self.sampleBrowseGeneration else { return }
             self.sampleListing = listing
+            // Validate the current selection: it may have changed while the
+            // refresh was reading. Never restore a selection captured earlier.
+            if listing.issue != nil || self.selectedSampleURL.map({ !listing.samples.contains($0) }) == true {
+                self.stop()
+                self.selectedSampleURL = nil
+            }
+            guard self.selectedSampleURL == nil else { return }
             if listing.issue != nil {
                 self.samplePreviewStatus = "Dossier indisponible ou inventaire incomplet. Actualise la bibliothèque."
             } else if self.partition(containing: folder)?.issues.isEmpty == false {
@@ -499,6 +516,15 @@ final class StudioModel: ObservableObject {
                 self.samplePreviewStatus = "\(listing.samples.count) samples dans ce dossier."
             }
         }
+    }
+
+    private func invalidateSampleFolder(_ folder: URL, issue: String, status: String) {
+        sampleBrowseGeneration += 1
+        stop()
+        sampleFolder = folder
+        selectedSampleURL = nil
+        sampleListing = LibraryFolderListing(folders: [], samples: [], issue: issue)
+        samplePreviewStatus = status
     }
 
     func sampleGoUp() {
@@ -822,7 +848,7 @@ final class StudioModel: ObservableObject {
     }
 
     func setKitName(_ value: String) {
-        guard !documentLocked, value != kitName else { return }
+        guard !documentActionsDisabled, value != kitName else { return }
         kitName = value
         program?.name = value
         isDirty = true
