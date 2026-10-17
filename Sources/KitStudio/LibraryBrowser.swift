@@ -33,8 +33,8 @@ struct LibraryBrowser: View {
             .pickerStyle(.segmented)
             .labelsHidden()
 
-            if let issue = model.libraryIssue {
-                Label("Certains dossiers sont indisponibles", systemImage: "exclamationmark.triangle")
+            if let issue = model.libraryIssue, model.libraryContentIssue == nil {
+                Label("Certains dossiers sont à vérifier", systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(.yellow)
                     .help(issue)
@@ -113,7 +113,7 @@ struct LibraryBrowser: View {
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Rechercher un kit ou une partition")
             HStack {
-                Text("\(model.filteredKits.count) kit(s)")
+                Text("\(model.filteredKits.count) kit(s)\(model.libraryContentIssue == nil ? "" : " visibles")")
                 Spacer()
                 if let location = model.selectedLocation {
                     Text(location.lastPathComponent)
@@ -124,14 +124,17 @@ struct LibraryBrowser: View {
             }
             .font(.caption)
             .foregroundStyle(StudioPalette.muted)
+            inventoryWarning
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: true) {
                     LazyVStack(alignment: .leading, spacing: 5) {
                         if model.filteredKits.isEmpty {
                             LibraryEmptyState(
                                 symbol: "square.grid.3x3",
-                                title: "Aucun kit dans cette vue",
-                                detail: "Choisis une autre PART, affiche tous les kits ou ajoute un dossier."
+                                title: model.libraryContentIssue == nil ? "Aucun kit dans cette vue" : "Aucun kit visible dans cette vue",
+                                detail: model.libraryContentIssue == nil
+                                    ? "Choisis une autre PART, affiche tous les kits ou ajoute un dossier."
+                                    : "Actualise la bibliothèque pour vérifier les fichiers accessibles."
                             )
                         }
                         ForEach(model.filteredKits, id: \.url) { kit in
@@ -176,6 +179,24 @@ struct LibraryBrowser: View {
     }
 
     @ViewBuilder
+    private var inventoryWarning: some View {
+        if let issue = model.libraryContentIssue {
+            VStack(alignment: .leading, spacing: 5) {
+                Label(model.libraryInventoryWarningTitle, systemImage: "exclamationmark.triangle")
+                    .font(.caption.weight(.semibold))
+                Text(model.libraryInventoryWarningDetail)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(issue)
+                    .lineLimit(3)
+                    .help(issue)
+            }
+            .font(.caption)
+            .foregroundStyle(.yellow)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
     private func kitActions(_ kit: LibraryKit) -> some View {
         Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([kit.url]) }
         Button("Mettre le programme à la corbeille…", role: .destructive) {
@@ -189,7 +210,7 @@ struct LibraryBrowser: View {
             HStack(spacing: 7) {
                 Menu {
                     ForEach(model.partitions, id: \.url) { partition in
-                        Button("PART \(partition.letter) · \(partition.audioCount) sons") {
+                        Button("PART \(partition.letter) · \(partition.issues.isEmpty ? "\(partition.audioCount) sons" : "à vérifier")") {
                             model.selectLocation(partition.url)
                         }
                     }
@@ -235,17 +256,11 @@ struct LibraryBrowser: View {
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Rechercher des samples et sous-dossiers dans le dossier courant")
             Text(
-                "\(model.filteredSampleFolders.count) dossier(s) · \(model.filteredSamples.count) sample(s)"
+                "\(model.filteredSampleFolders.count) dossier(s) · \(model.filteredSamples.count) sample(s)\(model.libraryContentIssue == nil ? "" : " visibles")"
             )
             .font(.caption)
             .foregroundStyle(StudioPalette.muted)
-            if let issue = model.sampleListing.issue {
-                Text(issue)
-                    .font(.caption)
-                    .foregroundStyle(.yellow)
-                    .lineLimit(3)
-                    .help(issue)
-            }
+            inventoryWarning
             sampleFileList
             sampleActions
         }
@@ -258,8 +273,10 @@ struct LibraryBrowser: View {
                 if model.filteredSampleFolders.isEmpty && model.filteredSamples.isEmpty {
                     LibraryEmptyState(
                         symbol: "waveform",
-                        title: "Aucun sample dans cette vue",
-                        detail: "Ouvre un sous-dossier, choisis une autre PART ou ajoute un dossier de ton SSD."
+                        title: model.libraryContentIssue == nil ? "Aucun sample dans cette vue" : "Aucun sample visible dans cette vue",
+                        detail: model.libraryContentIssue == nil
+                            ? "Ouvre un sous-dossier, choisis une autre PART ou ajoute un dossier de ton SSD."
+                            : "Actualise la bibliothèque pour vérifier les fichiers accessibles."
                     )
                 }
                 ForEach(model.filteredSampleFolders, id: \.self) { folder in

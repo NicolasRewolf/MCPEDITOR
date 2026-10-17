@@ -21,6 +21,7 @@ final class LibraryModelTests: XCTestCase {
     private func testModel(
         discardPresenter: StudioModel.DiscardPresenter? = nil,
         kitFolders: [URL] = [],
+        mountedVolumes: [URL] = [],
         sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) }
     ) throws -> StudioModel {
         let suiteName = "LibraryModelTests-" + UUID().uuidString
@@ -29,7 +30,7 @@ final class LibraryModelTests: XCTestCase {
         defaults.set(kitFolders.map(\.path), forKey: "library.kitFolders")
         addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
         return StudioModel(defaults: defaults, discardPresenter: discardPresenter,
-                           volumeProvider: { [] }, sampleFolderLoader: sampleFolderLoader)
+                           volumeProvider: { mountedVolumes }, sampleFolderLoader: sampleFolderLoader)
     }
 
     private func nativeSound(_ name: String, in folder: URL) throws -> URL {
@@ -162,6 +163,109 @@ final class LibraryModelTests: XCTestCase {
     }
 
     @MainActor
+    func testApparentlyEmptySamplesRetainSelectedPartInventoryWarning() async throws {
+        let part = try directory("MPC-PART--M")
+        let reason = "L’espace FAT occupé ne correspond pas aux fichiers visibles."
+        let model = try testModel(mountedVolumes: [part], sampleFolderLoader: { _ in
+            LibraryFolderListing(folders: [], samples: [], issue: nil)
+        })
+        model.partitions = [LibraryPartition(
+            url: part, letter: "M", kits: [], fileCount: 0, folderCount: 0,
+            audioCount: 0, sequenceCount: 0, issues: [reason], availableBytes: 1_000_000)]
+        model.libraryMode = .samples
+
+        model.selectLocation(part)
+        await model.browseSamplesFolder(part)?.value
+
+        XCTAssertTrue(model.filteredSamples.isEmpty)
+        XCTAssertTrue(model.samplePreviewStatus.contains("incomplet"))
+        XCTAssertFalse(model.samplePreviewStatus.contains("0 samples dans ce dossier"))
+        XCTAssertEqual(model.libraryContentIssue, reason)
+        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet · PART M")
+        XCTAssertTrue(model.libraryInventoryWarningDetail.contains("ne permettent pas de conclure"))
+
+        model.libraryMode = .kits
+        model.kitSearch = "NO MATCH"
+        XCTAssertTrue(model.filteredKits.isEmpty)
+        XCTAssertEqual(model.libraryContentIssue, reason)
+        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet · PART M")
+    }
+
+    @MainActor
+    func testPartWarningSurvivesFilteringDeduplicatesReasonsAndClearsOnSelectionChange() async throws {
+        let suspect = try directory("MPC-PART--M")
+        let healthy = try directory("MPC-PART--S")
+        let reason = "Lecture de .Trashes impossible : autorisation refusée."
+        let visible = suspect.appendingPathComponent("KICK.SND")
+        let visibleKit = LibraryKit(url: suspect.appendingPathComponent("DRUMS.PGM"), rootURL: suspect,
+                                    partitionLetter: "M", relativeFolder: "")
+        let model = try testModel(mountedVolumes: [suspect, healthy], sampleFolderLoader: { folder in
+            LibraryFolderListing(folders: [], samples: folder == suspect ? [visible] : [],
+                                 issue: folder == suspect ? reason : nil)
+        })
+        model.partitions = [
+            LibraryPartition(url: suspect, letter: "M", kits: [visibleKit], fileCount: 2, folderCount: 0,
+                             audioCount: 1, sequenceCount: 0, issues: [reason], availableBytes: nil),
+            LibraryPartition(url: healthy, letter: "S", kits: [], fileCount: 0, folderCount: 0,
+                             audioCount: 0, sequenceCount: 0, issues: [], availableBytes: 8_000_000)
+        ]
+        model.libraryKits = [visibleKit]
+        model.libraryIssue = reason
+        model.libraryMode = .samples
+        model.selectLocation(suspect)
+        await model.browseSamplesFolder(suspect)?.value
+        XCTAssertEqual(model.filteredSamples, [visible])
+        XCTAssertEqual(model.libraryContentIssue, reason)
+
+        model.sampleQuery = "NO MATCH"
+        XCTAssertTrue(model.filteredSamples.isEmpty)
+        XCTAssertEqual(model.libraryContentIssue, reason)
+        model.libraryMode = .kits
+        XCTAssertEqual(model.filteredKits, [visibleKit])
+        model.kitSearch = "NO MATCH"
+        XCTAssertTrue(model.filteredKits.isEmpty)
+        XCTAssertEqual(model.libraryContentIssue, reason)
+
+        model.selectLocation(healthy)
+        await model.browseSamplesFolder(healthy)?.value
+        XCTAssertNil(model.libraryContentIssue)
+        model.libraryMode = .samples
+        XCTAssertNil(model.libraryContentIssue)
+        XCTAssertEqual(model.samplePreviewStatus, "0 samples dans ce dossier.")
+        XCTAssertEqual(model.libraryIssue, reason, "The separate issue on M must not disappear globally.")
+
+        model.libraryMode = .kits
+        model.showAllKits()
+        XCTAssertEqual(model.libraryContentIssue, reason)
+        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet")
+    }
+
+    @MainActor
+    func testNewHealthyPartitionSnapshotClearsSelectedInventoryWarning() async throws {
+        let part = try directory("MPC-PART--M")
+        let model = try testModel(mountedVolumes: [part], sampleFolderLoader: { _ in
+            LibraryFolderListing(folders: [], samples: [], issue: nil)
+        })
+        model.partitions = [LibraryPartition(
+            url: part, letter: "M", kits: [], fileCount: 0, folderCount: 0,
+            audioCount: 0, sequenceCount: 0, issues: ["Deux fichiers portent le même nom."], availableBytes: nil)]
+        model.libraryMode = .samples
+        model.selectLocation(part)
+        await model.browseSamplesFolder(part)?.value
+        XCTAssertNotNil(model.libraryContentIssue)
+
+        model.partitions = [LibraryPartition(
+            url: part, letter: "M", kits: [], fileCount: 0, folderCount: 0,
+            audioCount: 0, sequenceCount: 0, issues: [], availableBytes: 8_000_000)]
+        await model.browseSamplesFolder(part)?.value
+
+        XCTAssertNil(model.libraryContentIssue)
+        XCTAssertEqual(model.samplePreviewStatus, "0 samples dans ce dossier.")
+        model.libraryMode = .kits
+        XCTAssertNil(model.libraryContentIssue)
+    }
+
+    @MainActor
     func testUnavailableKitFolderClearsStaleLibraryAndRecoveryClearsItsIssueWithoutChangingDocument() async throws {
         let folder = try directory("SavedKits")
         let source = try kit(in: folder, pad: 0)
@@ -223,6 +327,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.sampleListing.folders.isEmpty)
         XCTAssertEqual(model.sampleListing.issue, "Disconnected source")
         XCTAssertTrue(model.samplePreviewStatus.contains("indisponible"))
+        model.libraryMode = .samples
+        XCTAssertEqual(model.libraryContentIssue, "Disconnected source")
     }
 
     @MainActor

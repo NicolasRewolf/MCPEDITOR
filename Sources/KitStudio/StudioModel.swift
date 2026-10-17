@@ -189,6 +189,37 @@ final class StudioModel: ObservableObject {
         sampleListing.samples.filter { sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) }
     }
 
+    private func partition(containing folder: URL?) -> LibraryPartition? {
+        guard let folder = folder?.standardizedFileURL else { return nil }
+        return partitions.first { folder.pathComponents.starts(with: $0.url.pathComponents) }
+    }
+
+    private var selectedLibraryPartition: LibraryPartition? {
+        partition(containing: libraryMode == .kits ? selectedLocation : sampleFolder ?? selectedSampleRoot)
+    }
+
+    /// Keep the partition snapshot separate from the shallow sample listing: a
+    /// successful directory read cannot resolve an earlier FAT inventory issue.
+    var libraryContentIssue: String? {
+        var issues = selectedLibraryPartition?.issues ?? []
+        if libraryMode == .samples, let issue = sampleListing.issue, !issues.contains(issue) {
+            issues.append(issue)
+        } else if libraryMode == .kits, selectedLocation == nil, let issue = libraryIssue {
+            return issue
+        }
+        return issues.isEmpty ? nil : issues.joined(separator: "\n")
+    }
+
+    var libraryInventoryWarningTitle: String {
+        selectedLibraryPartition.map { "Inventaire incomplet · PART \($0.letter)" } ?? "Inventaire incomplet"
+    }
+
+    var libraryInventoryWarningDetail: String {
+        selectedLibraryPartition == nil
+            ? "Les fichiers visibles ne permettent pas de conclure que les dossiers sont vides."
+            : "Les fichiers visibles ne permettent pas de conclure que cette PART est vide."
+    }
+
     var assignedPadCount: Int {
         guard let program else { return 0 }
         return (0..<64).filter { program.slot(forNote: program.midiNote(forPad: $0)) != nil }.count
@@ -460,7 +491,13 @@ final class StudioModel: ObservableObject {
             let listing = await Task.detached(priority: .utility) { loader(folder) }.value
             guard token == self.sampleBrowseGeneration else { return }
             self.sampleListing = listing
-            self.samplePreviewStatus = listing.issue == nil ? "\(listing.samples.count) samples dans ce dossier." : "Dossier indisponible. Rebranche le disque puis actualise."
+            if listing.issue != nil {
+                self.samplePreviewStatus = "Dossier indisponible ou inventaire incomplet. Actualise la bibliothèque."
+            } else if self.partition(containing: folder)?.issues.isEmpty == false {
+                self.samplePreviewStatus = "Inventaire incomplet : \(listing.samples.count) sample(s) visibles."
+            } else {
+                self.samplePreviewStatus = "\(listing.samples.count) samples dans ce dossier."
+            }
         }
     }
 
