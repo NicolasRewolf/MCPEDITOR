@@ -27,7 +27,7 @@ struct StudioView: View {
         .background(StudioPalette.background)
         .toolbar {
             ToolbarItemGroup {
-                Button(action: model.newKit) { Label("Nouveau kit", systemImage: "plus") }
+                Button(action: model.newKit) { Label("Nouveau .PGM", systemImage: "plus") }
                     .help("Créer un programme vide")
                     .disabled(model.documentActionsDisabled)
                 Button(action: model.importAudio) { Label("Importer", systemImage: "square.and.arrow.down") }
@@ -72,13 +72,13 @@ struct StudioView: View {
                     .tracking(3)
                     .foregroundStyle(StudioPalette.orange)
                 HStack(spacing: 9) {
-                    TextField("Nom du kit", text: Binding(
+                    TextField("Nom du .PGM", text: Binding(
                         get: { model.kitName },
                         set: { model.setKitName($0) }
                     ))
                     .textFieldStyle(.plain)
                     .font(.system(size: 27, weight: .semibold, design: .rounded))
-                    .accessibilityLabel("Nom du kit")
+                    .accessibilityLabel("Nom du .PGM")
                     .disabled(model.program == nil || model.documentActionsDisabled)
                     if model.isDirty {
                         Circle().fill(StudioPalette.orange).frame(width: 7, height: 7)
@@ -94,7 +94,7 @@ struct StudioView: View {
                         Button("Finder", action: model.revealKitLocation)
                             .buttonStyle(.borderless)
                             .help(model.kitLocationPath)
-                            .accessibilityLabel("Afficher le kit dans le Finder")
+                            .accessibilityLabel("Afficher le .PGM dans le Finder")
                     }
                 }
                 .font(.caption)
@@ -418,7 +418,7 @@ private struct SampleEditor: View {
                 operation("Petits fondus", symbol: "waveform.path", kind: "fade")
                 operation("Inverser", symbol: "backward.end", kind: "reverse")
             }
-            Text("Les traitements modifient le son du kit en cours. L’export crée de nouveaux fichiers et conserve les originaux.")
+            Text("Les traitements modifient le son du .PGM en cours. L’export crée de nouveaux fichiers et conserve les originaux.")
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)

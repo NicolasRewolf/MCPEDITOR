@@ -1,7 +1,7 @@
 # MPC Kit Studio — prototype Mac
 
 Application native pour Apple Silicon, macOS 13 ou plus récent. Interface en français.
-Programmes MPC3000 natifs et sons SND révision 02, avec préparation de kits WAV/AIFF.
+Programmes MPC3000 natifs et sons SND révision 02, avec préparation de programmes à partir de WAV/AIFF.
 Aucune gestion de séquences.
 
 ## Essayer
@@ -13,35 +13,35 @@ La signature est locale (ad hoc), sans certificat Developer ID ni notarisation A
 Si macOS bloque l'application téléchargée, utiliser son option **Ouvrir quand même** dans
 Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gatekeeper.
 
-1. Insérer la SD et ouvrir l’application. **Kits** rassemble les `.PGM` des PART et des dossiers ajoutés,
-   avec leur emplacement visible sur chaque ligne. Un `.PGM` correspond à un kit.
-2. Créer un nouveau kit, puis glisser des WAV, AIFF ou SND sur les pads. Une sélection multiple
+1. Insérer la SD et ouvrir l’application. **.PGM** rassemble les `.PGM` des PART et des dossiers ajoutés,
+   avec leur emplacement visible sur chaque ligne. Un `.PGM` contient les affectations et les réglages ; les sons restent dans les `.SND`.
+2. Créer un nouveau programme .PGM, puis glisser des WAV, AIFF ou SND sur les pads. Une sélection multiple
    remplit les pads suivants dans l’ordre de la sélection, jusqu’à D16.
-   Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le kit disponible
+   Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le programme .PGM disponible
    et conserve ses modifications ; un retour tardif du fournisseur est ignoré.
 3. Dans **Samples**, parcourir une PART ou ajouter un dossier du SSD : les sons existants apparaissent
    même sans programme. Sélectionner un son, l’écouter, puis l’affecter au pad choisi, ou le glisser sur un pad.
    La recherche filtre le dossier courant ; les sous-dossiers s’ouvrent séparément.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
-   Parcourir la bibliothèque ne remplace jamais le kit en mémoire.
+   Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire.
 5. **Enregistrer une copie…** propose une PART vide disposant d’assez d’espace, avec une réserve pour
    l’allocation des fichiers. Valider, ou ouvrir **Changer la destination**. Sans PART adaptée,
-   l’application demande une autre destination. Aucun déplacement de kits existants n’est automatique.
+   l’application demande une autre destination. Aucun déplacement de programmes .PGM existants n’est automatique.
 6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. La **Carte de la SD**
    reste disponible en bas de la bibliothèque pour consulter le rangement.
 7. Éjecter la SD depuis le Finder, la remettre dans la MPC et charger le `.PGM` indiqué.
-8. Pour retirer un kit de la bibliothèque, ouvrir son menu **⋯** ou faire un clic droit,
+8. Pour retirer un programme .PGM de la bibliothèque, ouvrir son menu **⋯** ou faire un clic droit,
    puis **Mettre le programme à la corbeille…**. La confirmation indique son chemin exact.
    Les `.SND` et `.SEQ` restent sur le disque ; une PART contenant encore des samples reste occupée.
-   Si le kit était ouvert, sa copie en mémoire reste disponible et peut être enregistrée à nouveau.
+   Si le programme .PGM était ouvert, sa copie en mémoire reste disponible et peut être enregistrée à nouveau.
 
 Chaque enregistrement crée une nouvelle copie du programme et de ses sons ; les fichiers existants sont conservés.
-Le nom se modifie dans l’en-tête du kit. La fenêtre d’enregistrement le présente en lecture seule
+Le nom se modifie dans l’en-tête du programme .PGM. La fenêtre d’enregistrement le présente en lecture seule
 et sert à choisir la destination ; l’annuler ne renomme pas le programme.
-Un nom ASCII libre de huit caractères est choisi en cas de collision. Le kit ouvert d’origine reste
+Un nom ASCII libre de huit caractères est choisi en cas de collision. Le programme .PGM ouvert d’origine reste
 identifié séparément de la dernière copie enregistrée. Les dossiers ajoutés sont mémorisés localement.
 Le titre interne du programme est conservé lors d’une copie sans édition, même s’il diffère du nom
-du fichier. Modifier explicitement le nom du kit modifie aussi ce titre ; un suffixe attribué pour
+du fichier. Modifier explicitement le nom du programme .PGM modifie aussi ce titre ; un suffixe attribué pour
 éviter une collision ne le modifie pas.
 La notion de PART vide exclut les fichiers cachés macOS : elle exige l’absence de toute entrée visible
 et un parcours complet sans erreur. Une PART contenant uniquement des samples, séquences ou dossiers
@@ -52,26 +52,26 @@ L’identité du dossier et du volume est conservée jusqu’au clic sur Enregis
 avant les créations. Une PART annoncée vide doit encore l’être à cet instant. Les destinations
 non vérifiables, y compris par un choix de dossier personnalisé, restent protégées en lecture.
 Le contrôle d’un dossier personnalisé s’exécute en arrière-plan ; **Annuler** permet de sortir
-de l’attente sans modifier le kit. Un résultat tardif ne rétablit pas une sélection abandonnée.
+de l’attente sans modifier le programme .PGM. Un résultat tardif ne rétablit pas une sélection abandonnée.
 Un nom de programme présent plusieurs fois interdit également sa mise à la corbeille.
 Si macOS refuse l’accès à un dossier caché nécessaire au contrôle, l’app signale le refus ;
-le kit peut être enregistré dans un dossier local vérifiable sur le Mac.
+le programme .PGM peut être enregistré dans un dossier local vérifiable sur le Mac.
 
-Commencer sur une **copie d'un kit dans un dossier local**, puis valider un petit export sur la MPC.
+Commencer sur une **copie d'un programme .PGM dans un dossier local**, puis valider un petit export sur la MPC.
 Aucun aller-retour matériel n'a encore été effectué par ce projet.
 
 ## Portée
 
 - Le programme natif fait 4 608 octets. Les paramètres non édités, la carte des pads,
   les modes d'affectation, le filtre et le mixer sont conservés.
-- Le nouveau kit utilise un programme modèle présent dans le corpus du dépôt.
+- Le nouveau programme .PGM utilise un programme modèle présent dans le corpus du dépôt.
 - Le SND natif a un en-tête de 38 octets et du PCM 16 bits little-endian,
   stéréo planaire. Import WAV/AIFF converti vers 44,1 kHz.
 - Les samples restent partagés entre les pads qui utilisent le même emplacement.
 - Le chargement préfère un nom de fichier unique. Si le nom DOS diffère du nom référencé,
   il recherche un nom interne SND natif unique ; une ambiguïté reste signalée.
-- Un import multiple est préparé intégralement avant de remplacer le kit en mémoire.
-  Un fichier invalide, un dépassement de mémoire ou un lot dépassant D16 laisse le kit précédent intact.
+- Un import multiple est préparé intégralement avant de remplacer le programme .PGM en mémoire.
+  Un fichier invalide, un dépassement de mémoire ou un lot dépassant D16 laisse le programme .PGM précédent intact.
   Les sons de moins de 441 points et les valeurs audio non finies sont refusés à l'import.
 - Un sample Float dépassant la plage −1…+1 reste intact en mémoire, avec un diagnostic de crête.
   L’export est bloqué pour éviter un écrêtage silencieux. **Normaliser les samples concernés**
@@ -82,13 +82,13 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
   Les SND compressés révision 82 et autres formats portant l'extension SND sont refusés.
 - Les fichiers exportés ont au moins 441 points (10 ms). Les octets situés
   après le PCM déclaré sont signalés à l'import puis omis à l'export.
-- Plafond du prototype : 32 Mio de PCM par kit ; vérifier la RAM réellement installée dans la MPC.
+- Plafond du prototype : 32 Mio de PCM par programme .PGM ; vérifier la RAM réellement installée dans la MPC.
 - Seuls les sons référencés sont exportés ; l'inventaire inutilisé est vidé.
   Les SND sont écrits avant le programme. Celui-ci est préparé sous une extension `.TMP`,
   synchronisé, puis publié en `.PGM` sans remplacement d’un nom existant.
   En cas d’échec, les noms créés restent sur place et sont signalés : aucun nettoyage
   automatique ne risque de supprimer un fichier repris par un autre écrivain.
-  Une coupure d’alimentation ne constitue pas une transaction atomique de tout le kit.
+  L’ensemble formé par le .PGM et ses sons n’est pas une transaction atomique en cas de coupure d’alimentation.
   Une interruption peut laisser des SND ou un TMP à examiner ; ne pas les effacer aveuglément.
 - Les modifications sont en mémoire jusqu'à l'export. Il n'y a pas encore de sauvegarde
   de projet de travail, d'annulation générale ou de restauration de session.

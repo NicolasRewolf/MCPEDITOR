@@ -778,8 +778,8 @@ final class LibraryModelTests: XCTestCase {
 
         XCTAssertFalse(model.awaitingDiscardConfirmation)
         XCTAssertFalse(model.documentActionsDisabled)
-        XCTAssertEqual(model.kitName, "NEWKIT")
-        XCTAssertEqual(model.program?.name, "NEWKIT")
+        XCTAssertEqual(model.kitName, "NEWPROG")
+        XCTAssertEqual(model.program?.name, "NEWPROG")
         XCTAssertTrue(model.program?.referencedSlots.isEmpty == true,
                       "The confirmation flag must clear before the approved continuation creates the blank document.")
         XCTAssertEqual(model.memoryBytes, 0)

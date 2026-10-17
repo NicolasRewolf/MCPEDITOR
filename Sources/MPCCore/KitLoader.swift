@@ -11,7 +11,7 @@ public enum KitLoaderError: LocalizedError, Sendable {
     case memoryLimitExceeded
 
     public var errorDescription: String? {
-        "Ce kit dépasse la limite de 32 Mio de données audio du prototype."
+        "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype."
     }
 }
 

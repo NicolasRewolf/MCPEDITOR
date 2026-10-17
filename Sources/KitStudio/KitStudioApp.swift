@@ -24,7 +24,7 @@ struct KitStudioApp: App {
         .defaultSize(width: 1_320, height: 860)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Nouveau kit", action: model.newKit)
+                Button("Nouveau .PGM", action: model.newKit)
                     .keyboardShortcut("n")
                     .disabled(model.documentActionsDisabled)
                 Button("Ouvrir un dossier…", action: model.chooseFolder)

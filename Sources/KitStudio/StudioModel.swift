@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import MPCCore
 
 enum LibraryMode: String, CaseIterable, Sendable {
-    case kits = "Kits"
+    case kits = ".PGM"
     case samples = "Samples"
 }
 
@@ -20,13 +20,13 @@ final class StudioModel: ObservableObject {
     @Published var locations: [URL] = []
     @Published var selectedLocation: URL?
     @Published var programURL: URL?
-    @Published var kitName = "NEWKIT"
+    @Published var kitName = "NEWPROG"
     @Published var bank = 0
     @Published var selectedPad = 0
     @Published var isDirty = false
     @Published var busy = false
     @Published private(set) var resolvingDroppedFiles = false
-    @Published var status = "Choisis une partition ou ouvre un dossier de kits."
+    @Published var status = "Choisis une partition ou ouvre un dossier de .PGM."
     @Published var errorMessage: String?
     @Published var sound: MPCSound?
     @Published var program: MPCProgram?
@@ -260,7 +260,7 @@ final class StudioModel: ObservableObject {
         if let url = programURL {
             return "\(isDirty ? "Modifié en mémoire" : "Ouvert") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
         }
-        return "Kit en mémoire · non enregistré"
+        return "Programme .PGM en mémoire · non enregistré"
     }
 
     var kitLocationPath: String { (lastExportURL ?? programURL)?.path ?? "" }
@@ -270,7 +270,7 @@ final class StudioModel: ObservableObject {
     }
 
     var exportDestinationIssue: String? {
-        if validatingExportDestination { return "Vérification de l’emplacement en cours… Tu peux annuler sans modifier le kit." }
+        if validatingExportDestination { return "Vérification de l’emplacement en cours… Tu peux annuler sans modifier le .PGM." }
         guard let destination = exportDestinationURL else { return nil }
         if let part = partitions.first(where: { $0.url == destination.standardizedFileURL }), !part.issues.isEmpty {
             return "Cette PART doit être vérifiée avant l’enregistrement. Actualise la bibliothèque."
@@ -308,7 +308,7 @@ final class StudioModel: ObservableObject {
                 }
                 let alert = NSAlert()
                 alert.messageText = "Mettre \(prepared.url.lastPathComponent) à la corbeille ?"
-                alert.informativeText = "Ce kit est le programme .PGM situé ici :\n\(prepared.url.path)\n\nLes samples .SND et les séquences .SEQ restent sur le disque. Cette action libère très peu d’espace. Le kit ouvert reste en mémoire ; tu peux l’enregistrer à nouveau."
+                alert.informativeText = "Le programme .PGM se trouve ici :\n\(prepared.url.path)\n\nLes samples .SND et les séquences .SEQ restent sur le disque. Cette action libère très peu d’espace. Le .PGM ouvert reste en mémoire ; tu peux l’enregistrer à nouveau."
                 alert.addButton(withTitle: "Mettre à la corbeille")
                 alert.addButton(withTitle: "Annuler")
                 alert.buttons.first?.hasDestructiveAction = true
@@ -346,7 +346,7 @@ final class StudioModel: ObservableObject {
             } catch {
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "La mise à la corbeille n’a pas abouti ; le kit en mémoire est conservé."
+                self.status = "La mise à la corbeille n’a pas abouti ; le .PGM en mémoire est conservé."
             }
         }
     }
@@ -420,7 +420,7 @@ final class StudioModel: ObservableObject {
     func chooseFolder() {
         guard !documentLocked else { return }
         let panel = NSOpenPanel()
-        panel.title = "Ajouter un dossier de kits"
+        panel.title = "Ajouter un dossier de .PGM"
         panel.prompt = "Ajouter"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -603,9 +603,9 @@ final class StudioModel: ObservableObject {
                 self.bank = 0
                 let trailing = loaded.sounds.values.reduce(0) { $0 + $1.trailingByteCount }
                 self.status = loaded.missing.isEmpty ? (trailing > 0 ?
-                    "Kit ouvert. \(trailing) octets hors PCM seront omis lors du nouvel export." :
-                    "Kit ouvert. L’export crée de nouveaux fichiers et conserve les originaux.") :
-                    "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’export exige tous les sons du kit."
+                    "Programme .PGM ouvert. \(trailing) octets hors PCM seront omis lors du nouvel export." :
+                    "Programme .PGM ouvert. L’export crée de nouveaux fichiers et conserve les originaux.") :
+                    "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’export exige tous les sons du .PGM."
             } catch {
                 guard token == self.generation else { return }
                 self.busy = false
@@ -626,10 +626,10 @@ final class StudioModel: ObservableObject {
         guard !documentActionsDisabled else { return }
         generation += 1
         stop()
-        program = MPCProgram.blank(name: "NEWKIT")
+        program = MPCProgram.blank(name: "NEWPROG")
         sounds = [:]
         audioRangeReports = [:]
-        kitName = "NEWKIT"
+        kitName = "NEWPROG"
         programURL = nil
         lastExportURL = nil
         bank = 0
@@ -637,7 +637,7 @@ final class StudioModel: ObservableObject {
         sound = nil
         isDirty = false
         errorMessage = nil
-        status = "Nouveau kit. Importe des WAV, AIFF ou SND sur les pads."
+        status = "Nouveau .PGM. Importe des WAV, AIFF ou SND sur les pads."
     }
 
     func selectPad(_ index: Int) {
@@ -724,7 +724,7 @@ final class StudioModel: ObservableObject {
                 self.resolvingDroppedFiles = false
                 self.busy = false
                 self.errorMessage = error is CancellationError ? nil : error.localizedDescription
-                self.status = "Import interrompu ; le kit est conservé."
+                self.status = "Import interrompu ; le .PGM est conservé."
             }
         }
         return true
@@ -742,7 +742,7 @@ final class StudioModel: ObservableObject {
         resolvingDroppedFiles = false
         busy = false
         errorMessage = nil
-        status = "Dépôt annulé ; le kit et ses modifications sont conservés."
+        status = "Dépôt annulé ; le .PGM et ses modifications sont conservés."
     }
 
     struct PreparedImport: Sendable {
@@ -843,7 +843,7 @@ final class StudioModel: ObservableObject {
             guard token == self.generation else { return }
             self.busy = false
             self.errorMessage = error.localizedDescription
-            self.status = "Import interrompu ; le kit est conservé."
+            self.status = "Import interrompu ; le .PGM est conservé."
         }
     }
 
@@ -891,7 +891,7 @@ final class StudioModel: ObservableObject {
             replaceSelected(copy)
         default: return
         }
-        status = "Sample modifié en mémoire ; exporte le kit pour le conserver."
+        status = "Sample modifié en mémoire ; exporte le .PGM pour le conserver."
     }
 
     func setPadTune(_ value: Int) {
@@ -1020,7 +1020,7 @@ final class StudioModel: ObservableObject {
         guard !documentActionsDisabled, let program else { return nil }
         if let issue = exportAudioIssue {
             errorMessage = issue
-            status = "L’export attend ta décision sur le niveau des samples ; le kit est conservé."
+            status = "L’export attend ta décision sur le niveau des samples ; le .PGM est conservé."
             return nil
         }
         let exportProgram = program
@@ -1054,7 +1054,7 @@ final class StudioModel: ObservableObject {
             } catch {
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "L’export n’a pas abouti ; le kit est conservé."
+                self.status = "L’export n’a pas abouti ; le .PGM est conservé."
             }
         }
     }

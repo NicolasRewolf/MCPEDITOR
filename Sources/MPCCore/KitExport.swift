@@ -31,7 +31,7 @@ public enum KitExportError: LocalizedError, Sendable {
         case .invalidPCM16Range(let slot, let peak, let outOfRange, let nonFinite):
             return "Le son de l’emplacement MPC \(slot + 1) dépasse la plage PCM16 : crête \(String(format: "%.3f", peak)), \(outOfRange) valeurs hors plage et \(nonFinite) valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement."
         case .memoryLimitExceeded:
-            return "Ce kit dépasse la limite de 32 Mio de données audio du prototype."
+            return "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype."
         case .namesExhausted:
             return "Impossible de trouver un nom MPC libre de huit caractères."
         case .io(let file, let code):
@@ -40,7 +40,7 @@ public enum KitExportError: LocalizedError, Sendable {
             let location = actual.map { " Ils se trouvent dans le dossier ouvert : \($0)." } ?? " Leur emplacement actuel doit être vérifié dans le Finder."
             return "La destination a changé pendant l’enregistrement : \(selected)." + location
         case .publishedFileChanged(let filename):
-            return "Le fichier \(filename) a changé pendant l’enregistrement. Le kit n’a pas été confirmé."
+            return "Le fichier \(filename) a changé pendant l’enregistrement. L’enregistrement du .PGM n’a pas été confirmé."
         case .incompleteRollback(let cause, let files):
             return cause + " Par sécurité, aucun fichier créé n’a été supprimé automatiquement. Fichiers à vérifier : " + files.joined(separator: ", ") + "."
         }

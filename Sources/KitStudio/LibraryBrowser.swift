@@ -23,11 +23,11 @@ struct LibraryBrowser: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(model.libraryScanning)
-                .help("Actualiser les partitions et les kits")
+                .help("Actualiser les PART et les .PGM")
                 .accessibilityLabel("Actualiser la bibliothèque")
             }
             Picker("Bibliothèque", selection: $model.libraryMode) {
-                Text("Kits").tag(LibraryMode.kits)
+                Text(".PGM").tag(LibraryMode.kits)
                 Text("Samples").tag(LibraryMode.samples)
             }
             .pickerStyle(.segmented)
@@ -91,7 +91,7 @@ struct LibraryBrowser: View {
     private var kitBrowser: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button("Tous les kits", action: model.showAllKits)
+                Button("Tous les .PGM", action: model.showAllKits)
                     .buttonStyle(.borderless)
                     .foregroundStyle(model.selectedLocation == nil ? StudioPalette.orange : Color.primary)
                 Spacer()
@@ -103,17 +103,17 @@ struct LibraryBrowser: View {
                             .help(folder.path)
                     }
                     Divider()
-                    Button("Ajouter un dossier de kits…", action: model.chooseFolder)
+                    Button("Ajouter un dossier de .PGM…", action: model.chooseFolder)
                 } label: {
                     Label("Dossiers", systemImage: "folder")
                 }
-                .help("Parcourir les dossiers de kits ajoutés")
+                .help("Parcourir les dossiers de .PGM ajoutés")
             }
-            TextField("Rechercher un kit ou une PART", text: $model.kitSearch)
+            TextField("Rechercher un .PGM ou une PART", text: $model.kitSearch)
                 .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Rechercher un kit ou une partition")
+                .accessibilityLabel("Rechercher un .PGM ou une partition")
             HStack {
-                Text("\(model.filteredKits.count) kit(s)\(model.libraryContentIssue == nil ? "" : " visibles")")
+                Text("\(model.filteredKits.count) .PGM\(model.libraryContentIssue == nil ? "" : " visibles")")
                 Spacer()
                 if let location = model.selectedLocation {
                     Text(location.lastPathComponent)
@@ -131,9 +131,9 @@ struct LibraryBrowser: View {
                         if model.filteredKits.isEmpty {
                             LibraryEmptyState(
                                 symbol: "square.grid.3x3",
-                                title: model.libraryContentIssue == nil ? "Aucun kit dans cette vue" : "Aucun kit visible dans cette vue",
+                                title: model.libraryContentIssue == nil ? "Aucun .PGM dans cette vue" : "Aucun .PGM visible dans cette vue",
                                 detail: model.libraryContentIssue == nil
-                                    ? "Choisis une autre PART, affiche tous les kits ou ajoute un dossier."
+                                    ? "Choisis une autre PART, affiche tous les .PGM ou ajoute un dossier."
                                     : "Actualise la bibliothèque pour vérifier les fichiers accessibles."
                             )
                         }
@@ -339,7 +339,7 @@ struct LibraryBrowser: View {
                 model.selectedSampleURL == nil || model.program == nil || model.documentActionsDisabled
                     || model.samplePreviewBusy
             )
-            .help("Importer le sample sélectionné sur le pad \(model.selectedLabel) du kit en cours")
+            .help("Importer le sample sélectionné sur le pad \(model.selectedLabel) du .PGM en cours")
             if !model.samplePreviewStatus.isEmpty {
                 Text(model.samplePreviewStatus)
                     .font(.caption)
@@ -386,10 +386,10 @@ private struct PartitionTile: View {
         }
         .buttonStyle(.plain)
         .help(
-            "PART \(partition.letter) · \(partition.kits.count) kit(s), \(partition.audioCount) son(s), \(partition.sequenceCount) séquence(s)\n\(partition.url.path)\n\(partition.issues.joined(separator: "\n"))"
+            "PART \(partition.letter) · \(partition.kits.count) .PGM, \(partition.audioCount) son(s), \(partition.sequenceCount) séquence(s)\n\(partition.url.path)\n\(partition.issues.joined(separator: "\n"))"
         )
         .accessibilityLabel(
-            "PART \(partition.letter), \(partition.kits.count) kits, \(partition.audioCount) sons\(partition.isEmpty && partition.issues.isEmpty ? ", vide" : "")\(partition.issues.isEmpty ? "" : ", à vérifier")"
+            "PART \(partition.letter), \(partition.kits.count) .PGM, \(partition.audioCount) sons\(partition.isEmpty && partition.issues.isEmpty ? ", vide" : "")\(partition.issues.isEmpty ? "" : ", à vérifier")"
         )
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -472,7 +472,7 @@ struct ExportDestinationSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 7) {
-                Text("Enregistrer une copie du kit")
+                Text("Enregistrer une copie du .PGM")
                     .font(.title2.bold())
                 Text("Le programme et ses samples seront copiés dans l’emplacement choisi.")
                     .font(.callout)
@@ -480,7 +480,7 @@ struct ExportDestinationSheet: View {
             }
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Nom du kit").font(.caption)
+                    Text("Nom du .PGM").font(.caption)
                     Text(model.kitName)
                         .font(.headline)
                         .textSelection(.enabled)
@@ -559,7 +559,7 @@ struct ExportDestinationSheet: View {
                     .lineLimit(2)
                     .help(model.exportDestinationURL?.path ?? "")
                 if capacityTooSmall {
-                    Text("L’espace libre de cette partition est insuffisant pour ce kit.")
+                    Text("L’espace libre de cette partition est insuffisant pour ce .PGM et ses samples.")
                         .font(.caption)
                         .foregroundStyle(.yellow)
                 }
@@ -608,7 +608,7 @@ struct ExportDestinationSheet: View {
             ? "À vérifier"
             : partition.isEmpty
                 ? "Vide (fichiers visibles)"
-                : "\(partition.kits.count) kit(s) · \(partition.audioCount) son(s)"
+                : "\(partition.kits.count) .PGM · \(partition.audioCount) son(s)"
         let available =
             partition.availableBytes.map {
                 ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + " libres"

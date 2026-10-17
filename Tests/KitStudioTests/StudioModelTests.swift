@@ -183,7 +183,7 @@ final class StudioModelTests: XCTestCase {
     func testNameBindingSameValueDoesNotMarkKitDirty() {
         let model = StudioModel()
         model.newKit()
-        model.setKitName("NEWKIT")
+        model.setKitName("NEWPROG")
         XCTAssertFalse(model.isDirty)
         model.setKitName("EDITED")
         XCTAssertEqual(model.kitName, "EDITED")
@@ -318,7 +318,7 @@ final class StudioModelTests: XCTestCase {
         XCTAssertTrue(model.isDirty)
         XCTAssertFalse(model.busy)
         XCTAssertTrue(model.errorMessage?.contains("fichier déposé 2") == true)
-        XCTAssertTrue(model.status.contains("kit est conservé"))
+        XCTAssertTrue(model.status.contains(".PGM est conservé"))
     }
 
     @MainActor
