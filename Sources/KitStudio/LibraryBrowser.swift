@@ -75,7 +75,7 @@ struct LibraryBrowser: View {
                                         .foregroundStyle(.yellow)
                                         .help(partition.issues.joined(separator: "\n"))
                                 } else if partition.isEmpty {
-                                    Text("Vide").font(.caption).foregroundStyle(StudioPalette.muted)
+                                    Text("Aucun fichier visible").font(.caption).foregroundStyle(StudioPalette.muted)
                                 }
                             }
                             if !partition.kits.isEmpty {
@@ -384,7 +384,7 @@ struct LibraryBrowser: View {
                         }
                         .font(.caption)
                     }
-                    .frame(maxHeight: 100)
+                    .frame(height: min(100, CGFloat(programs.count) * 36))
                 }
                 if let notice = model.selectedSampleAssociationNotice {
                     Text(notice).font(.caption).foregroundStyle(StudioPalette.muted)
