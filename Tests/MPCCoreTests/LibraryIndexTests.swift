@@ -60,13 +60,13 @@ final class LibraryIndexTests: XCTestCase {
     func testRecursiveMetadataCountsKitsSamplesSequencesAndUnknownFiles() throws {
         let folder = try directory(named: "MPC-PART--C")
         let direct = try file("ROOT.PGM", in: folder)
-        _ = try file("KICK.SND", in: folder)
+        let kick = try file("KICK.SND", in: folder)
         _ = try file("TAKE.Seq", in: folder)
         _ = try file("NOTES.TXT", in: folder)
         let nested = folder.appendingPathComponent("Drums/Live")
         try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
         let kit = try file("NESTED.pgm", in: nested)
-        _ = try file("SNARE.WAV", in: nested)
+        let snare = try file("SNARE.WAV", in: nested)
 
         let part = scanPartition(folder)
         XCTAssertFalse(part.isEmpty)
@@ -74,6 +74,7 @@ final class LibraryIndexTests: XCTestCase {
         XCTAssertEqual(part.fileCount, 6)
         XCTAssertEqual(part.folderCount, 2)
         XCTAssertEqual(part.audioCount, 2)
+        XCTAssertEqual(Set(part.samples), Set([kick, snare]))
         XCTAssertEqual(part.sequenceCount, 1)
         XCTAssertEqual(Set(part.kits.map(\.url)), Set([direct, kit]))
         XCTAssertEqual(part.kits.first { $0.url == kit }?.locationLabel, "PART C · Drums/Live")

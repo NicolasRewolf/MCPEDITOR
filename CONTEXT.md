@@ -17,13 +17,15 @@ Composer un .PGM → le conserver dans sa bibliothèque → composer d’autres 
 
 Les vues souhaitées sont trois lectures cohérentes : Samples avec leurs .PGM et emplacements ; .PGM avec leurs copies présentes sur SD ; PART avec leur contenu. Le classement historique et les créations récentes doivent coexister sans réécrire les originaux.
 
-## État livré en 0.5.3 (15)
+## État livré en 0.6.0 (16)
 
-L’app mémorise des dossiers, indexe leurs PGM et ceux des PART montées, permet la composition en mémoire et écrit des copies vers une destination validée. Samples parcourt un dossier à la fois. Une copie locale est conservée dans un dossier ajouté à la bibliothèque ; une copie uniquement sur SD n’a pas de sauvegarde locale implicite. La dernière copie du document courant est identifiée par son chemin.
+L’app mémorise des dossiers, indexe leurs PGM et ceux des PART montées, permet la composition en mémoire et écrit des copies vers une destination validée. La bibliothèque propose trois vues : `.PGM`, Samples et PART. Samples réunit les sons visibles sur la SD ou parcourt une source choisie ; chaque occurrence garde son chemin. Depuis un PGM, « Voir les samples » montre ses références résolues sans remplacer le document ouvert. Depuis un sample, les liens indiquent chaque PGM enregistré qui le référence et son emplacement.
 
-Le catalogue durable indépendant des supports, le suivi des différentes copies d’un même .PGM, la vue globale des samples et les associations sample–PGM dans l’interface ne sont pas encore implémentés. L’inventaire privé du 17 octobre fournit ces associations pour le relevé initial de la SD, comme données dérivées sur le Mac. Aucun tag n’est injecté dans les SND.
+Les associations sont un relevé en mémoire, recalculé en lecture seule depuis les PGM et les en-têtes SND. La même résolution de noms sert à l’ouverture et à l’index des associations. Aucun audio n’est décodé pour cet index ; aucun tag n’est injecté dans les SND. Une référence ambiguë ou illisible demeure non résolue. Une absence de lien ne prouve pas qu’un son est inutilisé, notamment en présence d’un inventaire incomplet ou d’autres formats.
 
-La version 0.5.3 harmonise le vocabulaire affiché autour de `.PGM`. La marque MPC Kit Studio et les identifiants internes restent stables. Cette passe ne modifie pas les formats de fichiers ni les fonctions disponibles.
+Une copie locale est conservée dans un dossier ajouté à la bibliothèque ; une copie uniquement sur SD n’a pas de sauvegarde locale implicite. La dernière copie du document courant est identifiée par son chemin. Le catalogue durable indépendant des supports et le suivi de filiation entre plusieurs copies d’un PGM ne sont pas implémentés : noms ou empreintes identiques ne regroupent pas automatiquement des occurrences.
+
+La marque MPC Kit Studio et les identifiants internes restent stables. Cette passe ajoute la lecture des associations et simplifie leur navigation ; les formats de fichiers et les protections d’écriture restent inchangés.
 
 ## Contraintes de cette passe
 

@@ -19,21 +19,32 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    remplit les pads suivants dans l’ordre de la sélection, jusqu’à D16.
    Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le programme .PGM disponible
    et conserve ses modifications ; un retour tardif du fournisseur est ignoré.
-3. Dans **Samples**, parcourir une PART ou ajouter un dossier du SSD : les sons existants apparaissent
-   même sans programme. Sélectionner un son, l’écouter, puis l’affecter au pad choisi, ou le glisser sur un pad.
-   La recherche filtre le dossier courant ; les sous-dossiers s’ouvrent séparément.
+3. Dans **Samples**, la vue **Toute la SD** rassemble les samples visibles de toutes les PART, même sans programme.
+   Chaque ligne indique son emplacement et le nombre de `.PGM` qui le référencent. Sélectionner un son affiche
+   les noms et emplacements de ces programmes ; **Ouvrir** charge le programme choisi. Les liens concernent les
+   `.PGM` enregistrés de la bibliothèque, pas les modifications encore en mémoire.
+   Le menu permet aussi de parcourir une PART ou un dossier du SSD. La recherche filtre la vue courante.
+   La préécoute et l’affectation au pad restent disponibles, ainsi que le glisser-déposer.
+   Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire.
 5. **Enregistrer une copie…** propose une PART vide disposant d’assez d’espace, avec une réserve pour
    l’allocation des fichiers. Valider, ou ouvrir **Changer la destination**. Sans PART adaptée,
    l’application demande une autre destination. Aucun déplacement de programmes .PGM existants n’est automatique.
-6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. La **Carte de la SD**
-   reste disponible en bas de la bibliothèque pour consulter le rangement.
+6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. L’onglet **PART**
+   affiche les `.PGM` présents et donne accès aux samples de chaque partition.
 7. Éjecter la SD depuis le Finder, la remettre dans la MPC et charger le `.PGM` indiqué.
 8. Pour retirer un programme .PGM de la bibliothèque, ouvrir son menu **⋯** ou faire un clic droit,
    puis **Mettre le programme à la corbeille…**. La confirmation indique son chemin exact.
    Les `.SND` et `.SEQ` restent sur le disque ; une PART contenant encore des samples reste occupée.
    Si le programme .PGM était ouvert, sa copie en mémoire reste disponible et peut être enregistrée à nouveau.
+
+Les associations sont calculées en lecture seule depuis les fichiers `.PGM` et les en-têtes `.SND`.
+Aucun tag n’est écrit sur la SD. Deux fichiers de même nom sur deux PART restent deux occurrences distinctes.
+Une référence ambiguë, absente ou illisible reste signalée ; « aucun lien trouvé » ne signifie jamais « inutilisé ».
+Les programmes et les fichiers invisibles à macOS ne peuvent pas être retrouvés par cette vue ; un inventaire
+incomplet demeure indiqué. Les séquences `.SEQ`, `.APS` et `.ALL` ne sont pas analysées pour ces associations.
+La lecture des associations est bornée, sans décodage audio ; les limites atteintes sont signalées.
 
 Chaque enregistrement crée une nouvelle copie du programme et de ses sons ; les fichiers existants sont conservés.
 Le nom se modifie dans l’en-tête du programme .PGM. La fenêtre d’enregistrement le présente en lecture seule

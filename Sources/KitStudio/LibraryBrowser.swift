@@ -4,7 +4,6 @@ import SwiftUI
 
 struct LibraryBrowser: View {
     @EnvironmentObject private var model: StudioModel
-    @State private var showSDMap = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -29,6 +28,7 @@ struct LibraryBrowser: View {
             Picker("Bibliothèque", selection: $model.libraryMode) {
                 Text(".PGM").tag(LibraryMode.kits)
                 Text("Samples").tag(LibraryMode.samples)
+                Text("PART").tag(LibraryMode.parts)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -40,52 +40,74 @@ struct LibraryBrowser: View {
                     .help(issue)
             }
 
-            if model.libraryMode == .kits {
-                kitBrowser
-            } else {
-                sampleBrowser
-            }
-            Divider()
-            DisclosureGroup(isExpanded: $showSDMap) {
-                partitionGrid.padding(.top, 8)
-            } label: {
-                HStack {
-                    Label("Carte de la SD", systemImage: "sdcard")
-                    Spacer()
-                    Text("\(model.partitions.count) PART")
-                        .foregroundStyle(StudioPalette.muted)
-                }
-                .font(.caption)
+            switch model.libraryMode {
+            case .kits: kitBrowser
+            case .samples: sampleBrowser
+            case .parts: partitionBrowser
             }
         }
         .padding(12)
         .background(StudioPalette.inset)
     }
 
-    private var partitionGrid: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("PARTITIONS SD")
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+    private var partitionBrowser: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Retrouver un .PGM sur la MPC")
+                .font(.callout.weight(.medium))
+            Text("Chaque PART affiche les fichiers visibles sur la SD.")
+                .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
             if model.partitions.isEmpty {
-                Text(model.libraryScanning ? "Recherche des partitions…" : "Aucune partition SD montée.")
-                    .font(.caption)
-                    .foregroundStyle(StudioPalette.muted)
-            } else {
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 7), spacing: 5
-                ) {
+                LibraryEmptyState(symbol: "sdcard", title: "Aucune PART montée",
+                                  detail: "Branche la SD pour retrouver ses .PGM et ses samples.")
+            }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
                     ForEach(model.partitions, id: \.url) { partition in
-                        PartitionTile(
-                            partition: partition,
-                            selected: model.libraryMode == .kits
-                                ? model.selectedLocation == partition.url
-                                : model.selectedSampleRoot == partition.url
-                        ) { model.selectLocation(partition.url) }
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Label("PART \(partition.letter)", systemImage: "sdcard")
+                                    .font(.callout.weight(.semibold))
+                                Spacer()
+                                if !partition.issues.isEmpty {
+                                    Label("À vérifier", systemImage: "exclamationmark.triangle")
+                                        .font(.caption)
+                                        .foregroundStyle(.yellow)
+                                        .help(partition.issues.joined(separator: "\n"))
+                                } else if partition.isEmpty {
+                                    Text("Vide").font(.caption).foregroundStyle(StudioPalette.muted)
+                                }
+                            }
+                            if !partition.kits.isEmpty {
+                                Text(partition.kits.map { $0.url.lastPathComponent }.joined(separator: " · "))
+                                    .font(.caption)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if !partition.issues.isEmpty {
+                                Text("Aucun .PGM visible · inventaire incomplet")
+                                    .font(.caption).foregroundStyle(StudioPalette.muted)
+                            }
+                            let otherFiles = max(0, partition.fileCount - partition.kits.count - partition.audioCount)
+                            if otherFiles > 0 || partition.folderCount > 0 {
+                                Text("\(otherFiles) autre(s) fichier(s) · \(partition.folderCount) dossier(s)")
+                                    .font(.caption).foregroundStyle(StudioPalette.muted)
+                                    .help("Dont \(partition.sequenceCount) séquence(s) .SEQ. Ces fichiers occupent aussi la PART.")
+                            }
+                            HStack {
+                                Button("\(partition.kits.count) .PGM") { model.showPrograms(in: partition) }
+                                    .accessibilityLabel("Voir les .PGM de PART \(partition.letter)")
+                                Button("\(partition.audioCount) samples") { model.showSamples(in: partition) }
+                                    .accessibilityLabel("Voir les samples de PART \(partition.letter)")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 7))
                     }
                 }
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var kitBrowser: some View {
@@ -97,7 +119,7 @@ struct LibraryBrowser: View {
                 Spacer()
                 Menu {
                     ForEach(
-                        model.locations.filter { LibraryIndex.partitionLetter(for: $0) == nil }, id: \.self
+                        model.locations.filter { location in !model.partitions.contains { $0.url == location } }, id: \.self
                     ) { folder in
                         Button(folder.lastPathComponent) { model.selectLocation(folder) }
                             .help(folder.path)
@@ -148,6 +170,13 @@ struct LibraryBrowser: View {
                                 ) { model.openProgram(kit.url) }
                                 .accessibilityLabel("\(kit.title), \(kit.locationLabel)")
                                 .accessibilityHint("Ouvrir ce programme MPC")
+                                Button { model.showSamples(in: kit) } label: {
+                                    Image(systemName: "waveform")
+                                }
+                                .buttonStyle(.borderless)
+                                .frame(width: 28)
+                                .help("Voir les samples de \(kit.url.lastPathComponent) · \(kit.locationLabel)")
+                                .accessibilityLabel("Voir les samples de \(kit.url.lastPathComponent), \(kit.locationLabel)")
                                 Menu {
                                     kitActions(kit)
                                 } label: { Image(systemName: "ellipsis") }
@@ -186,18 +215,19 @@ struct LibraryBrowser: View {
                     .font(.caption.weight(.semibold))
                 Text(model.libraryInventoryWarningDetail)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(issue)
-                    .lineLimit(3)
-                    .help(issue)
+                DisclosureGroup("Détails") {
+                    Text(issue)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .font(.caption)
             .foregroundStyle(.yellow)
-            .accessibilityElement(children: .combine)
         }
     }
 
     @ViewBuilder
     private func kitActions(_ kit: LibraryKit) -> some View {
+        Button("Voir les samples") { model.showSamples(in: kit) }
         Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([kit.url]) }
         Button("Mettre le programme à la corbeille…", role: .destructive) {
             model.requestTrashKit(kit)
@@ -209,9 +239,11 @@ struct LibraryBrowser: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 7) {
                 Menu {
+                    Button("Toute la SD", action: model.showAllSDSamples)
+                    Divider()
                     ForEach(model.partitions, id: \.url) { partition in
                         Button("PART \(partition.letter) · \(partition.issues.isEmpty ? "\(partition.audioCount) sons" : "à vérifier")") {
-                            model.selectLocation(partition.url)
+                            model.showSamples(in: partition)
                         }
                     }
                     Divider()
@@ -225,14 +257,14 @@ struct LibraryBrowser: View {
                     Button("Ajouter un dossier de samples…", action: model.chooseSampleFolder)
                 } label: {
                     Label(
-                        model.selectedSampleRoot?.lastPathComponent ?? "Dossiers de samples",
+                        model.sampleScopeTitle,
                         systemImage: "folder"
                     )
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .help(model.selectedSampleRoot?.path ?? "Choisir un dossier à parcourir")
+                .help("Choisir la SD, une PART ou un dossier de samples")
                 Button(action: model.chooseSampleFolder) {
                     Image(systemName: "folder.badge.plus")
                 }
@@ -240,28 +272,32 @@ struct LibraryBrowser: View {
                 .help("Ajouter un dossier du SSD ou du Mac")
                 .accessibilityLabel("Ajouter un dossier de samples")
             }
-            HStack(spacing: 8) {
-                Button(action: model.sampleGoUp) { Image(systemName: "arrow.up") }
-                    .buttonStyle(.borderless)
-                    .disabled(model.sampleFolder == nil || model.sampleFolder == model.selectedSampleRoot)
-                    .help("Ouvrir le dossier parent")
-                    .accessibilityLabel("Dossier parent")
-                Text(model.sampleFolder?.lastPathComponent ?? "Choisis une PART ou un dossier")
-                    .font(.system(size: 11, weight: .medium))
-                    .lineLimit(2)
-                    .help(model.sampleFolder?.path ?? "")
-                Spacer(minLength: 0)
+            if model.sampleScope == .folder {
+                HStack(spacing: 8) {
+                    Button(action: model.sampleGoUp) { Image(systemName: "arrow.up") }
+                        .buttonStyle(.borderless)
+                        .disabled(!model.canGoUpSamples)
+                        .help("Ouvrir le dossier parent")
+                        .accessibilityLabel("Dossier parent")
+                    Text(model.sampleFolder?.lastPathComponent ?? model.sampleScopeTitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(2)
+                        .help(model.sampleFolder?.path ?? "")
+                    Spacer(minLength: 0)
+                }
             }
-            TextField("Rechercher dans ce dossier", text: $model.sampleQuery)
+            TextField("Rechercher dans cette vue", text: $model.sampleQuery)
                 .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Rechercher des samples et sous-dossiers dans le dossier courant")
+                .accessibilityLabel("Rechercher des samples dans la vue courante")
             Text(
-                "\(model.filteredSampleFolders.count) dossier(s) · \(model.filteredSamples.count) sample(s)\(model.libraryContentIssue == nil ? "" : " visibles")"
+                (model.sampleScope == .folder ? "\(model.filteredSampleFolders.count) dossier(s) · " : "")
+                    + "\(model.filteredSamples.count) sample(s)\(model.libraryContentIssue == nil ? "" : " visibles")"
             )
             .font(.caption)
             .foregroundStyle(StudioPalette.muted)
             inventoryWarning
             sampleFileList
+            sampleAssociations
             sampleActions
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -292,7 +328,7 @@ struct LibraryBrowser: View {
                 ForEach(model.filteredSamples, id: \.self) { sample in
                     BrowserRow(
                         title: sample.lastPathComponent,
-                        subtitle: sample.pathExtension.uppercased(),
+                        subtitle: "\(model.sampleLocationLabel(for: sample)) · \(model.sampleAssociationSummary(for: sample))",
                         symbol: "waveform",
                         selected: model.selectedSampleURL == sample,
                         path: sample.path
@@ -307,13 +343,64 @@ struct LibraryBrowser: View {
         .scrollIndicators(.visible)
     }
 
+    @ViewBuilder
+    private var sampleAssociations: some View {
+        if let sample = model.selectedSampleURL {
+            VStack(alignment: .leading, spacing: 7) {
+                Divider()
+                Text(sample.lastPathComponent)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(2)
+                    .help(sample.path)
+                Text(model.sampleLocationLabel(for: sample))
+                    .font(.caption).foregroundStyle(StudioPalette.muted)
+                Text("Utilisé par · .PGM enregistrés")
+                    .font(.caption.weight(.semibold))
+                let programs = model.programsUsingSample(sample)
+                if programs.isEmpty {
+                    Text(model.libraryScanning ? "Lecture des liens en cours…" : "Aucun lien trouvé dans les .PGM lus.")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(programs, id: \.url) { program in
+                                Button { model.openProgram(program.url) } label: {
+                                    HStack(alignment: .top) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(program.url.lastPathComponent).fontWeight(.medium)
+                                            Text(program.locationLabel).foregroundStyle(StudioPalette.muted)
+                                        }
+                                        Spacer(minLength: 0)
+                                        Text("Ouvrir").foregroundStyle(StudioPalette.orange)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Ouvrir \(program.url.path)")
+                                .accessibilityLabel("Ouvrir \(program.url.lastPathComponent), \(program.locationLabel)")
+                                .disabled(model.documentActionsDisabled)
+                            }
+                        }
+                        .font(.caption)
+                    }
+                    .frame(maxHeight: 100)
+                }
+                if let notice = model.selectedSampleAssociationNotice {
+                    Text(notice).font(.caption).foregroundStyle(StudioPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
     private var sampleActions: some View {
         VStack(alignment: .leading, spacing: 8) {
             Divider()
-            Text(model.selectedSampleURL?.lastPathComponent ?? "Sélectionne un sample")
-                .font(.system(size: 11, weight: .medium))
-                .lineLimit(2)
-                .help(model.selectedSampleURL?.path ?? "")
+            if model.selectedSampleURL == nil {
+                Text("Sélectionne un sample")
+                    .font(.system(size: 11, weight: .medium))
+            }
             HStack {
                 Button {
                     if let sample = model.selectedSampleURL { model.previewSample(sample) }
@@ -348,50 +435,6 @@ struct LibraryBrowser: View {
                     .help(model.samplePreviewStatus)
             }
         }
-    }
-}
-
-private struct PartitionTile: View {
-    let partition: LibraryPartition
-    let selected: Bool
-    let action: () -> Void
-
-    private var summary: String {
-        if !partition.issues.isEmpty { return "!" }
-        if !partition.kits.isEmpty { return String(partition.kits.count) }
-        if partition.isEmpty { return "vide" }
-        return partition.audioCount > 0 ? "sons" : "fich."
-    }
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                Text(partition.letter)
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                Text(summary)
-                    .font(.system(size: 8))
-                    .foregroundStyle(partition.issues.isEmpty ? StudioPalette.muted : Color.yellow)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 35)
-            .background(
-                selected ? StudioPalette.orange.opacity(0.16) : StudioPalette.panel,
-                in: RoundedRectangle(cornerRadius: 5)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(selected ? StudioPalette.orange : StudioPalette.border)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 5))
-        }
-        .buttonStyle(.plain)
-        .help(
-            "PART \(partition.letter) · \(partition.kits.count) .PGM, \(partition.audioCount) son(s), \(partition.sequenceCount) séquence(s)\n\(partition.url.path)\n\(partition.issues.joined(separator: "\n"))"
-        )
-        .accessibilityLabel(
-            "PART \(partition.letter), \(partition.kits.count) .PGM, \(partition.audioCount) sons\(partition.isEmpty && partition.issues.isEmpty ? ", vide" : "")\(partition.issues.isEmpty ? "" : ", à vérifier")"
-        )
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

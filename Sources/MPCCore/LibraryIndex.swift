@@ -35,6 +35,7 @@ public struct LibraryPartition: Equatable, Sendable {
     public let fileCount: Int
     public let folderCount: Int
     public let audioCount: Int
+    public let samples: [URL]
     public let sequenceCount: Int
     public let issues: [String]
     public let availableBytes: Int64?
@@ -44,13 +45,14 @@ public struct LibraryPartition: Equatable, Sendable {
     public init(url: URL, letter: String, kits: [LibraryKit], fileCount: Int,
                 folderCount: Int, audioCount: Int, sequenceCount: Int,
                 issues: [String], availableBytes: Int64?, volumeSpace: ExportVolumeSpace? = nil,
-                exportDestination: ExportDestination? = nil) {
+                exportDestination: ExportDestination? = nil, samples: [URL] = []) {
         self.url = url.standardizedFileURL
         self.letter = letter
         self.kits = kits
         self.fileCount = fileCount
         self.folderCount = folderCount
         self.audioCount = audioCount
+        self.samples = samples.map(\.standardizedFileURL)
         self.sequenceCount = sequenceCount
         self.issues = issues
         self.availableBytes = availableBytes
@@ -143,7 +145,7 @@ public enum LibraryIndex {
             kits: result.kits, fileCount: result.fileCount, folderCount: result.folderCount,
             audioCount: result.samples.count, sequenceCount: result.sequenceCount,
             issues: issues, availableBytes: space?.availableBytes, volumeSpace: space,
-            exportDestination: destination
+            exportDestination: destination, samples: result.samples
         )
     }
 

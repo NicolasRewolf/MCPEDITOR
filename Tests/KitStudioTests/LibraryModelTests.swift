@@ -642,7 +642,9 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertEqual(model.kitSearch, "")
         XCTAssertTrue(model.locations.contains { $0.resolvingSymlinksInPath() == destination.resolvingSymlinksInPath() })
         XCTAssertFalse(model.isDirty)
-        XCTAssertNil(model.libraryIssue)
+        XCTAssertTrue(model.libraryIssue?.contains("SOUL.PGM") == true, "The pre-existing invalid PGM must remain visible as an unresolved association.")
+        XCTAssertEqual(model.associations.association(for: existing)?.isComplete, false)
+        XCTAssertEqual(model.associations.association(for: output)?.isComplete, true)
         XCTAssertEqual(try Data(contentsOf: existing), Data("keep this existing file".utf8))
     }
 

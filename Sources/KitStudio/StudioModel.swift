@@ -6,6 +6,14 @@ import MPCCore
 enum LibraryMode: String, CaseIterable, Sendable {
     case kits = ".PGM"
     case samples = "Samples"
+    case parts = "PART"
+}
+
+enum LibrarySampleScope: Equatable, Sendable {
+    case sd
+    case folder
+    case partition(URL)
+    case program(LibraryKit)
 }
 
 struct SoundRangeWarning: Identifiable, Sendable {
@@ -38,6 +46,8 @@ final class StudioModel: ObservableObject {
     @Published var libraryScanning = false
     @Published var kitSearch = ""
     @Published var libraryIssue: String?
+    @Published private(set) var sampleScope: LibrarySampleScope = .sd
+    @Published private(set) var associations = ProgramAssociationIndex()
     @Published var sampleRoots: [URL] = []
     @Published var selectedSampleRoot: URL?
     @Published var sampleFolder: URL?
@@ -183,11 +193,97 @@ final class StudioModel: ObservableObject {
     }
 
     var filteredSampleFolders: [URL] {
-        sampleListing.folders.filter { sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) }
+        guard sampleScope == .folder else { return [] }
+        return sampleListing.folders.filter { sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) }
+    }
+
+    private var scopedSamples: [URL] {
+        switch sampleScope {
+        case .sd:
+            // PARTs and their samples are already sorted by the background scan.
+            return partitions.flatMap(\.samples)
+        case .partition(let url):
+            return partitions.first { $0.url == url }?.samples ?? []
+        case .folder:
+            return sampleListing.samples
+        case .program(let kit):
+            return associations.association(for: kit.url)?.samples ?? []
+        }
     }
 
     var filteredSamples: [URL] {
-        sampleListing.samples.filter { sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) }
+        scopedSamples.filter {
+            sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) ||
+                sampleLocationLabel(for: $0).localizedStandardContains(sampleQuery)
+        }
+    }
+
+    var sampleScopeTitle: String {
+        switch sampleScope {
+        case .sd: return "Tous les samples de la SD"
+        case .partition(let url):
+            return partitions.first { $0.url == url }.map { "Samples · PART \($0.letter)" } ?? url.lastPathComponent
+        case .folder:
+            guard let sampleFolder else { return "Dossier de samples" }
+            if let part = partition(containing: sampleFolder) {
+                return sampleFolder == part.url ? "Samples · PART \(part.letter)" : "PART \(part.letter) · \(sampleFolder.lastPathComponent)"
+            }
+            return sampleFolder.lastPathComponent
+        case .program(let kit): return "\(kit.url.lastPathComponent) · \(kit.locationLabel)"
+        }
+    }
+
+    var sampleScopeIssue: String? {
+        switch sampleScope {
+        case .sd: return libraryIssue
+        case .partition(let url):
+            guard let part = partitions.first(where: { $0.url == url }) else {
+                return "Cette PART n’est plus disponible. Rebranche la SD puis actualise."
+            }
+            return part.issues.isEmpty ? nil : part.issues.joined(separator: "\n")
+        case .folder: return sampleListing.issue
+        case .program(let kit):
+            guard libraryKits.contains(where: { $0.url == kit.url }) else {
+                return "Ce .PGM n’est plus disponible dans la bibliothèque. Rebranche sa source puis actualise."
+            }
+            let issues = associations.association(for: kit.url)?.issues ?? ["Les liens de ce .PGM ne sont pas encore vérifiés. Actualise la bibliothèque."]
+            return issues.isEmpty ? nil : issues.joined(separator: "\n")
+        }
+    }
+
+    var canGoUpSamples: Bool {
+        sampleScope == .folder && sampleFolder != nil && sampleFolder != selectedSampleRoot
+    }
+
+    func programsUsingSample(_ url: URL) -> [LibraryKit] {
+        associations.programs(using: url).filter { linked in
+            libraryKits.contains { $0.url == linked.url }
+        }
+    }
+
+    func sampleAssociationSummary(for url: URL) -> String {
+        guard !libraryScanning else { return "Actualisation des liens…" }
+        let count = programsUsingSample(url).count
+        return count == 0 ? "Aucun lien .PGM trouvé" : "\(count) .PGM associé\(count == 1 ? "" : "s")"
+    }
+
+    var selectedSampleAssociationNotice: String? {
+        guard selectedSampleURL != nil else { return nil }
+        if libraryScanning { return "Actualisation des liens vers les .PGM enregistrés…" }
+        var notice = "Liens vérifiés dans les .PGM enregistrés de la bibliothèque. Les modifications en mémoire ne sont pas incluses."
+        if libraryIssue != nil || !associations.issues.isEmpty {
+            notice += " L’inventaire est incomplet ; d’autres liens peuvent manquer."
+        }
+        return notice
+    }
+
+    func sampleLocationLabel(for url: URL) -> String {
+        if let part = partition(containing: url) {
+            let folder = url.deletingLastPathComponent()
+            let relative = folder.pathComponents.dropFirst(part.url.pathComponents.count).joined(separator: "/")
+            return relative.isEmpty ? "PART \(part.letter)" : "PART \(part.letter) · \(relative)"
+        }
+        return url.deletingLastPathComponent().lastPathComponent
     }
 
     private func partition(containing folder: URL?) -> LibraryPartition? {
@@ -196,17 +292,31 @@ final class StudioModel: ObservableObject {
     }
 
     private var selectedLibraryPartition: LibraryPartition? {
-        partition(containing: libraryMode == .kits ? selectedLocation : sampleFolder ?? selectedSampleRoot)
+        switch libraryMode {
+        case .kits: return partition(containing: selectedLocation)
+        case .parts: return nil
+        case .samples:
+            switch sampleScope {
+            case .sd: return nil
+            case .partition(let url): return partitions.first { $0.url == url }
+            case .folder: return partition(containing: sampleFolder ?? selectedSampleRoot)
+            case .program(let kit): return partition(containing: kit.url)
+            }
+        }
     }
 
-    /// Keep the partition snapshot separate from the shallow sample listing: a
-    /// successful directory read cannot resolve an earlier FAT inventory issue.
+    /// A successful shallow listing or a resolved .PGM never erases FAT warnings.
     var libraryContentIssue: String? {
         var issues = selectedLibraryPartition?.issues ?? []
-        if libraryMode == .samples, let issue = sampleListing.issue, !issues.contains(issue) {
-            issues.append(issue)
-        } else if libraryMode == .kits, selectedLocation == nil, let issue = libraryIssue {
-            return issue
+        switch libraryMode {
+        case .samples:
+            if let issue = sampleScopeIssue, !issues.contains(issue), issues.joined(separator: "\n") != issue {
+                issues.append(issue)
+            }
+        case .kits:
+            if selectedLocation == nil, let issue = libraryIssue { return issue }
+        case .parts:
+            return libraryIssue
         }
         return issues.isEmpty ? nil : issues.joined(separator: "\n")
     }
@@ -245,20 +355,12 @@ final class StudioModel: ObservableObject {
         return (try? ExportSpace.estimate(fileSizes: exportFileSizes, volume: space).requiredBytes) ?? Int64.max
     }
 
-    nonisolated static func locationLabel(for url: URL) -> String {
-        let components = url.standardizedFileURL.pathComponents
-        if let part = components.first(where: { LibraryIndex.partitionLetter(for: URL(fileURLWithPath: "/" + $0)) != nil }) {
-            return "PART " + String(part.suffix(1))
-        }
-        return url.deletingLastPathComponent().lastPathComponent
-    }
-
     var kitLocationLabel: String {
         if let url = lastExportURL {
-            return "\(isDirty ? "Modifié depuis la dernière copie" : "Dernière copie") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
+            return "\(isDirty ? "Modifié depuis la dernière copie" : "Dernière copie") · \(sampleLocationLabel(for: url)) · \(url.lastPathComponent)"
         }
         if let url = programURL {
-            return "\(isDirty ? "Modifié en mémoire" : "Ouvert") · \(Self.locationLabel(for: url)) · \(url.lastPathComponent)"
+            return "\(isDirty ? "Modifié en mémoire" : "Ouvert") · \(sampleLocationLabel(for: url)) · \(url.lastPathComponent)"
         }
         return "Programme .PGM en mémoire · non enregistré"
     }
@@ -266,7 +368,7 @@ final class StudioModel: ObservableObject {
     var kitLocationPath: String { (lastExportURL ?? programURL)?.path ?? "" }
     var selectedDestinationLabel: String {
         guard let destination = exportDestinationURL else { return "Choisir une destination" }
-        return LibraryIndex.partitionLetter(for: destination).map { "PART \($0)" } ?? destination.lastPathComponent
+        return partitions.first { $0.url == destination.standardizedFileURL }.map { "PART \($0.letter)" } ?? destination.lastPathComponent
     }
 
     var exportDestinationIssue: String? {
@@ -390,21 +492,34 @@ final class StudioModel: ObservableObject {
                 for folder in folders {
                     if let part = partURLs.first(where: { folder.pathComponents.starts(with: $0.pathComponents) }),
                        !mounted.contains(part) { continue }
-                    do { kits += try LibraryIndex.scanKits(in: folder) }
+                    do {
+                        kits += try LibraryIndex.scanKits(in: folder).map { kit in
+                            // A local backup named MPC-PART--X is still a folder,
+                            // not proof that a programme is present on a mounted SD.
+                            let part = partURLs.first { kit.url.pathComponents.starts(with: $0.pathComponents) }
+                            return LibraryKit(url: kit.url, rootURL: kit.rootURL,
+                                              partitionLetter: part.flatMap(LibraryIndex.partitionLetter(for:)),
+                                              relativeFolder: kit.relativeFolder)
+                        }
+                    }
                     catch { issues.append(error.localizedDescription) }
                 }
                 kits = Array(Dictionary(kits.map { ($0.url, $0) }, uniquingKeysWith: { first, _ in first }).values)
                     .sorted { $0.title == $1.title ? $0.url.path < $1.url.path :
                         $0.title.localizedStandardCompare($1.title) == .orderedAscending }
-                return (parts, kits, issues)
+                let associations = ProgramAssociationIndex.scan(programs: kits, upstreamIssues: issues)
+                return (parts, kits, associations)
             }.value
             guard token == self.libraryGeneration else { return }
             self.partitions = result.0
             self.libraryKits = result.1
             self.locations = partURLs + folders
-            self.libraryIssue = result.2.isEmpty ? nil : result.2.joined(separator: "\n")
+            self.associations = result.2
+            self.libraryIssue = result.2.issues.isEmpty ? nil : result.2.issues.joined(separator: "\n")
             if let folder = self.sampleFolder {
                 await self.loadSamplesFolder(folder, preservingSelection: true)?.value
+            } else {
+                self.updateScopedSampleSelection()
             }
             self.libraryScanning = false
             self.libraryTask = nil
@@ -443,6 +558,50 @@ final class StudioModel: ObservableObject {
         selectedLocation = nil
     }
 
+    func showAllSDSamples() {
+        switchSampleScope(to: .sd)
+    }
+
+    func showSamples(in kit: LibraryKit) {
+        switchSampleScope(to: .program(kit))
+    }
+
+    func showPrograms(in partition: LibraryPartition) {
+        kitSearch = ""
+        selectedLocation = partition.url
+        libraryMode = .kits
+    }
+
+    func showSamples(in partition: LibraryPartition) {
+        switchSampleScope(to: .partition(partition.url))
+    }
+
+    /// Library navigation never replaces or clears the document being edited.
+    private func switchSampleScope(to scope: LibrarySampleScope) {
+        sampleBrowseGeneration += 1
+        stop()
+        sampleScope = scope
+        libraryMode = .samples
+        selectedSampleRoot = nil
+        sampleFolder = nil
+        sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
+        selectedSampleURL = nil
+        sampleQuery = ""
+        updateScopedSampleSelection()
+    }
+
+    private func updateScopedSampleSelection() {
+        let samples = scopedSamples
+        if let selectedSampleURL, !samples.contains(selectedSampleURL) {
+            stop()
+            self.selectedSampleURL = nil
+        }
+        guard selectedSampleURL == nil else { return }
+        samplePreviewStatus = sampleScopeIssue == nil
+            ? "\(samples.count) sample(s) visibles. Sélectionne un sample pour voir ses .PGM."
+            : "Inventaire incomplet : \(samples.count) sample(s) visibles."
+    }
+
     func chooseSampleFolder() {
         guard !documentLocked else { return }
         let panel = NSOpenPanel()
@@ -472,6 +631,7 @@ final class StudioModel: ObservableObject {
     private func loadSamplesFolder(_ url: URL, preservingSelection: Bool) -> Task<Void, Never>? {
         guard let root = selectedSampleRoot?.standardizedFileURL else { return nil }
         let folder = url.standardizedFileURL
+        sampleScope = .folder
         if let part = partitions.first(where: { folder.pathComponents.starts(with: $0.url.pathComponents) }),
            !Set(volumeProvider().map(\.standardizedFileURL)).contains(part.url) {
             invalidateSampleFolder(folder, issue: "Cette PART n’est plus montée. Rebranche la SD puis actualise.",
@@ -528,7 +688,7 @@ final class StudioModel: ObservableObject {
     }
 
     func sampleGoUp() {
-        guard let folder = sampleFolder, folder != selectedSampleRoot else { return }
+        guard canGoUpSamples, let folder = sampleFolder else { return }
         browseSamplesFolder(folder.deletingLastPathComponent())
     }
 
@@ -1049,7 +1209,7 @@ final class StudioModel: ObservableObject {
                     self.kitFolders.append(destination)
                     self.preferences.set(self.kitFolders.map(\.path), forKey: "library.kitFolders")
                 }
-                self.status = "Export terminé · \(Self.locationLabel(for: output)) · \(output.lastPathComponent)."
+                self.status = "Export terminé · \(self.sampleLocationLabel(for: output)) · \(output.lastPathComponent)."
                 self.refreshLocations()
             } catch {
                 self.busy = false
