@@ -17,7 +17,7 @@ enum AudioImporter {
         try validatePCM(frameCount: expected, channels: channels, maximumPCMBytes: maximumPCMBytes)
         // Bound the source buffer as well as the converted PCM, before allocating either.
         guard file.length <= 33_554_432 else {
-            throw StudioError.message("Ce fichier contient trop de points audio pour cet import.")
+            throw StudioError.message("Ce fichier contient trop d’échantillons audio pour cet import.")
         }
         guard let input = AVAudioPCMBuffer(pcmFormat: source, frameCapacity: AVAudioFrameCount(file.length)),
               let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100,
@@ -56,7 +56,7 @@ enum AudioImporter {
 
     private static func validatePCM(frameCount: Double, channels: Int, maximumPCMBytes: Int) throws {
         guard frameCount.isFinite, frameCount >= 441 else {
-            throw StudioError.message("Ce sample doit contenir au moins 441 points (10 ms à 44,1 kHz) pour l’export MPC.")
+            throw StudioError.message("Ce sample doit contenir au moins 441 échantillons (10 ms à 44,1 kHz) pour la MPC.")
         }
         // The native 32 MiB file limit includes the 38-byte SND header.
         guard frameCount <= Double((MPCSound.maximumFileBytes - MPCSoundHeader.byteCount) / (channels * 2)) else {

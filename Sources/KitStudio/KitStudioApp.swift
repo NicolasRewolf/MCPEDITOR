@@ -11,17 +11,7 @@ struct KitStudioApp: App {
 
     var body: some Scene {
         WindowGroup("MPC Kit Studio") {
-            StudioView()
-                .environmentObject(model)
-                .frame(minWidth: 1_100, minHeight: 760)
-                .preferredColorScheme(.dark)
-                .tint(StudioPalette.orange)
-                .background(WindowCloseGuard(model: model, appDelegate: appDelegate))
-                .onAppear {
-                    appDelegate.model = model
-                    model.refreshLocations()
-                    if model.program == nil { model.newKit() }
-                }
+            StudioRootView(model: model, appDelegate: appDelegate)
                 .onReceive(Publishers.Merge3(
                     NotificationCenter.default.publisher(for: NSText.didChangeNotification),
                     NotificationCenter.default.publisher(for: NSText.didBeginEditingNotification),
@@ -53,6 +43,28 @@ struct KitStudioApp: App {
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }
         }
+    }
+}
+
+/// SwiftUI names the saved window frame after the scene's content type. A private
+/// type in that chain carries a per-build address, so every build stored a new
+/// frame key and forgot the window position. This internal root keeps it stable.
+struct StudioRootView: View {
+    let model: StudioModel
+    let appDelegate: StudioAppDelegate
+
+    var body: some View {
+        StudioView()
+            .environmentObject(model)
+            .frame(minWidth: 1_100, minHeight: 760)
+            .preferredColorScheme(.dark)
+            .tint(StudioPalette.orange)
+            .background(WindowCloseGuard(model: model, appDelegate: appDelegate))
+            .onAppear {
+                appDelegate.model = model
+                model.refreshLocations()
+                if model.program == nil { model.newKit() }
+            }
     }
 }
 
@@ -101,6 +113,11 @@ private struct StudioUndoCommands: Commands {
 final class StudioAppDelegate: NSObject, NSApplicationDelegate {
     weak var model: StudioModel?
     var mainWindow: NSWindow?
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // One document window shares one model: no tab bar, hence no second window.
+        NSWindow.allowsAutomaticWindowTabbing = false
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag, let mainWindow {
@@ -162,6 +179,7 @@ private struct WindowCloseGuard: NSViewRepresentable {
             previousDelegate = window.delegate
             window.delegate = self
             window.isReleasedWhenClosed = false
+            window.tabbingMode = .disallowed
             appDelegate?.mainWindow = window
         }
 

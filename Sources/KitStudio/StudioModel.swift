@@ -35,7 +35,7 @@ final class StudioModel: ObservableObject {
     @Published var isDirty = false
     @Published var busy = false
     @Published private(set) var resolvingDroppedFiles = false
-    @Published var status = "Choisis une partition ou ouvre un dossier de .PGM."
+    @Published var status = "Choisis une PART ou ouvre un dossier de .PGM."
     @Published var errorMessage: String?
     @Published var sound: MPCSound?
     @Published var program: MPCProgram?
@@ -439,10 +439,34 @@ final class StudioModel: ObservableObject {
         if let url = localSaveURL ?? programURL ?? lastExportURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 
+    /// Saving on the Mac and copying to the SD both write DOS 8.3 names. Show the
+    /// resulting name while it is edited, rather than discovering it on the MPC.
+    var programFileNamePreview: String? {
+        let stem = KitExport.dosStem(kitName, fallback: "KIT")
+        return stem == kitName ? nil : stem + ".PGM"
+    }
+
+    var soundFileNamePreview: String? {
+        guard let name = sound?.name else { return nil }
+        let stem = KitExport.dosStem(name, fallback: "SOUND")
+        return stem == name ? nil : stem + ".SND"
+    }
+
+    /// On an SD PART, macOS moves a trashed file into a hidden .Trashes on that same PART:
+    /// its clusters stay occupied and the PART can no longer be verified as a destination.
+    func trashRefusal(for kit: LibraryKit) -> String? {
+        guard let letter = kit.partitionLetter else { return nil }
+        return "La corbeille n’est pas proposée sur la SD. macOS garderait \(kit.url.lastPathComponent) dans un dossier caché .Trashes de la PART \(letter) : la place resterait occupée et la PART ne pourrait plus être vérifiée. Supprime ce .PGM depuis la MPC si nécessaire."
+    }
+
     /// A kit is a program. Its samples and sequences remain independent on disk.
     @discardableResult
     func requestTrashKit(_ kit: LibraryKit) -> Task<Void, Never>? {
         guard !documentActionsDisabled else { return nil }
+        if let refusal = trashRefusal(for: kit) {
+            errorMessage = refusal
+            return nil
+        }
         awaitingKitTrashConfirmation = true
         stop()
         errorMessage = nil
@@ -682,6 +706,37 @@ final class StudioModel: ObservableObject {
         }
     }
 
+    /// Folders added to the library, without the SD PARTs.
+    var addedKitFolders: [URL] { kitFolders }
+
+    /// Forgets a folder in the library list only: no file is moved, renamed or deleted.
+    func removeKitFolder(_ url: URL) {
+        guard !documentLocked else { return }
+        let path = url.standardizedFileURL.path
+        guard kitFolders.contains(where: { $0.standardizedFileURL.path == path }) else { return }
+        kitFolders.removeAll { $0.standardizedFileURL.path == path }
+        preferences.set(kitFolders.map(\.path), forKey: "library.kitFolders")
+        if let selected = selectedLocation?.standardizedFileURL.pathComponents,
+           selected.starts(with: URL(fileURLWithPath: path).pathComponents) {
+            selectedLocation = nil
+        }
+        status = "\(url.lastPathComponent) retiré de la liste. Ses fichiers restent sur le disque."
+        refreshLocations()
+    }
+
+    /// Forgets a sample source in the list only: no file is moved, renamed or deleted.
+    func removeSampleRoot(_ url: URL) {
+        guard !documentLocked else { return }
+        let path = url.standardizedFileURL.path
+        guard sampleRoots.contains(where: { $0.standardizedFileURL.path == path }) else { return }
+        sampleRoots.removeAll { $0.standardizedFileURL.path == path }
+        preferences.set(sampleRoots.map(\.path), forKey: "library.sampleRoots")
+        if sampleScope == .folder, selectedSampleRoot?.standardizedFileURL.path == path {
+            showAllLibrarySamples()
+        }
+        status = "\(url.lastPathComponent) retiré des sources de samples. Ses fichiers restent sur le disque."
+    }
+
     func selectSampleRoot(_ url: URL) {
         rememberSampleNavigation()
         selectedSampleRoot = url.standardizedFileURL
@@ -832,9 +887,9 @@ final class StudioModel: ObservableObject {
                 self.bank = 0
                 let trailing = loaded.sounds.values.reduce(0) { $0 + $1.trailingByteCount }
                 self.status = loaded.missing.isEmpty ? (trailing > 0 ?
-                    "Programme .PGM ouvert. \(trailing) octets hors PCM seront omis lors du nouvel export." :
-                    "Programme .PGM ouvert. L’export crée de nouveaux fichiers et conserve les originaux.") :
-                    "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’export exige tous les sons du .PGM."
+                    "Programme .PGM ouvert. \(trailing) octets hors PCM seront omis à l’enregistrement et à la copie." :
+                    "Programme .PGM ouvert. Les fichiers d’origine restent intacts ; ⌘S l’enregistre sur le Mac.") :
+                    "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’enregistrement et la copie exigent tous les samples du .PGM."
             } catch {
                 guard token == self.generation else { return }
                 self.busy = false
@@ -1022,7 +1077,7 @@ final class StudioModel: ObservableObject {
             var available = Set(0..<128).subtracting(referenced)
             if replacesExclusive, let old { available.insert(old) }
             guard let slot = available.min() else {
-                throw StudioError.message("Le programme utilise déjà 128 sons.")
+                throw StudioError.message("Le programme utilise déjà 128 samples.")
             }
             let retainedBytes = referenced.reduce(0) { sum, existing in
                 if replacesExclusive && existing == old { return sum }
@@ -1031,12 +1086,12 @@ final class StudioModel: ObservableObject {
             }
             let remaining = maximumPCMBytes - retainedBytes
             guard remaining > 0 else {
-                throw StudioError.message("L’import ferait dépasser 32 Mo de mémoire PCM.")
+                throw StudioError.message("L’import ferait dépasser 32 Mio de mémoire PCM.")
             }
             let sample = try loadAudio(url, remaining)
             let sampleBytes = sample.frameCount * sample.channels.count * 2
             guard sampleBytes <= remaining else {
-                throw StudioError.message("L’import ferait dépasser 32 Mo de mémoire PCM.")
+                throw StudioError.message("L’import ferait dépasser 32 Mio de mémoire PCM.")
             }
             pool[slot] = sample
             updated.setSound(slot: slot, name: sample.name, wordCount: sample.frameCount * sample.channels.count)
@@ -1119,7 +1174,7 @@ final class StudioModel: ObservableObject {
         switch kind {
         case "trim":
             guard sound.end - sound.start >= 441 else {
-                errorMessage = "La découpe doit conserver au moins 441 points (10 ms)."
+                errorMessage = "La découpe doit conserver au moins 441 échantillons (10 ms)."
                 return
             }
             recordEdit("Découper le sample")

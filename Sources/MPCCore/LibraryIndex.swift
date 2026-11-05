@@ -129,7 +129,7 @@ public enum LibraryIndex {
                           maximumEntries: maximumEntries)
         let space = result.issues.isEmpty ? try? ExportSpace.volume(at: url) : nil
         var issues = result.issues
-        if space == nil && issues.isEmpty { issues.append("L’espace de cette partition ne peut pas être vérifié.") }
+        if space == nil && issues.isEmpty { issues.append("L’espace de cette PART ne peut pas être vérifié.") }
         if result.fileCount == 0 && result.folderCount == 0 && issues.isEmpty,
            let issue = verifyEmptyFATInventory(url, maximumDepth: maximumDepth,
                                              maximumEntries: maximumEntries, volumeProbe: fatVolumeProbe) {
@@ -138,7 +138,9 @@ public enum LibraryIndex {
         var destination: ExportDestination?
         if issues.isEmpty, let destinationCapture {
             do { destination = try destinationCapture(url, result.fileCount == 0 && result.folderCount == 0) }
-            catch { issues.append(error.localizedDescription) }
+            catch ExportDestinationError.unverified(let detail) {
+                issues.append(unverifiedDestinationIssue(detail, partition: url))
+            } catch { issues.append(error.localizedDescription) }
         }
         return LibraryPartition(
             url: url, letter: partitionLetter(for: url) ?? url.lastPathComponent,
@@ -147,6 +149,26 @@ public enum LibraryIndex {
             issues: issues, availableBytes: space?.availableBytes, volumeSpace: space,
             exportDestination: destination, samples: result.samples
         )
+    }
+
+    /// Browsing writes nothing: the write-time wording (« avant l’enregistrement… aucun
+    /// fichier créé ») is replaced by why the PART is never proposed as a destination.
+    static func unverifiedDestinationIssue(_ detail: String, partition url: URL) -> String {
+        // Library views join several PARTs' issues: each one names its PART.
+        var issue = "PART \(partitionLetter(for: url) ?? url.lastPathComponent) non proposée comme destination : \(detail)"
+        if hasUnreadableTrash(in: url) {
+            issue += " macOS y a créé une corbeille cachée (.Trashes) dont le contenu ne peut pas être lu."
+                + " Elle apparaît quand un fichier de la PART est mis à la corbeille."
+        }
+        return issue
+    }
+
+    private static func hasUnreadableTrash(in url: URL) -> Bool {
+        let trash = url.appendingPathComponent(".Trashes", isDirectory: true)
+        let descriptor = trash.path.withCString { open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
+        let code = errno
+        if descriptor >= 0 { _ = close(descriptor); return false }
+        return code == EACCES || code == EPERM
     }
 
     private static func fatVolumeUsage(_ descriptor: Int32) throws -> FATVolumeUsage? {
@@ -161,7 +183,7 @@ public enum LibraryIndex {
         volumeProbe: @escaping (Int32) throws -> FATVolumeUsage?
     ) -> String? {
         let descriptor = url.path.withCString { open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
-        guard descriptor >= 0 else { return "La partition vide ne peut pas être vérifiée." }
+        guard descriptor >= 0 else { return "La PART vide ne peut pas être vérifiée." }
         defer { _ = close(descriptor) }
         var environment = ExportDestination.Environment()
         environment.fatUsage = { descriptor in
@@ -177,7 +199,7 @@ public enum LibraryIndex {
         } catch ExportDestinationError.notEmpty {
             return "L’inventaire FAT révèle des fichiers absents du premier relevé. Actualise la bibliothèque."
         } catch {
-            return "Vérification de la partition vide impossible. \(error.localizedDescription)"
+            return "Vérification de la PART vide impossible. \(error.localizedDescription)"
         }
     }
 

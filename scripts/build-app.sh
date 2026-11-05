@@ -16,18 +16,27 @@ for bundle in "$BIN_DIR"/*.bundle; do
 done
 cp -R "$PROJECT_DIR/Notices" "$APP/Contents/Resources/"
 cp "$PROJECT_DIR/Assets/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# The interface is French: declare it so AppKit menus, panels and Foundation
+# formatters (« Fichier », « 3,3 Mo ») follow the app instead of falling back to English.
+mkdir -p "$APP/Contents/Resources/fr.lproj"
+cat > "$APP/Contents/Resources/fr.lproj/InfoPlist.strings" <<'STRINGS'
+"CFBundleName" = "MPC Kit Studio";
+"CFBundleDisplayName" = "MPC Kit Studio";
+STRINGS
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+<key>CFBundleDevelopmentRegion</key><string>fr</string>
+<key>CFBundleLocalizations</key><array><string>fr</string></array>
 <key>CFBundleExecutable</key><string>KitStudio</string>
 <key>CFBundleIdentifier</key><string>com.nicolasrewolf.mpckitstudio</string>
 <key>CFBundleName</key><string>MPC Kit Studio</string>
 <key>CFBundleDisplayName</key><string>MPC Kit Studio</string>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.7.0</string>
-<key>CFBundleVersion</key><string>20</string>
+<key>CFBundleShortVersionString</key><string>0.7.1</string>
+<key>CFBundleVersion</key><string>21</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>

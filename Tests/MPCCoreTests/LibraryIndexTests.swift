@@ -307,4 +307,25 @@ final class LibraryIndexTests: XCTestCase {
         XCTAssertFalse(part.isEmpty)
         XCTAssertFalse(part.issues.isEmpty)
     }
+
+    func testUnverifiedPartExplainsLibraryStateAndNamesUnreadableTrash() throws {
+        let part = try directory(named: "MPC-PART--U")
+        _ = try file("KIT.PGM", in: part)
+        let refuse: (URL, Bool) throws -> ExportDestination = { _, _ in
+            throw ExportDestinationError.unverified("Un dossier ne peut pas être parcouru.")
+        }
+        let plain = LibraryIndex.scanPartition(part, fatVolumeProbe: { _ in nil }, destinationCapture: refuse)
+        XCTAssertEqual(plain.issues, ["PART U non proposée comme destination : Un dossier ne peut pas être parcouru."])
+        XCTAssertNil(plain.exportDestination)
+
+        let trash = part.appendingPathComponent(".Trashes", isDirectory: true)
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: false)
+        XCTAssertEqual(chmod(trash.path, 0), 0)
+        addTeardownBlock { _ = chmod(trash.path, 0o755) }
+        let flagged = LibraryIndex.scanPartition(part, fatVolumeProbe: { _ in nil }, destinationCapture: refuse)
+        let issue = try XCTUnwrap(flagged.issues.first)
+        XCTAssertTrue(issue.contains(".Trashes"))
+        XCTAssertFalse(issue.contains("Aucun fichier n’a été créé"))
+        XCTAssertFalse(flagged.isEmpty)
+    }
 }

@@ -21,7 +21,7 @@ public enum KitExportError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidDestination:
-            return "Choisissez un dossier ou une partition accessible en écriture."
+            return "Choisis un dossier ou une PART accessible en écriture."
         case .missingSounds(let slots):
             return "Sons manquants pour les emplacements MPC : " + slots.map { String($0 + 1) }.joined(separator: ", ") + "."
         case .invalidSlot(let slot):
@@ -347,9 +347,13 @@ public struct KitExport {
         return names
     }
 
-    private static func reserveName(
-        _ source: String, fallback: String, reserved: inout Set<String>
-    ) throws -> String {
+    /// The DOS 8.3 stem a copy uses before any collision suffix: uppercase A–Z, 0–9
+    /// and `_`, at most eight characters. The UI shows it while a name is edited.
+    public static func dosStem(_ source: String, fallback: String) -> String {
+        String(dosBase(source, fallback: fallback).prefix(8))
+    }
+
+    private static func dosBase(_ source: String, fallback: String) -> String {
         let safe = MPCSound.safeName(source).uppercased()
         var cleaned = ""
         for scalar in safe.unicodeScalars {
@@ -362,7 +366,13 @@ public struct KitExport {
             }
         }
         cleaned = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
-        let base = cleaned.isEmpty ? fallback : cleaned
+        return cleaned.isEmpty ? fallback : cleaned
+    }
+
+    private static func reserveName(
+        _ source: String, fallback: String, reserved: inout Set<String>
+    ) throws -> String {
+        let base = dosBase(source, fallback: fallback)
         let first = String(base.prefix(8))
         if reserved.insert(first).inserted { return first }
         for number in 1...9_999_999 {

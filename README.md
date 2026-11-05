@@ -44,6 +44,8 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    puis **Mettre le programme à la corbeille…**. La confirmation indique son chemin exact.
    Les `.SND` et `.SEQ` restent sur le disque ; une PART contenant encore des samples reste occupée.
    Si le programme .PGM était ouvert, sa copie en mémoire reste disponible et peut être enregistrée à nouveau.
+   Sur une PART de la SD, la corbeille n’est pas proposée : macOS y créerait un dossier caché `.Trashes`
+   qui garde le fichier sur la PART et empêche ensuite de la vérifier. Supprimer ce `.PGM` depuis la MPC si nécessaire.
 
 Les associations sont calculées en lecture seule depuis les fichiers `.PGM` et les en-têtes `.SND`.
 Aucun tag n’est écrit sur la SD. Deux fichiers de même nom sur deux PART restent deux occurrences distinctes.
@@ -63,7 +65,12 @@ Avant de changer de document ou de quitter, les choix sont **Enregistrer / Aband
 Un enregistrement échoué laisse les modifications en mémoire et empêche la fermeture demandée.
 
 Chaque copie de transport crée des fichiers nouveaux, avec un nom ASCII libre de huit caractères en cas de
-collision. L’annulation du dialogue ne renomme pas le programme. Les dossiers ajoutés sont mémorisés localement.
+collision. L’annulation du dialogue ne renomme pas le programme. Les dossiers ajoutés sont mémorisés localement ;
+**Retirer de la liste**, dans le menu Dossiers ou dans le menu des sources de samples, les oublie sans toucher aux fichiers.
+Le nom 8.3 écrit pour le `.PGM` et pour chaque sample, sur le Mac comme sur la SD, s’affiche sous le champ de nom
+dès qu’il diffère du nom saisi (« Enregistré sous KICK_DEE.SND »).
+Une PART non vérifiable indique sa lettre et la raison du refus. Une corbeille cachée `.Trashes` illisible
+est nommée ; elle apparaît quand un fichier de la PART est mis à la corbeille depuis le Mac.
 Le suivi durable des copies SD hors ligne n’est pas encore implémenté : la bibliothèque indique les fichiers
 réellement inventoriés, sans regrouper arbitrairement les homonymes.
 Le titre interne du programme est conservé lors d’une copie sans édition, même s’il diffère du nom

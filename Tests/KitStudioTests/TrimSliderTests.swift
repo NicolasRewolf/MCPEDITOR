@@ -5,6 +5,9 @@ import Testing
 
 @MainActor
 struct TrimSliderTests {
+    /// The regression concerned AppKit tick marks: a stepped NSSlider allocated one
+    /// tick per audio frame and stalled layout. Recent macOS releases render SwiftUI
+    /// sliders without an NSSlider; there is then no AppKit tick to allocate.
     @Test func audioFrameRangeDoesNotCreateNativeTickMarks() throws {
         _ = NSApplication.shared
         let view = NSHostingView(rootView: SampleTrimSlider(
@@ -16,7 +19,8 @@ struct TrimSliderTests {
         func sliders(in view: NSView) -> [NSSlider] {
             (view as? NSSlider).map { [$0] } ?? view.subviews.flatMap { sliders(in: $0) }
         }
-        let slider = try #require(sliders(in: view).first)
-        #expect(slider.numberOfTickMarks == 0)
+        for slider in sliders(in: view) {
+            #expect(slider.numberOfTickMarks == 0)
+        }
     }
 }

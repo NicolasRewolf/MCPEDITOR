@@ -46,3 +46,23 @@ s’ouvre sur la bibliothèque et la SD et possède un retour conservant recherc
 Le suivi durable de filiation entre la collection et ses copies SD hors ligne reste absent. Aucun tag n’est écrit
 dans les sons, aucune migration des sources historiques n’est automatique, aucune compatibilité matérielle
 nouvelle n’est déduite des tests logiciels. UNDERSTAND demeure en pause.
+
+## Correctifs de revue en 0.7.1 (21), 5 novembre 2026
+
+Revue du code, de l’app installée et d’une SD réelle en lecture seule (26 PART FAT12 de 8,2 Mo, 304 SND, 13 PGM).
+Le but reste un outil pour bâtir des banks de samples, pas une MPC logicielle.
+
+- Interface déclarée en français (`CFBundleDevelopmentRegion`, `fr.lproj`) : menus « Fichier… » et tailles « Mo »
+  au lieu de « File » et « MB ».
+- Une seule fenêtre, sans onglets. Le nom de sauvegarde de sa position ne change plus à chaque build.
+- Le test du curseur de découpe ne dépend plus d’un `NSSlider` que macOS 27 ne crée plus.
+- Les boutons principaux restent lisibles fenêtre inactive ou désactivés.
+- Corbeille refusée sur une PART : `FileManager.trashItem` y crée un `.Trashes` illisible et la place reste occupée.
+  Observé sur les PART S et U de la carte de test, toutes deux devenues invérifiables.
+- Message de PART non vérifiable propre à la bibliothèque, avec sa lettre et la mention d’un `.Trashes` illisible.
+- Retrait d’un dossier ou d’une source de samples de la liste, sans toucher aux fichiers.
+- Aperçu du nom 8.3 du `.PGM` et des samples ; vocabulaire harmonisé (tutoiement, PART, samples, Mio, échantillons).
+
+Non traité ici : métadonnées macOS (`._*`, `.fseventsd`) qui occupent des grappes sur les PART, jauge de capacité
+par PART, regroupement des `.PGM` homonymes, chemins mémorisés en texte (un SSD remonté sous un autre nom les casse),
+réécriture complète des SND à chaque révision locale. Aucune écriture sur SD, aucun essai sur la MPC.

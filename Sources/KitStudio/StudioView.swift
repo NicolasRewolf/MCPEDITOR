@@ -11,6 +11,26 @@ enum StudioPalette {
     static let muted = Color(red: 0.56, green: 0.60, blue: 0.65)
 }
 
+/// Orange primary action with a dark label. `.borderedProminent` with a forced black
+/// label became black on grey while the window was inactive (during a Finder drag)
+/// and nearly invisible when disabled; this style stays legible in both states.
+struct StudioProminentButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(isEnabled ? Color.black : StudioPalette.muted)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                isEnabled ? StudioPalette.orange.opacity(configuration.isPressed ? 0.75 : 1) : Color.white.opacity(0.06),
+                in: RoundedRectangle(cornerRadius: 6)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
 struct StudioView: View {
     @EnvironmentObject private var model: StudioModel
 
@@ -33,7 +53,7 @@ struct StudioView: View {
                 Button(action: model.importAudio) { Label("Importer", systemImage: "square.and.arrow.down") }
                     .disabled(model.program == nil || model.documentActionsDisabled)
                 Button { _ = model.saveProgram() } label: {
-                    Label("Enregistrer", systemImage: "square.and.arrow.down.on.square")
+                    Label("Enregistrer", systemImage: "internaldrive")
                         .labelStyle(.titleAndIcon)
                 }
                     .help("Conserver le .PGM et ses samples dans la bibliothèque sur ce Mac")
@@ -116,6 +136,12 @@ struct StudioView: View {
                     Text("Titre sur la MPC : \(model.programTitle)")
                         .font(.caption)
                         .foregroundStyle(StudioPalette.muted)
+                }
+                if let file = model.programFileNamePreview {
+                    Text("Enregistré sous \(file)")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                        .help("Nom 8.3 utilisé sur le Mac et sur la SD. Si ce nom existe déjà, un chiffre remplace sa fin.")
                 }
             }
             Spacer(minLength: 12)
@@ -382,6 +408,12 @@ private struct SampleEditor: View {
                         .focusedValue(\.editsProgramDocument, true)
                         .help(model.sound?.name ?? "")
                         .disabled(model.busy)
+                        if let file = model.soundFileNamePreview {
+                            Text("Enregistré sous \(file)")
+                                .font(.caption)
+                                .foregroundStyle(StudioPalette.muted)
+                                .help("Nom 8.3 utilisé dans le .PGM et sur la SD. Si ce nom existe déjà, un chiffre remplace sa fin.")
+                        }
                     }
                 }
                 Spacer()
@@ -423,15 +455,14 @@ private struct SampleEditor: View {
             HStack {
                 Label(String(format: "%.3f s", Double(sound.frameCount) / 44_100), systemImage: "waveform")
                 Spacer()
-                Text("\(sound.frameCount.formatted()) points")
+                Text("\(sound.frameCount.formatted()) échantillons")
             }
             .font(.system(size: 10, design: .monospaced))
             .foregroundStyle(StudioPalette.muted)
             trimControls(sound)
             HStack(spacing: 8) {
                 Button { model.playPad(model.selectedPad) } label: { Label("Écouter", systemImage: "play.fill") }
-                    .buttonStyle(.borderedProminent)
-                    .foregroundStyle(.black)
+                    .buttonStyle(StudioProminentButtonStyle())
                 Button(action: model.stop) { Image(systemName: "stop.fill") }
                     .buttonStyle(.bordered)
                     .help("Arrêter la lecture")

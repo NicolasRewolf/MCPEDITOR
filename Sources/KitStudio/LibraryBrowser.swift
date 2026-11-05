@@ -126,6 +126,15 @@ struct LibraryBrowser: View {
                     }
                     Divider()
                     Button("Ajouter un dossier de .PGM…", action: model.chooseFolder)
+                    if !model.addedKitFolders.isEmpty {
+                        Menu("Retirer de la liste") {
+                            ForEach(model.addedKitFolders, id: \.self) { folder in
+                                Button(folder.lastPathComponent) { model.removeKitFolder(folder) }
+                                    .help("\(folder.path)\nLes fichiers restent sur le disque.")
+                            }
+                        }
+                        .disabled(model.documentLocked)
+                    }
                 } label: {
                     Label("Dossiers", systemImage: "folder")
                 }
@@ -133,7 +142,7 @@ struct LibraryBrowser: View {
             }
             TextField("Rechercher un .PGM ou une PART", text: $model.kitSearch)
                 .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Rechercher un .PGM ou une partition")
+                .accessibilityLabel("Rechercher un .PGM ou une PART")
             HStack {
                 Text("\(model.filteredKits.count) .PGM\(model.libraryContentIssue == nil ? "" : " visibles")")
                 Spacer()
@@ -229,10 +238,15 @@ struct LibraryBrowser: View {
     private func kitActions(_ kit: LibraryKit) -> some View {
         Button("Voir les samples") { model.showSamples(in: kit) }
         Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([kit.url]) }
-        Button("Mettre le programme à la corbeille…", role: .destructive) {
-            model.requestTrashKit(kit)
+        if model.trashRefusal(for: kit) == nil {
+            Button("Mettre le programme à la corbeille…", role: .destructive) {
+                model.requestTrashKit(kit)
+            }
+            .disabled(model.documentActionsDisabled)
+        } else {
+            Button("Corbeille indisponible sur la SD") {}
+                .disabled(true)
         }
-        .disabled(model.documentActionsDisabled)
     }
 
     private var sampleBrowser: some View {
@@ -250,7 +264,7 @@ struct LibraryBrowser: View {
                     Button("Toute la SD", action: model.showAllSDSamples)
                     Divider()
                     ForEach(model.partitions, id: \.url) { partition in
-                        Button("PART \(partition.letter) · \(partition.issues.isEmpty ? "\(partition.audioCount) sons" : "à vérifier")") {
+                        Button("PART \(partition.letter) · \(partition.issues.isEmpty ? "\(partition.audioCount) samples" : "à vérifier")") {
                             model.showSamples(in: partition)
                         }
                     }
@@ -263,6 +277,17 @@ struct LibraryBrowser: View {
                     }
                     Divider()
                     Button("Ajouter un dossier de samples…", action: model.chooseSampleFolder)
+                    if !model.sampleRoots.isEmpty {
+                        Menu("Retirer de la liste") {
+                            ForEach(model.sampleRoots, id: \.self) { root in
+                                Button(root.lastPathComponent.isEmpty ? root.path : root.lastPathComponent) {
+                                    model.removeSampleRoot(root)
+                                }
+                                .help("\(root.path)\nLes fichiers restent sur le disque.")
+                            }
+                        }
+                        .disabled(model.documentLocked)
+                    }
                 } label: {
                     Label(
                         model.sampleScopeTitle,
@@ -438,8 +463,7 @@ struct LibraryBrowser: View {
                 Label("Affecter au pad \(model.selectedLabel)", systemImage: "square.and.arrow.down")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .foregroundStyle(.black)
+            .buttonStyle(StudioProminentButtonStyle())
             .disabled(
                 model.selectedSampleURL == nil || model.program == nil || model.documentActionsDisabled
                     || model.samplePreviewBusy
@@ -577,14 +601,14 @@ struct ExportDestinationSheet: View {
                 }
             }
             DisclosureGroup("Changer la destination", isExpanded: $changeDestination) {
-                Text("PARTITIONS SD")
+                Text("PART DE LA SD")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(StudioPalette.muted)
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: true) {
                         LazyVStack(spacing: 5) {
                             if model.partitions.isEmpty {
-                                Text("Aucune partition SD montée. Tu peux choisir un dossier sur le Mac.")
+                                Text("Aucune PART montée. Tu peux choisir un dossier sur le Mac.")
                                     .font(.callout)
                                     .foregroundStyle(StudioPalette.muted)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -619,7 +643,7 @@ struct ExportDestinationSheet: View {
                     .lineLimit(2)
                     .help(model.exportDestinationURL?.path ?? "")
                 if capacityTooSmall {
-                    Text("L’espace libre de cette partition est insuffisant pour ce .PGM et ses samples.")
+                    Text("L’espace libre de cette PART est insuffisant pour ce .PGM et ses samples.")
                         .font(.caption)
                         .foregroundStyle(.yellow)
                 }
@@ -668,7 +692,7 @@ struct ExportDestinationSheet: View {
             ? "À vérifier"
             : partition.isEmpty
                 ? "Vide (fichiers visibles)"
-                : "\(partition.kits.count) .PGM · \(partition.audioCount) son(s)"
+                : "\(partition.kits.count) .PGM · \(partition.audioCount) sample(s)"
         let available =
             partition.availableBytes.map {
                 ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + " libres"
