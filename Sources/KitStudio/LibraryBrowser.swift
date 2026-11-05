@@ -87,6 +87,13 @@ struct LibraryBrowser: View {
                                 Text("Aucun .PGM visible · inventaire incomplet")
                                     .font(.caption).foregroundStyle(StudioPalette.muted)
                             }
+                            if let metadata = partition.macOSMetadata, let summary = Self.macOSSummary(metadata) {
+                                Label(summary, systemImage: "applelogo")
+                                    .font(.caption)
+                                    .foregroundStyle(StudioPalette.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .help("Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit Studio n’en crée pas et ne les supprime pas.\nDossiers système : \(metadata.systemFolders.joined(separator: ", "))")
+                            }
                             let otherFiles = max(0, partition.fileCount - partition.kits.count - partition.audioCount)
                             if otherFiles > 0 || partition.folderCount > 0 {
                                 Text("\(otherFiles) autre(s) fichier(s) · \(partition.folderCount) dossier(s)")
@@ -109,6 +116,18 @@ struct LibraryBrowser: View {
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// `.fseventsd` exists on every mounted PART; only what costs or blocks is shown inline.
+    static func macOSSummary(_ metadata: MacOSMetadata) -> String? {
+        var parts: [String] = []
+        if metadata.appleDoubleCount > 0 {
+            let size = ByteCountFormatter.string(fromByteCount: metadata.appleDoubleBytes, countStyle: .file)
+            parts.append("\(metadata.appleDoubleCount) fichier\(metadata.appleDoubleCount > 1 ? "s" : "") ._ (\(size))")
+        }
+        parts += metadata.systemFolders.filter { $0 != ".fseventsd" }
+        guard !parts.isEmpty else { return nil }
+        return "macOS : " + parts.joined(separator: " · ") + (metadata.isComplete ? "" : " · relevé incomplet")
     }
 
     private var kitBrowser: some View {
@@ -159,7 +178,7 @@ struct LibraryBrowser: View {
             inventoryWarning
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 5) {
+                    LazyVStack(alignment: .leading, spacing: 5, pinnedViews: [.sectionHeaders]) {
                         if model.filteredKits.isEmpty {
                             LibraryEmptyState(
                                 symbol: "square.grid.3x3",
@@ -169,12 +188,13 @@ struct LibraryBrowser: View {
                                     : "Actualise la bibliothèque pour vérifier les fichiers accessibles."
                             )
                         }
-                        ForEach(model.filteredKits, id: \.url) { kit in
+                        ForEach(model.groupedFilteredKits) { group in
+                        Section {
+                        ForEach(group.kits, id: \.url) { kit in
                             HStack(spacing: 0) {
                                 BrowserRow(
                                     title: kit.title,
-                                    subtitle: ([model.libraryLocationLabel(for: kit), kit.url.lastPathComponent]
-                                        + [model.kitContentSummary(for: kit)].compactMap { $0 }).joined(separator: " · "),
+                                    subtitle: model.kitRowSubtitle(for: kit),
                                     symbol: "square.grid.3x3",
                                     selected: (model.localSaveURL ?? model.programURL) == kit.url,
                                     path: kit.url.path + (model.kitTitleOnMPC(for: kit).map { "\nTitre sur la MPC : \($0)" } ?? "")
@@ -200,6 +220,10 @@ struct LibraryBrowser: View {
                             .id(kit.url)
                             .disabled(model.documentActionsDisabled)
                             .contextMenu { kitActions(kit) }
+                        }
+                        } header: {
+                            KitGroupHeader(title: group.title, count: group.kits.count)
+                        }
                         }
                     }
                     .padding(.trailing, 4)
@@ -500,6 +524,30 @@ struct LibraryBrowser: View {
                     .help(model.samplePreviewStatus)
             }
         }
+    }
+}
+
+private struct KitGroupHeader: View {
+    let title: String
+    let count: Int
+
+    var body: some View {
+        HStack {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .tracking(1)
+            Spacer()
+            Text("\(count) .PGM")
+                .font(.system(size: 10, design: .monospaced))
+        }
+        .foregroundStyle(StudioPalette.muted)
+        .padding(.horizontal, 9)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioPalette.inset)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

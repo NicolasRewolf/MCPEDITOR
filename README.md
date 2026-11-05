@@ -26,8 +26,12 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    Le menu permet aussi de parcourir une PART ou un dossier du SSD. La recherche filtre la vue courante.
    La préécoute et l’affectation au pad restent disponibles, ainsi que le glisser-déposer.
    Après un clic dans la liste, les flèches ↑ ↓ passent d’un sample à l’autre ; **Écouter à la sélection**
-   joue chacun dès qu’il est choisi. Dans **.PGM**, chaque ligne indique le nombre de samples résolus,
-   ce qui distingue les homonymes comme plusieurs `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère.
+   joue chacun dès qu’il est choisi. Un `.SND` est écouté entre ses marqueurs de début et de fin.
+   Dans **.PGM**, la liste est groupée : bibliothèque sur le Mac, puis PART A à Z, puis dossiers par nom.
+   Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes comme plusieurs
+   `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère.
+   L’onglet **PART** signale les fichiers laissés par macOS (`._*` des copies du Finder, `.Trashes`,
+   index) et la place qu’ils occupent. Kit Studio n’en crée pas et ne les supprime pas.
    Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Déplacer un pad vers un autre déplace son affectation ; deux pads occupés sont échangés. Survoler une
@@ -75,6 +79,10 @@ Un enregistrement échoué laisse les modifications en mémoire et empêche la f
 Chaque copie de transport crée des fichiers nouveaux, avec un nom ASCII libre de huit caractères en cas de
 collision. L’annulation du dialogue ne renomme pas le programme. Les dossiers ajoutés sont mémorisés localement ;
 **Retirer de la liste**, dans le menu Dossiers ou dans le menu des sources de samples, les oublie sans toucher aux fichiers.
+Chaque dossier est aussi mémorisé par un bookmark : un volume remonté sous un autre nom (« T9 » puis « T9 1 »)
+reste retrouvé tant que le dossier garde son chemin dans ce volume. Un dossier déplacé ou renommé devient
+indisponible, comme avant. Une ancienne entrée sans bookmark est réparée si un seul volume voisin
+(« T9 » pour « T9 1 ») contient le même chemin ; plusieurs candidats laissent le chemin tel quel.
 Le nom 8.3 écrit pour le `.PGM` et pour chaque sample, sur le Mac comme sur la SD, s’affiche sous le champ de nom
 dès qu’il diffère du nom saisi (« Enregistré sous KICK_DEE.SND »).
 Une PART non vérifiable indique sa lettre et la raison du refus. Une corbeille cachée `.Trashes` illisible

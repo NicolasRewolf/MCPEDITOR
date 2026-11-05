@@ -198,6 +198,8 @@ final class StudioModel: ObservableObject {
         kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
         sampleRoots = (defaults.stringArray(forKey: "library.sampleRoots") ?? []).map { URL(fileURLWithPath: $0) }
         autoPreviewSamples = defaults.bool(forKey: "library.autoPreviewSamples")
+        repairFolderLocations()
+        FolderMemory.remember(kitFolders + sampleRoots, defaults: defaults)
         volumeObservation = WorkspaceMountObservation(center: NSWorkspace.shared.notificationCenter,
             names: [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification]) { [weak self] _ in
             Task { @MainActor in self?.scheduleVolumeRefresh() }
@@ -221,6 +223,41 @@ final class StudioModel: ObservableObject {
             (kitSearch.isEmpty || kit.title.localizedStandardContains(kitSearch) ||
              kit.locationLabel.localizedStandardContains(kitSearch))
         }
+    }
+
+    struct KitGroup: Identifiable, Equatable {
+        let id: String
+        let title: String
+        let kits: [LibraryKit]
+    }
+
+    /// The MPC finds a bank by its PART: the list groups .PGM files by where they live,
+    /// the Mac collection first, then PARTs A–Z, then added folders. Order inside a
+    /// group is the existing title order.
+    var groupedFilteredKits: [KitGroup] {
+        var order: [String] = []
+        var titles: [String: String] = [:]
+        var members: [String: [LibraryKit]] = [:]
+        for kit in filteredKits {
+            let (key, title) = kitGroup(for: kit)
+            if members[key] == nil { order.append(key); titles[key] = title }
+            members[key, default: []].append(kit)
+        }
+        return order.sorted().map { KitGroup(id: $0, title: titles[$0] ?? $0, kits: members[$0] ?? []) }
+    }
+
+    private func kitGroup(for kit: LibraryKit) -> (key: String, title: String) {
+        if kit.rootURL == localStore.rootURL { return ("0", "Bibliothèque sur le Mac") }
+        if let letter = kit.partitionLetter { return ("1-\(letter)", "PART \(letter)") }
+        // Folders sort by their visible name; the path only separates homonyms.
+        let name = kit.rootURL.lastPathComponent
+        return ("2-\(name.lowercased())-\(kit.rootURL.path)", name)
+    }
+
+    /// Inside its group, a row only needs the subfolder, filename and content.
+    func kitRowSubtitle(for kit: LibraryKit) -> String {
+        ([kit.relativeFolder.isEmpty ? nil : kit.relativeFolder, kit.url.lastPathComponent, kitContentSummary(for: kit)]
+            .compactMap { $0 }).joined(separator: " · ")
     }
 
     var filteredSampleFolders: [URL] {
@@ -608,6 +645,7 @@ final class StudioModel: ObservableObject {
             refreshPending = true
             return libraryTask
         }
+        repairFolderLocations()
         libraryGeneration += 1
         let token = libraryGeneration
         let mounted = Set(volumeProvider().map(\.standardizedFileURL))
@@ -687,7 +725,7 @@ final class StudioModel: ObservableObject {
         presentFilePanel(panel) { [weak self] response in
             guard response == .OK, let self, let url = panel.url?.standardizedFileURL else { return }
             if !self.kitFolders.contains(url) { self.kitFolders.append(url) }
-            self.preferences.set(self.kitFolders.map(\.path), forKey: "library.kitFolders")
+            self.persistFolderLists()
             self.selectLocation(url)
             self.refreshLocations()
         }
@@ -763,9 +801,26 @@ final class StudioModel: ObservableObject {
         presentFilePanel(panel) { [weak self] response in
             guard response == .OK, let self, let url = panel.url?.standardizedFileURL else { return }
             if !self.sampleRoots.contains(url) { self.sampleRoots.append(url) }
-            self.preferences.set(self.sampleRoots.map(\.path), forKey: "library.sampleRoots")
+            self.persistFolderLists()
             self.selectSampleRoot(url)
         }
+    }
+
+    /// Paths stay the stored order; each reachable folder also gets a bookmark.
+    private func persistFolderLists() {
+        preferences.set(kitFolders.map(\.path), forKey: "library.kitFolders")
+        preferences.set(sampleRoots.map(\.path), forKey: "library.sampleRoots")
+        FolderMemory.remember(kitFolders + sampleRoots, defaults: preferences)
+    }
+
+    /// A volume remounted under another name ("T9 1" → "T9") keeps its folders reachable.
+    private func repairFolderLocations() {
+        let kits = FolderMemory.resolve(kitFolders, defaults: preferences)
+        let roots = FolderMemory.resolve(sampleRoots, defaults: preferences)
+        guard kits != kitFolders || roots != sampleRoots else { return }
+        kitFolders = kits
+        sampleRoots = roots
+        persistFolderLists()
     }
 
     /// Folders added to the library, without the SD PARTs.
@@ -777,7 +832,7 @@ final class StudioModel: ObservableObject {
         let path = url.standardizedFileURL.path
         guard kitFolders.contains(where: { $0.standardizedFileURL.path == path }) else { return }
         kitFolders.removeAll { $0.standardizedFileURL.path == path }
-        preferences.set(kitFolders.map(\.path), forKey: "library.kitFolders")
+        persistFolderLists()
         if let selected = selectedLocation?.standardizedFileURL.pathComponents,
            selected.starts(with: URL(fileURLWithPath: path).pathComponents) {
             selectedLocation = nil
@@ -792,7 +847,7 @@ final class StudioModel: ObservableObject {
         let path = url.standardizedFileURL.path
         guard sampleRoots.contains(where: { $0.standardizedFileURL.path == path }) else { return }
         sampleRoots.removeAll { $0.standardizedFileURL.path == path }
-        preferences.set(sampleRoots.map(\.path), forKey: "library.sampleRoots")
+        persistFolderLists()
         if sampleScope == .folder, selectedSampleRoot?.standardizedFileURL.path == path {
             showAllLibrarySamples()
         }
@@ -1443,7 +1498,7 @@ final class StudioModel: ObservableObject {
                 self.kitSearch = ""
                 if LibraryIndex.partitionLetter(for: destination) == nil && !self.kitFolders.contains(destination) {
                     self.kitFolders.append(destination)
-                    self.preferences.set(self.kitFolders.map(\.path), forKey: "library.kitFolders")
+                    self.persistFolderLists()
                 }
                 self.status = "Export terminé · \(self.sampleLocationLabel(for: output)) · \(output.lastPathComponent)."
                 self.refreshLocations()

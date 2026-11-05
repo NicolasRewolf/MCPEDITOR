@@ -41,11 +41,14 @@ public struct LibraryPartition: Equatable, Sendable {
     public let availableBytes: Int64?
     public let volumeSpace: ExportVolumeSpace?
     public let exportDestination: ExportDestination?
+    /// AppleDouble files and system folders macOS left on the PART, when readable.
+    public let macOSMetadata: MacOSMetadata?
 
     public init(url: URL, letter: String, kits: [LibraryKit], fileCount: Int,
                 folderCount: Int, audioCount: Int, sequenceCount: Int,
                 issues: [String], availableBytes: Int64?, volumeSpace: ExportVolumeSpace? = nil,
-                exportDestination: ExportDestination? = nil, samples: [URL] = []) {
+                exportDestination: ExportDestination? = nil, samples: [URL] = [],
+                macOSMetadata: MacOSMetadata? = nil) {
         self.url = url.standardizedFileURL
         self.letter = letter
         self.kits = kits
@@ -58,6 +61,7 @@ public struct LibraryPartition: Equatable, Sendable {
         self.availableBytes = availableBytes
         self.volumeSpace = volumeSpace
         self.exportDestination = exportDestination
+        self.macOSMetadata = macOSMetadata
     }
 
     /// Unknown files, links, folders, read errors and truncation all prevent an empty claim.
@@ -147,7 +151,9 @@ public enum LibraryIndex {
             kits: result.kits, fileCount: result.fileCount, folderCount: result.folderCount,
             audioCount: result.samples.count, sequenceCount: result.sequenceCount,
             issues: issues, availableBytes: space?.availableBytes, volumeSpace: space,
-            exportDestination: destination, samples: result.samples
+            exportDestination: destination, samples: result.samples,
+            macOSMetadata: MacOSMetadata.inspect(url, allocationUnit: space?.allocationUnitBytes ?? 8192,
+                                                 maximumDepth: maximumDepth, maximumEntries: maximumEntries)
         )
     }
 

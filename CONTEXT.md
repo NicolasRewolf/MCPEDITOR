@@ -79,5 +79,22 @@ Aucune écriture sur SD, aucun essai sur la MPC.
 - Liste .PGM : nombre de samples résolus par programme. Les 8 `PROGRAM_.pgm` de la carte portent tous le titre
   interne `PROGRAM_01` ; seul leur contenu et leur PART les distinguent. Le titre interne figure en infobulle.
 
-La capacité mémorisée est une observation de la carte, pas une constante de la MPC. Le regroupement des `.PGM`
-par PART et l’écoute de la sélection découpée seule restent à faire.
+La capacité mémorisée est une observation de la carte, pas une constante de la MPC.
+
+## Ranger la bibliothèque en 0.7.3 (23), 5 novembre 2026
+
+- Erratum : la passe 0.7.2 notait l’écoute de la seule partie découpée comme « à faire ». C’était déjà le cas :
+  la préécoute d’un `.SND` lit son en-tête et joue de son marqueur de début à son marqueur de fin.
+- Liste .PGM groupée : bibliothèque sur le Mac, PART A–Z, puis dossiers par nom. En-têtes fixes avec le nombre de .PGM.
+- Onglet PART : fichiers `._*` comptés en grappes de la PART et dossiers système (`.Trashes`, `.Spotlight-V100`),
+  lus par `readdir` car Foundation masque les `._*`. `.fseventsd`, présent sur chaque PART montée, reste en infobulle.
+  Relevé informatif : aucune suppression proposée. Non vérifié sur la carte réelle pendant cette passe (SD débranchée) ;
+  le relevé du 5 novembre en lecture seule comptait 65 `._*` sur S, 17 sur T, 5 sur R, 1 sur A et U.
+- Dossiers mémorisés : chemin conservé pour l’ordre et la compatibilité, plus un bookmark. Le bookmark ne sert que si
+  le dossier garde son chemin dans un volume remonté sous un autre nom ; un dossier déplacé reste indisponible.
+  Repli pour les anciennes entrées : même chemin sur un seul nom de montage voisin (« T9 » pour « T9 1 »).
+  La source `/Volumes/T9 1/User Library/Samples/Soul` sera réparée au prochain branchement du SSD sous « T9 ».
+
+Écarté pour l’instant : partager les SND inchangés entre révisions locales. Une bank tient dans une PART
+d’environ 8 Mo, ce qui borne chaque révision ; modifier la publication atomique du magasin local coûterait plus
+que l’espace gagné.
