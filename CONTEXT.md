@@ -63,6 +63,21 @@ Le but reste un outil pour bâtir des banks de samples, pas une MPC logicielle.
 - Retrait d’un dossier ou d’une source de samples de la liste, sans toucher aux fichiers.
 - Aperçu du nom 8.3 du `.PGM` et des samples ; vocabulaire harmonisé (tutoiement, PART, samples, Mio, échantillons).
 
-Non traité ici : métadonnées macOS (`._*`, `.fseventsd`) qui occupent des grappes sur les PART, jauge de capacité
-par PART, regroupement des `.PGM` homonymes, chemins mémorisés en texte (un SSD remonté sous un autre nom les casse),
-réécriture complète des SND à chaque révision locale. Aucune écriture sur SD, aucun essai sur la MPC.
+Non traité ici : métadonnées macOS (`._*`, `.fseventsd`) qui occupent des grappes sur les PART, chemins mémorisés
+en texte (un SSD remonté sous un autre nom les casse), réécriture complète des SND à chaque révision locale.
+Aucune écriture sur SD, aucun essai sur la MPC.
+
+## Bâtir une bank en 0.7.2 (22), 5 novembre 2026
+
+- Jauge « tient dans une PART » sous la mémoire audio : même estimation que la vérification de copie, comparée
+  à la plus grande PART vide montée, ou à la dernière mémorisée. La fenêtre de copie explique un dépassement.
+  Sur la carte de test, une PART vide offre 8,1 Mo ; KIT demande 3,8 Mo.
+- Les pads qui partagent un sample portent une icône 🔗 ; l’éditeur nomme les pads concernés. KIT affecte
+  36 pads à 23 samples ; B01 (KIK5) y partage son sample avec A09 et C05.
+- Samples : flèches ↑ ↓ après un clic dans la liste, option **Écouter à la sélection** mémorisée ;
+  la demande la plus récente l’emporte sur une préécoute encore en décodage.
+- Liste .PGM : nombre de samples résolus par programme. Les 8 `PROGRAM_.pgm` de la carte portent tous le titre
+  interne `PROGRAM_01` ; seul leur contenu et leur PART les distinguent. Le titre interne figure en infobulle.
+
+La capacité mémorisée est une observation de la carte, pas une constante de la MPC. Le regroupement des `.PGM`
+par PART et l’écoute de la sélection découpée seule restent à faire.

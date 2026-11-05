@@ -4,6 +4,7 @@ import SwiftUI
 
 struct LibraryBrowser: View {
     @EnvironmentObject private var model: StudioModel
+    @FocusState private var sampleListFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -172,10 +173,11 @@ struct LibraryBrowser: View {
                             HStack(spacing: 0) {
                                 BrowserRow(
                                     title: kit.title,
-                                    subtitle: "\(model.libraryLocationLabel(for: kit)) · \(kit.url.lastPathComponent)",
+                                    subtitle: ([model.libraryLocationLabel(for: kit), kit.url.lastPathComponent]
+                                        + [model.kitContentSummary(for: kit)].compactMap { $0 }).joined(separator: " · "),
                                     symbol: "square.grid.3x3",
                                     selected: (model.localSaveURL ?? model.programURL) == kit.url,
-                                    path: kit.url.path
+                                    path: kit.url.path + (model.kitTitleOnMPC(for: kit).map { "\nTitre sur la MPC : \($0)" } ?? "")
                                 ) { model.openProgram(kit.url) }
                                 .accessibilityLabel("\(kit.title), \(model.libraryLocationLabel(for: kit))")
                                 .accessibilityHint("Ouvrir ce programme MPC")
@@ -337,6 +339,7 @@ struct LibraryBrowser: View {
     }
 
     private var sampleFileList: some View {
+        ScrollViewReader { proxy in
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(alignment: .leading, spacing: 4) {
                 if model.filteredSampleFolders.isEmpty && model.filteredSamples.isEmpty {
@@ -365,15 +368,31 @@ struct LibraryBrowser: View {
                         symbol: "waveform",
                         selected: model.selectedSampleURL == sample,
                         path: sample.path
-                    ) { model.selectSample(sample) }
+                    ) {
+                        model.selectSample(sample)
+                        sampleListFocused = true
+                    }
                     .onDrag { NSItemProvider(object: sample as NSURL) }
                     .accessibilityHint(
-                        "Sélectionner pour écouter ou affecter au pad ; glisser vers un pad pour importer")
+                        "Sélectionner pour écouter ou affecter au pad ; flèches haut et bas pour passer au suivant ; glisser vers un pad pour importer")
                 }
             }
             .padding(.trailing, 4)
         }
         .scrollIndicators(.visible)
+        .focusable()
+        .focused($sampleListFocused)
+        .onMoveCommand { direction in
+            switch direction {
+            case .up: model.moveSampleSelection(by: -1)
+            case .down: model.moveSampleSelection(by: 1)
+            default: break
+            }
+        }
+        .onChange(of: model.selectedSampleURL) { url in
+            if let url { proxy.scrollTo(url) }
+        }
+        }
     }
 
     @ViewBuilder
@@ -457,6 +476,10 @@ struct LibraryBrowser: View {
                 Spacer(minLength: 0)
             }
             .buttonStyle(.bordered)
+            Toggle("Écouter à la sélection", isOn: $model.autoPreviewSamples)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help("Joue chaque sample dès qu’il est sélectionné, au clic ou avec les flèches ↑ ↓ de la liste.")
             Button {
                 if let sample = model.selectedSampleURL { model.assignSample(sample) }
             } label: {
@@ -583,11 +606,20 @@ struct ExportDestinationSheet: View {
                 }
             }
             if model.exportDestinationURL == nil {
-                Text(
-                    "Aucune PART proposée. Branche la SD ou choisis un dossier pour cette copie."
-                )
-                .font(.callout)
-                .foregroundStyle(.yellow)
+                if let capacity = model.partCapacity, !capacity.fits {
+                    Text(
+                        "Aucune PART proposée : ce .PGM et ses samples demandent \(ByteCountFormatter.string(fromByteCount: capacity.requiredBytes, countStyle: .file)), une PART vide en offre \(ByteCountFormatter.string(fromByteCount: capacity.capacityBytes, countStyle: .file)). Retire ou raccourcis des samples, ou choisis un dossier sur le Mac."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.yellow)
+                    .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(
+                        "Aucune PART proposée. Branche la SD ou choisis un dossier pour cette copie."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.yellow)
+                }
             }
             if let issue = model.exportAudioIssue {
                 VStack(alignment: .leading, spacing: 7) {

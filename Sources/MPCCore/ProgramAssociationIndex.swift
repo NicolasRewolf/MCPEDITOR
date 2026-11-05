@@ -5,12 +5,15 @@ public struct ProgramAssociation: Sendable {
     public let program: LibraryKit
     public let samples: [URL]
     public let issues: [String]
+    /// Program title stored in the PGM header, which can differ from its DOS filename.
+    public let title: String?
     public var isComplete: Bool { issues.isEmpty }
 
-    public init(program: LibraryKit, samples: [URL], issues: [String]) {
+    public init(program: LibraryKit, samples: [URL], issues: [String], title: String? = nil) {
         self.program = program
         self.samples = Array(Set(samples.map(\.standardizedFileURL))).sorted { $0.path < $1.path }
         self.issues = issues
+        self.title = title
     }
 }
 
@@ -64,7 +67,7 @@ public struct ProgramAssociationIndex: Sendable {
             do {
                 let result = try resolver.resolve(programURL: program.url)
                 association = ProgramAssociation(program: program, samples: result.sounds.map(\.url),
-                                                  issues: result.issues)
+                                                  issues: result.issues, title: result.program.name)
             } catch {
                 association = ProgramAssociation(program: program, samples: [],
                                                   issues: [error.localizedDescription])

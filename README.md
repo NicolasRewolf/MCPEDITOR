@@ -25,11 +25,19 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    `.PGM` enregistrés de la bibliothèque, pas les modifications encore en mémoire.
    Le menu permet aussi de parcourir une PART ou un dossier du SSD. La recherche filtre la vue courante.
    La préécoute et l’affectation au pad restent disponibles, ainsi que le glisser-déposer.
+   Après un clic dans la liste, les flèches ↑ ↓ passent d’un sample à l’autre ; **Écouter à la sélection**
+   joue chacun dès qu’il est choisi. Dans **.PGM**, chaque ligne indique le nombre de samples résolus,
+   ce qui distingue les homonymes comme plusieurs `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère.
    Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Déplacer un pad vers un autre déplace son affectation ; deux pads occupés sont échangés. Survoler une
    banque pendant le glissement permet de changer de banque. Copier une affectation via son menu partage
-   le même sample. **⌘Z / ⇧⌘Z** annule/rétablit les éditions ; les sélections ne créent pas d’historique.
+   le même sample : une icône 🔗 marque ces pads et l’éditeur nomme les pads concernés, car le nom,
+   la découpe et les traitements s’appliquent à tous ; l’accordage reste propre à chaque pad.
+   **⌘Z / ⇧⌘Z** annule/rétablit les éditions ; les sélections ne créent pas d’historique.
+   Sous la mémoire audio, une jauge compare l’espace que demande la copie (allocation FAT et réserve,
+   comme la vérification de copie) à la plus grande PART vide de la SD, ou à la dernière observée si la carte
+   est absente. Une bank qui dépasse est signalée avant la copie.
    Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire. Le retour de la vue Samples
    retrouve sa recherche et sa sélection précédentes.
 5. **Enregistrer (⌘S)** conserve le programme et tous ses sons dans la bibliothèque sur le Mac.

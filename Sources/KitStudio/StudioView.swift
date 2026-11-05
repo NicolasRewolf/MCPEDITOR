@@ -152,6 +152,9 @@ struct StudioView: View {
                     .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
                     .help("Mémoire audio du .PGM sur la MPC. La copie occupe un peu plus d’espace sur la SD avec les fichiers .PGM et .SND.")
+                if let capacity = model.partCapacity {
+                    PartCapacityGauge(capacity: capacity)
+                }
             }
         }
     }
@@ -197,6 +200,7 @@ struct StudioView: View {
                         hasSound: model.padHasSound(index: index),
                         selected: model.selectedPad == index,
                         missing: model.padIsMissing(index),
+                        shared: !model.padsSharingSample(with: index).isEmpty,
                         onPress: { model.selectPad(index); model.playPad(index) },
                         onDropFiles: { model.dropFiles($0, onPad: index) },
                         onDragPad: { model.padDragProvider(index: index) },
@@ -300,6 +304,43 @@ struct StudioView: View {
     }
 }
 
+/// What the copy needs on the SD against one empty PART, visible while the bank is built.
+struct PartCapacityGauge: View {
+    let capacity: StudioModel.PartCapacity
+
+    private var tint: Color {
+        capacity.fits ? (capacity.fraction > 0.9 ? .yellow : StudioPalette.orange) : .yellow
+    }
+
+    private var label: String {
+        let required = ByteCountFormatter.string(fromByteCount: capacity.requiredBytes, countStyle: .file)
+        let total = ByteCountFormatter.string(fromByteCount: capacity.capacityBytes, countStyle: .file)
+        return capacity.fits ? "\(required) / \(total) sur une PART" : "Ne tient pas dans une PART · \(required) / \(total)"
+    }
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Capsule()
+                .fill(Color.white.opacity(0.08))
+                .overlay(alignment: .leading) {
+                    GeometryReader { geometry in
+                        Capsule().fill(tint)
+                            .frame(width: geometry.size.width * min(1, max(0.02, capacity.fraction)))
+                    }
+                }
+                .frame(width: 150, height: 4)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(capacity.fits ? StudioPalette.muted : Color.yellow)
+        }
+        .help(capacity.measuredLetter.map {
+            "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la plus grande PART vide de la SD (PART \($0))."
+        } ?? "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la dernière PART vide observée. La SD n’est pas branchée.")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+    }
+}
+
 /// Hovering over a bank during a pad drag reveals its pads without consuming the drop.
 private struct BankDragDestination: DropDelegate {
     let reveal: () -> Void
@@ -314,6 +355,7 @@ private struct PadButton: View {
     let hasSound: Bool
     let selected: Bool
     let missing: Bool
+    let shared: Bool
     let onPress: () -> Void
     let onDropFiles: ([NSItemProvider]) -> Bool
     let onDragPad: () -> NSItemProvider?
@@ -328,7 +370,7 @@ private struct PadButton: View {
                 let pads = providers.filter { $0.hasItemConformingToTypeIdentifier(Self.padType.identifier) }
                 return pads.isEmpty ? onDropFiles(providers) : onDropPads(pads)
             }
-            .accessibilityLabel("Pad \(number), \(hasSound ? name : "vide")\(missing ? ", sample introuvable" : "")")
+            .accessibilityLabel("Pad \(number), \(hasSound ? name : "vide")\(shared ? ", sample partagé" : "")\(missing ? ", sample introuvable" : "")")
             .accessibilityHint("Écouter et sélectionner. Glisser pour déplacer ; déposer sur un pad occupé pour échanger.")
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -350,6 +392,12 @@ private struct PadButton: View {
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(selected ? StudioPalette.orange : StudioPalette.muted)
                     Spacer()
+                    if shared {
+                        Image(systemName: "link")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(StudioPalette.orange)
+                            .help("Ce pad partage son sample avec un autre pad.")
+                    }
                     if missing {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 9))
@@ -413,6 +461,14 @@ private struct SampleEditor: View {
                                 .font(.caption)
                                 .foregroundStyle(StudioPalette.muted)
                                 .help("Nom 8.3 utilisé dans le .PGM et sur la SD. Si ce nom existe déjà, un chiffre remplace sa fin.")
+                        }
+                        let sharing = model.padsSharingSample(with: model.selectedPad)
+                        if !sharing.isEmpty {
+                            Label("Sample partagé avec \(sharing.map(StudioModel.padLabel).joined(separator: ", "))", systemImage: "link")
+                                .font(.caption)
+                                .foregroundStyle(StudioPalette.orange)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .help("Le nom, la découpe et les traitements s’appliquent aussi à ces pads. L’accordage reste propre à chaque pad.")
                         }
                     }
                 }

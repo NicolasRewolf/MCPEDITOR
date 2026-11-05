@@ -56,6 +56,10 @@ final class StudioModel: ObservableObject {
     @Published var selectedSampleURL: URL?
     @Published var sampleQuery = ""
     @Published var samplePreviewBusy = false
+    /// Choosing samples for a bank: play each one as soon as it is selected.
+    @Published var autoPreviewSamples = false {
+        didSet { preferences.set(autoPreviewSamples, forKey: "library.autoPreviewSamples") }
+    }
     @Published var samplePreviewStatus = "Sélectionne un sample pour l’écouter ou l’affecter à un pad."
     @Published var lastExportURL: URL?
     @Published private(set) var localSaveURL: URL?
@@ -193,6 +197,7 @@ final class StudioModel: ObservableObject {
         savedRevision = revision
         kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
         sampleRoots = (defaults.stringArray(forKey: "library.sampleRoots") ?? []).map { URL(fileURLWithPath: $0) }
+        autoPreviewSamples = defaults.bool(forKey: "library.autoPreviewSamples")
         volumeObservation = WorkspaceMountObservation(center: NSWorkspace.shared.notificationCenter,
             names: [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification]) { [weak self] _ in
             Task { @MainActor in self?.scheduleVolumeRefresh() }
@@ -308,6 +313,20 @@ final class StudioModel: ObservableObject {
         return notice
     }
 
+    /// Banks are chosen by content: the resolved sample count tells apart homonyms such
+    /// as several PROGRAM_.pgm files across PARTs. Read-only, like the associations.
+    func kitContentSummary(for kit: LibraryKit) -> String? {
+        guard !libraryScanning, let association = associations.association(for: kit.url) else { return nil }
+        let count = association.samples.count
+        let samples = "\(count) sample\(count > 1 ? "s" : "")"
+        return association.isComplete ? samples : "\(samples) · liens incomplets"
+    }
+
+    func kitTitleOnMPC(for kit: LibraryKit) -> String? {
+        guard let title = associations.association(for: kit.url)?.title, !title.isEmpty, title != kit.title else { return nil }
+        return title
+    }
+
     func libraryLocationLabel(for kit: LibraryKit) -> String {
         kit.rootURL == localStore.rootURL ? "Bibliothèque sur le Mac" : kit.locationLabel
     }
@@ -396,6 +415,48 @@ final class StudioModel: ObservableObject {
         guard let preparedCopy else { return Int64.max }
         let space = partition.volumeSpace ?? ExportVolumeSpace(allocationUnitBytes: 8192, availableBytes: partition.availableBytes ?? 0)
         return (try? ExportSpace.estimate(fileSizes: preparedCopy.fileSizes, volume: space).requiredBytes) ?? Int64.max
+    }
+
+    /// A bank is copied into one PART: compare what the copy needs with an empty PART.
+    struct PartCapacity: Equatable {
+        /// Same estimate as the copy check: FAT allocation, metadata and reserve.
+        let requiredBytes: Int64
+        let capacityBytes: Int64
+        /// The empty PART measured now, or nil when the capacity was remembered.
+        let measuredLetter: String?
+        var fits: Bool { requiredBytes <= capacityBytes }
+        var fraction: Double { capacityBytes > 0 ? Double(requiredBytes) / Double(capacityBytes) : 1 }
+    }
+
+    private static let emptyPartBytesKey = "library.emptyPartAvailableBytes"
+    private static let emptyPartUnitKey = "library.emptyPartAllocationUnit"
+
+    var partCapacity: PartCapacity? {
+        guard let preparedCopy, assignedPadCount > 0 else { return nil }
+        let measured = partitions
+            .filter { $0.isEmpty && $0.volumeSpace != nil }
+            .max { ($0.volumeSpace?.availableBytes ?? 0) < ($1.volumeSpace?.availableBytes ?? 0) }
+        let space: ExportVolumeSpace
+        if let measured, let volume = measured.volumeSpace {
+            space = volume
+        } else {
+            let bytes = Int64(preferences.integer(forKey: Self.emptyPartBytesKey))
+            let unit = Int64(preferences.integer(forKey: Self.emptyPartUnitKey))
+            guard bytes > 0, unit > 0 else { return nil }
+            space = ExportVolumeSpace(allocationUnitBytes: unit, availableBytes: bytes)
+        }
+        guard let required = try? ExportSpace.estimate(fileSizes: preparedCopy.fileSizes, volume: space).requiredBytes
+        else { return nil }
+        return PartCapacity(requiredBytes: required, capacityBytes: space.availableBytes,
+                            measuredLetter: measured?.letter)
+    }
+
+    /// Keeps the largest empty PART seen, so the gauge still works with the card out.
+    func rememberEmptyPartCapacity(_ parts: [LibraryPartition]) {
+        guard let space = parts.filter({ $0.isEmpty }).compactMap(\.volumeSpace)
+            .max(by: { $0.availableBytes < $1.availableBytes }) else { return }
+        preferences.set(Int(space.availableBytes), forKey: Self.emptyPartBytesKey)
+        preferences.set(Int(space.allocationUnitBytes), forKey: Self.emptyPartUnitKey)
     }
 
     var documentSaveLabel: String {
@@ -595,6 +656,7 @@ final class StudioModel: ObservableObject {
             }.value
             guard token == self.libraryGeneration else { return }
             self.partitions = result.0
+            self.rememberEmptyPartCapacity(result.0)
             self.libraryKits = result.1
             self.locations = partURLs + folders
             self.associations = result.2
@@ -818,10 +880,31 @@ final class StudioModel: ObservableObject {
         if selectedSampleURL != url { stop() }
         selectedSampleURL = url
         samplePreviewStatus = "Prêt à écouter · \(url.lastPathComponent)"
+        if autoPreviewSamples { startPreview(url) }
+    }
+
+    /// Arrow keys walk the visible samples; with auto preview, each one plays in turn.
+    func moveSampleSelection(by offset: Int) {
+        let samples = filteredSamples
+        guard !samples.isEmpty else { return }
+        let next: Int
+        if let current = selectedSampleURL, let index = samples.firstIndex(of: current) {
+            next = min(samples.count - 1, max(0, index + offset))
+        } else {
+            next = offset >= 0 ? 0 : samples.count - 1
+        }
+        guard samples[next] != selectedSampleURL else { return }
+        selectSample(samples[next])
     }
 
     func previewSample(_ url: URL) {
         guard !documentActionsDisabled, !samplePreviewBusy else { return }
+        startPreview(url)
+    }
+
+    /// The newest request wins: an earlier load still decoding is ignored when it ends.
+    private func startPreview(_ url: URL) {
+        guard !documentActionsDisabled else { return }
         selectedSampleURL = url
         samplePreviewGeneration += 1
         let token = samplePreviewGeneration
@@ -944,6 +1027,18 @@ final class StudioModel: ObservableObject {
     func padHasSound(index: Int) -> Bool {
         guard let program, (0..<64).contains(index) else { return false }
         return program.slot(forNote: program.midiNote(forPad: index)) != nil
+    }
+
+    static func padLabel(_ index: Int) -> String {
+        String(format: "%@%02d", String(UnicodeScalar(65 + index / 16)!), index % 16 + 1)
+    }
+
+    /// Pads that play the same sample slot: name, trim and processing edit all of them,
+    /// while tuning stays per pad. Copying an assignment creates such a share.
+    func padsSharingSample(with index: Int) -> [Int] {
+        guard let program, (0..<64).contains(index),
+              let slot = program.slot(forNote: program.midiNote(forPad: index)) else { return [] }
+        return (0..<64).filter { $0 != index && program.slot(forNote: program.midiNote(forPad: $0)) == slot }
     }
 
     func padIsMissing(_ index: Int) -> Bool {
