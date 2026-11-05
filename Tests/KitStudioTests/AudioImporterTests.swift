@@ -159,6 +159,36 @@ struct AudioImporterTests {
         #expect(throws: MPCFormatError.self) { try AudioImporter.load(url) }
     }
 
+    @Test("Native import keeps policy errors ahead of missing PCM and invalid markers")
+    func nativePreflightErrorOrder() throws {
+        let fixture = try AudioFixture()
+        let url = fixture.directory.appendingPathComponent("ORDER.SND")
+        let valid = try MPCSound(name: "ORDER", channels: [[Float](repeating: 0, count: 441)]).encoded()
+        // All fixtures omit the body. Deliberately broken markers must not obscure
+        // header errors, the app's 441-frame minimum or the caller's PCM budget.
+        let cases: [(UInt8, UInt8, UInt32, String)] = [
+            (0x82, 0, 441, "révision 82"),
+            (2, 2, 441, "mono/stéréo"),
+            (2, 0, 0, "441"),
+            (2, 0, 220, "441"),
+            (2, 0, UInt32.max, "taille maximale"),
+            (2, 0, 441, "disponible")
+        ]
+        for (revision, channels, frames, expected) in cases {
+            var bytes = Data(valid.prefix(38))
+            bytes[1] = revision; bytes[21] = channels
+            for index in 22..<30 { bytes[index] = 255 }
+            for i in 0..<4 { bytes[30 + i] = UInt8(truncatingIfNeeded: frames >> (8 * i)) }
+            try bytes.write(to: url)
+            do {
+                _ = try AudioImporter.load(url, maximumPCMBytes: 0)
+                Issue.record("Malformed or over-budget native sound was accepted")
+            } catch {
+                #expect(error.localizedDescription.contains(expected))
+            }
+        }
+    }
+
     @Test("Short SND files are rejected before preview")
     func rejectsShortNativeAudio() throws {
         let fixture = try AudioFixture()

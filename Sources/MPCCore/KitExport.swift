@@ -52,6 +52,65 @@ public enum KitExportError: LocalizedError, Sendable {
 public struct KitExport {
     public static let maximumPCMBytes = 32 * 1024 * 1024
 
+    /// The content of a new copy, independent of destination names and allocation.
+    /// Preparation inspects only structure and counts; it neither scans PCM values
+    /// nor allocates encoded audio, so the UI can use exactly the export inventory.
+    public struct PreparedCopy: Sendable {
+        fileprivate struct Sound: Sendable {
+            let slot: Int
+            let audio: MPCSound
+            let wordCount: Int
+        }
+
+        fileprivate let program: MPCProgram
+        fileprivate let sounds: [Sound]
+        /// SND bodies in referenced-slot order, followed by the PGM body.
+        /// The temporary PGM and published PGM are the same file allocation.
+        public let fileSizes: [Int]
+        public let nominalBytes: Int64
+
+        fileprivate func programForExport() -> MPCProgram {
+            var copy = program
+            let referenced = Set(sounds.map(\.slot))
+            for slot in 0..<128 where !referenced.contains(slot) {
+                copy.setSound(slot: slot, name: "", wordCount: 0)
+            }
+            return copy
+        }
+    }
+
+    public static func prepareCopy(program: MPCProgram, sounds: [Int: MPCSound]) throws -> PreparedCopy {
+        try program.validateKnownFields()
+        let slots = program.referencedSlots.sorted()
+        for slot in slots where !(0..<128).contains(slot) {
+            throw KitExportError.invalidSlot(slot)
+        }
+        let missing = slots.filter { sounds[$0] == nil }
+        guard missing.isEmpty else { throw KitExportError.missingSounds(missing) }
+
+        var pcmBytes = 0
+        var preparedSounds: [PreparedCopy.Sound] = []
+        var fileSizes: [Int] = []
+        for slot in slots {
+            guard let sound = sounds[slot], (1...2).contains(sound.channels.count) else {
+                throw KitExportError.invalidSound(slot)
+            }
+            let (words, wordOverflow) = sound.frameCount.multipliedReportingOverflow(by: sound.channels.count)
+            let (bytes, byteOverflow) = words.multipliedReportingOverflow(by: 2)
+            let (nextTotal, totalOverflow) = pcmBytes.addingReportingOverflow(bytes)
+            guard !wordOverflow, !byteOverflow, !totalOverflow,
+                  bytes >= 0, nextTotal <= maximumPCMBytes else {
+                throw KitExportError.memoryLimitExceeded
+            }
+            fileSizes.append(try sound.encodedByteCount)
+            preparedSounds.append(PreparedCopy.Sound(slot: slot, audio: sound, wordCount: words))
+            pcmBytes = nextTotal
+        }
+        fileSizes.append(program.bytes.count)
+        return PreparedCopy(program: program, sounds: preparedSounds, fileSizes: fileSizes,
+                            nominalBytes: fileSizes.reduce(0) { $0 + Int64($1) })
+    }
+
     private struct Asset {
         let filename: String
         let data: Data
@@ -100,34 +159,17 @@ public struct KitExport {
         expectedDestination: ExportDestination? = nil,
         io: FileIO
     ) throws -> URL {
-        try program.validateKnownFields()
-        let slots = program.referencedSlots.sorted()
-        for slot in slots where !(0..<128).contains(slot) {
-            throw KitExportError.invalidSlot(slot)
-        }
-        let missing = slots.filter { sounds[$0] == nil }
-        guard missing.isEmpty else { throw KitExportError.missingSounds(missing) }
+        let prepared = try prepareCopy(program: program, sounds: sounds)
 
+        // The full PCM scan belongs to export, never to a UI size estimate.
         // Preflight and encode everything before creating anything on the card.
-        var pcmBytes = 0
-        for slot in slots {
-            guard let sound = sounds[slot], (1...2).contains(sound.channels.count) else {
-                throw KitExportError.invalidSound(slot)
-            }
-            let (words, wordOverflow) = sound.frameCount.multipliedReportingOverflow(by: sound.channels.count)
-            let (bytes, byteOverflow) = words.multipliedReportingOverflow(by: 2)
-            let (nextTotal, totalOverflow) = pcmBytes.addingReportingOverflow(bytes)
-            guard !wordOverflow, !byteOverflow, !totalOverflow,
-                  bytes >= 0, nextTotal <= maximumPCMBytes else {
-                throw KitExportError.memoryLimitExceeded
-            }
-            let range = sound.pcm16RangeReport
+        for entry in prepared.sounds {
+            let range = entry.audio.pcm16RangeReport
             guard range.outOfRangeSampleCount == 0, range.nonFiniteSampleCount == 0 else {
-                throw KitExportError.invalidPCM16Range(slot: slot, peak: range.peakMagnitude,
+                throw KitExportError.invalidPCM16Range(slot: entry.slot, peak: range.peakMagnitude,
                                                        outOfRange: range.outOfRangeSampleCount,
                                                        nonFinite: range.nonFiniteSampleCount)
             }
-            pcmBytes = nextTotal
         }
 
         let receipt = try expectedDestination ?? ExportDestination.capture(
@@ -150,24 +192,16 @@ public struct KitExport {
             return stem.hasPrefix("._") ? [stem, String(stem.dropFirst(2))] : [stem]
         })
         let programStem = try reserveName(name, fallback: "KIT", reserved: &reserved)
-        var exported = program
-        let referenced = Set(slots)
-        for slot in 0..<128 where !referenced.contains(slot) {
-            exported.setSound(slot: slot, name: "", wordCount: 0)
-        }
+        var exported = prepared.programForExport()
 
         var assets: [Asset] = []
-        for slot in slots {
-            guard let sound = sounds[slot] else {
-                throw KitExportError.missingSounds([slot])
-            }
+        for entry in prepared.sounds {
             let stem = try reserveName(
-                program.soundName(slot: slot), fallback: "SOUND", reserved: &reserved
+                prepared.program.soundName(slot: entry.slot), fallback: "SOUND", reserved: &reserved
             )
-            let encoded = try sound.encoded(name: stem)
+            let encoded = try entry.audio.encoded(name: stem)
             exported.setSound(
-                slot: slot, name: stem,
-                wordCount: sound.frameCount * sound.channels.count
+                slot: entry.slot, name: stem, wordCount: entry.wordCount
             )
             assets.append(Asset(filename: stem + ".SND", data: encoded))
         }
@@ -178,8 +212,12 @@ public struct KitExport {
         let temporaryProgramFilename = programStem + ".TMP"
         assets.append(Asset(filename: temporaryProgramFilename, data: exported.bytes))
 
+        // Validate actual encoded bodies before any creation. Destination capacity
+        // is still checked here using the live volume, not a prior UI estimate.
+        let actualFileSizes = assets.map { $0.data.count }
+        guard actualFileSizes == prepared.fileSizes else { throw ExportSpaceError.invalidSize }
         let volume = try io.volumeSpace(directoryFD)
-        let estimate = try ExportSpace.estimate(fileSizes: assets.map { $0.data.count }, volume: volume)
+        let estimate = try ExportSpace.estimate(fileSizes: actualFileSizes, volume: volume)
         guard estimate.requiredBytes <= volume.availableBytes else {
             throw ExportSpaceError.insufficientSpace(required: estimate.requiredBytes, available: volume.availableBytes)
         }

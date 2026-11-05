@@ -15,6 +15,102 @@ final class KitExportTests: XCTestCase {
         return MPCSound(name: name, channels: stereo ? [channel, channel.map { -$0 }] : [channel])
     }
 
+    func testPreparedCopySizesMatchActualExportWithSharedSlotsAndUnusedSounds() throws {
+        var sourceWithTrailingBytes = try sound("TRAILING", stereo: true).encoded()
+        sourceWithTrailingBytes.append(Data(repeating: 0xA5, count: 127))
+        let trailing = try MPCSound.decode(sourceWithTrailingBytes)
+        var trimmed = trailing
+        trimmed.start = 50
+        trimmed.end = 500
+        let cases = [sound("MONO"), sound("STEREO", stereo: true), trailing, trimmed.trimmed().mono()]
+
+        for audio in cases {
+            let directory = try temporaryDirectory()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            var program = MPCProgram.blank(name: "SIZES")
+            program.assign(slot: 5, toNote: 35)
+            program.assign(slot: 5, toNote: 36)
+            program.assign(slot: 17, toNote: 98)
+            program.setSound(slot: 5, name: "SAME", wordCount: 1)
+            program.setSound(slot: 17, name: "SAME", wordCount: 1)
+            program.setSound(slot: 91, name: "UNUSED", wordCount: 999_999)
+            // Equal sound values in different slots remain separate SNDs. The unused
+            // sound is deliberately invalid and must not enter preparation or export.
+            let sounds = [5: audio, 17: audio, 91: MPCSound(name: "UNUSED", channels: [])]
+            let prepared = try KitExport.prepareCopy(program: program, sounds: sounds)
+            let nativeSize = try audio.encoded().count
+            XCTAssertEqual(prepared.fileSizes, [nativeSize, nativeSize, program.bytes.count])
+
+            let output = try KitExport.export(program: program, sounds: sounds, name: "SIZES", to: directory)
+            let copiedProgram = try MPCProgram(data: Data(contentsOf: output))
+            let actualSizes = try [5, 17].map { slot in
+                try Data(contentsOf: directory.appendingPathComponent(copiedProgram.soundName(slot: slot) + ".SND")).count
+            } + [Data(contentsOf: output).count]
+            XCTAssertEqual(prepared.fileSizes, actualSizes)
+            XCTAssertEqual(prepared.nominalBytes, actualSizes.reduce(0) { $0 + Int64($1) })
+            XCTAssertEqual(copiedProgram.referencedSlots, [5, 17])
+            XCTAssertEqual(copiedProgram.soundName(slot: 91), "")
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path).count, 3)
+            if audio.trailingByteCount > 0 {
+                XCTAssertLessThan(nativeSize, sourceWithTrailingBytes.count)
+            }
+        }
+    }
+
+    func testPreparedCopyRejectsMissingOrMalformedContentInsteadOfUnderestimating() throws {
+        var program = MPCProgram.blank(name: "INVALID")
+        program.assign(slot: 3, toNote: 35)
+        XCTAssertThrowsError(try KitExport.prepareCopy(program: program, sounds: [:])) { error in
+            guard case KitExportError.missingSounds([3]) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        var mismatched = sound("MISMATCH", stereo: true)
+        mismatched.channels[1].removeLast()
+        XCTAssertThrowsError(try KitExport.prepareCopy(program: program, sounds: [3: mismatched]))
+        var malformed = program
+        malformed.bytes.removeLast()
+        XCTAssertThrowsError(try KitExport.prepareCopy(program: malformed, sounds: [3: sound("VALID")]))
+    }
+
+    func testCopySizePreparationDoesNotReplacePCMValidationAtExport() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var program = MPCProgram.blank(name: "NONFINITE")
+        program.assign(slot: 3, toNote: 35)
+        var audio = sound("NONFINITE")
+        let prepared = try KitExport.prepareCopy(program: program, sounds: [3: audio])
+        audio.channels[0][0] = .nan
+        XCTAssertEqual(try KitExport.prepareCopy(program: program, sounds: [3: audio]).fileSizes,
+                       prepared.fileSizes, "Preparation only inspects shape, never each PCM sample.")
+        XCTAssertThrowsError(try KitExport.export(program: program, sounds: [3: audio], name: "FAIL", to: directory)) { error in
+            guard case KitExportError.invalidPCM16Range(let slot, _, _, let nonFinite) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertEqual(slot, 3)
+            XCTAssertEqual(nonFinite, 1)
+        }
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+    }
+
+    func testPreparationAppliesAggregatePCMBudgetOncePerReferencedSlot() throws {
+        var program = MPCProgram.blank(name: "BUDGET")
+        program.assign(slot: 0, toNote: 35)
+        program.assign(slot: 0, toNote: 36)
+        program.assign(slot: 1, toNote: 98)
+        let frames = KitExport.maximumPCMBytes / 4
+        var audio = MPCSound(name: "LARGE", channels: [Array(repeating: 0, count: frames)])
+        let accepted = try KitExport.prepareCopy(program: program, sounds: [0: audio, 1: audio])
+        XCTAssertEqual(accepted.fileSizes.count, 3)
+        audio.channels[0].append(0)
+        audio.end += 1
+        XCTAssertThrowsError(try KitExport.prepareCopy(program: program, sounds: [0: audio, 1: audio])) { error in
+            guard case KitExportError.memoryLimitExceeded = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
     func testNewNamesAvoidExistingFilesIgnoringCaseAndNeverOverwrite() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

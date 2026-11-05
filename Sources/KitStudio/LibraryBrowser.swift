@@ -8,7 +8,7 @@ struct LibraryBrowser: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Label("BIBLIOTHÈQUE", systemImage: "externaldrive")
+                Label("BIBLIOTHÈQUE", systemImage: "square.stack")
                     .font(.system(size: 11, weight: .semibold))
                 Spacer()
                 if model.libraryScanning {
@@ -163,20 +163,20 @@ struct LibraryBrowser: View {
                             HStack(spacing: 0) {
                                 BrowserRow(
                                     title: kit.title,
-                                    subtitle: "\(kit.locationLabel) · \(kit.url.lastPathComponent)",
+                                    subtitle: "\(model.libraryLocationLabel(for: kit)) · \(kit.url.lastPathComponent)",
                                     symbol: "square.grid.3x3",
-                                    selected: (model.lastExportURL ?? model.programURL) == kit.url,
+                                    selected: (model.localSaveURL ?? model.programURL) == kit.url,
                                     path: kit.url.path
                                 ) { model.openProgram(kit.url) }
-                                .accessibilityLabel("\(kit.title), \(kit.locationLabel)")
+                                .accessibilityLabel("\(kit.title), \(model.libraryLocationLabel(for: kit))")
                                 .accessibilityHint("Ouvrir ce programme MPC")
                                 Button { model.showSamples(in: kit) } label: {
-                                    Image(systemName: "waveform")
+                                    Image(systemName: "list.bullet")
                                 }
                                 .buttonStyle(.borderless)
                                 .frame(width: 28)
-                                .help("Voir les samples de \(kit.url.lastPathComponent) · \(kit.locationLabel)")
-                                .accessibilityLabel("Voir les samples de \(kit.url.lastPathComponent), \(kit.locationLabel)")
+                                .help("Voir les samples de \(kit.url.lastPathComponent) · \(model.libraryLocationLabel(for: kit))")
+                                .accessibilityLabel("Voir les samples de \(kit.url.lastPathComponent), \(model.libraryLocationLabel(for: kit))")
                                 Menu {
                                     kitActions(kit)
                                 } label: { Image(systemName: "ellipsis") }
@@ -184,7 +184,7 @@ struct LibraryBrowser: View {
                                 .menuIndicator(.hidden)
                                 .frame(width: 28)
                                 .help("Actions pour \(kit.url.lastPathComponent)")
-                                .accessibilityLabel("Actions pour \(kit.title), \(kit.locationLabel)")
+                                .accessibilityLabel("Actions pour \(kit.title), \(model.libraryLocationLabel(for: kit))")
                             }
                             .id(kit.url)
                             .disabled(model.documentActionsDisabled)
@@ -195,11 +195,11 @@ struct LibraryBrowser: View {
                 }
                 .scrollIndicators(.visible)
                 .onChange(of: model.libraryKits) { _ in
-                    if let url = model.lastExportURL ?? model.programURL {
+                    if let url = model.localSaveURL ?? model.programURL {
                         proxy.scrollTo(url, anchor: .center)
                     }
                 }
-                .onChange(of: model.lastExportURL) { url in
+                .onChange(of: model.localSaveURL) { url in
                     if let url { proxy.scrollTo(url, anchor: .center) }
                 }
             }
@@ -238,7 +238,15 @@ struct LibraryBrowser: View {
     private var sampleBrowser: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 7) {
+                Button(action: model.goBackInSamples) {
+                    Image(systemName: "chevron.backward")
+                }
+                .buttonStyle(.borderless)
+                .disabled(!model.canGoBackInSamples)
+                .help("Revenir à la vue de samples précédente")
+                .accessibilityLabel("Retour aux samples précédents")
                 Menu {
+                    Button("Bibliothèque et SD", action: model.showAllLibrarySamples)
                     Button("Toute la SD", action: model.showAllSDSamples)
                     Divider()
                     ForEach(model.partitions, id: \.url) { partition in
@@ -264,7 +272,7 @@ struct LibraryBrowser: View {
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .help("Choisir la SD, une PART ou un dossier de samples")
+                .help("Choisir les samples de la bibliothèque, de la SD ou d’un dossier")
                 Button(action: model.chooseSampleFolder) {
                     Image(systemName: "folder.badge.plus")
                 }
@@ -369,7 +377,7 @@ struct LibraryBrowser: View {
                                     HStack(alignment: .top) {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(program.url.lastPathComponent).fontWeight(.medium)
-                                            Text(program.locationLabel).foregroundStyle(StudioPalette.muted)
+                                            Text(model.libraryLocationLabel(for: program)).foregroundStyle(StudioPalette.muted)
                                         }
                                         Spacer(minLength: 0)
                                         Text("Ouvrir").foregroundStyle(StudioPalette.orange)
@@ -378,7 +386,7 @@ struct LibraryBrowser: View {
                                 }
                                 .buttonStyle(.borderless)
                                 .help("Ouvrir \(program.url.path)")
-                                .accessibilityLabel("Ouvrir \(program.url.lastPathComponent), \(program.locationLabel)")
+                                .accessibilityLabel("Ouvrir \(program.url.lastPathComponent), \(model.libraryLocationLabel(for: program))")
                                 .disabled(model.documentActionsDisabled)
                             }
                         }
@@ -387,8 +395,18 @@ struct LibraryBrowser: View {
                     .frame(height: min(100, CGFloat(programs.count) * 36))
                 }
                 if let notice = model.selectedSampleAssociationNotice {
-                    Text(notice).font(.caption).foregroundStyle(StudioPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if model.isDirty {
+                        Text("Les modifications en cours ne sont pas encore incluses dans ces liens.")
+                            .font(.caption)
+                            .foregroundStyle(StudioPalette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .help(notice)
+                    } else {
+                        Label("Liens vérifiés dans la bibliothèque", systemImage: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(StudioPalette.muted)
+                            .help(notice)
+                    }
                 }
             }
         }
@@ -508,16 +526,17 @@ struct ExportDestinationSheet: View {
     }
 
     private var capacityTooSmall: Bool {
-        guard let available = selectedPartition?.availableBytes else { return false }
+        guard model.estimatedExportBytes != nil,
+              let available = selectedPartition?.availableBytes else { return false }
         return selectedPartition.map { model.requiredExportFreeBytes(in: $0) > available } ?? false
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 7) {
-                Text("Enregistrer une copie du .PGM")
+                Text("Copier le .PGM sur la SD")
                     .font(.title2.bold())
-                Text("Le programme et ses samples seront copiés dans l’emplacement choisi.")
+                Text("Choisis où retrouver le .PGM et ses samples sur ta MPC.")
                     .font(.callout)
                     .foregroundStyle(StudioPalette.muted)
             }
@@ -532,9 +551,7 @@ struct ExportDestinationSheet: View {
                         .foregroundStyle(StudioPalette.muted)
                 }
                 VStack(alignment: .trailing, spacing: 5) {
-                    Text(
-                        ByteCountFormatter.string(fromByteCount: model.estimatedExportBytes, countStyle: .file)
-                    )
+                    Text(model.exportSizeLabel)
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
                     Text("\(model.assignedPadCount) pad(s) affecté(s)")
                         .font(.caption)
@@ -543,7 +560,7 @@ struct ExportDestinationSheet: View {
             }
             if model.exportDestinationURL == nil {
                 Text(
-                    "Aucune destination proposée. Choisis un emplacement pour cette copie."
+                    "Aucune PART proposée. Branche la SD ou choisis un dossier pour cette copie."
                 )
                 .font(.callout)
                 .foregroundStyle(.yellow)
@@ -588,7 +605,7 @@ struct ExportDestinationSheet: View {
                         }
                     }
                 }
-                Button("Choisir un autre dossier…", action: model.chooseExportFolder)
+                Button("Copier dans un dossier…", action: model.chooseExportFolder)
                     .buttonStyle(.bordered)
                     .disabled(model.documentLocked)
             }
@@ -627,7 +644,7 @@ struct ExportDestinationSheet: View {
                     .disabled(model.documentLocked)
                 Spacer()
                 Button(
-                    "Enregistrer la copie", action: model.exportKitToDestination
+                    "Copier ici", action: model.exportKitToDestination
                 )
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)

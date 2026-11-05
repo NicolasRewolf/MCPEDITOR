@@ -29,7 +29,7 @@ final class LibraryModelTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
         defaults.set(kitFolders.map(\.path), forKey: "library.kitFolders")
         addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
-        return StudioModel(defaults: defaults, discardPresenter: discardPresenter,
+        return StudioModel(defaults: defaults, localLibraryURL: FileManager.default.temporaryDirectory.appendingPathComponent("UnusedLibrary-" + UUID().uuidString), discardPresenter: discardPresenter,
                            volumeProvider: { mountedVolumes }, sampleFolderLoader: sampleFolderLoader)
     }
 
@@ -570,8 +570,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertEqual(output.lastPathComponent, "SOULKIT1.PGM")
         XCTAssertEqual(output.deletingLastPathComponent().resolvingSymlinksInPath(), destination.resolvingSymlinksInPath())
         XCTAssertEqual(model.programURL, sourceURL)
-        XCTAssertEqual(model.kitName, "SOULKIT1")
-        XCTAssertFalse(model.isDirty)
+        XCTAssertEqual(model.kitName, "SOULKIT")
+        XCTAssertTrue(model.isDirty, "A transport copy does not save the document in the local collection.")
         XCTAssertFalse(model.busy)
         XCTAssertNil(model.errorMessage)
         XCTAssertTrue(model.kitLocationLabel.contains("LocalDestination"))
@@ -641,7 +641,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertNil(model.selectedLocation)
         XCTAssertEqual(model.kitSearch, "")
         XCTAssertTrue(model.locations.contains { $0.resolvingSymlinksInPath() == destination.resolvingSymlinksInPath() })
-        XCTAssertFalse(model.isDirty)
+        XCTAssertTrue(model.isDirty, "A transport copy does not save the document in the local collection.")
         XCTAssertTrue(model.libraryIssue?.contains("SOUL.PGM") == true, "The pre-existing invalid PGM must remain visible as an unresolved association.")
         XCTAssertEqual(model.associations.association(for: existing)?.isComplete, false)
         XCTAssertEqual(model.associations.association(for: output)?.isComplete, true)
@@ -910,13 +910,66 @@ final class LibraryModelTests: XCTestCase {
     }
 
     @MainActor
+    func testCopySizeEstimateMatchesExportAfterSharedAssignmentsAndSampleChanges() async throws {
+        let source = try directory("Source")
+        let destination = try directory("Destination")
+        let url = source.appendingPathComponent("STEREO.SND")
+        let audio = MPCSound(name: "STEREO", channels: [Array(repeating: 0.25, count: 512), Array(repeating: -0.25, count: 512)])
+        var sourceBytes = try audio.encoded()
+        sourceBytes.append(Data(repeating: 0xA5, count: 79))
+        try sourceBytes.write(to: url)
+        let model = try testModel()
+        await model.importURLs([url], atPad: 0)?.value
+        var program = try XCTUnwrap(model.program)
+        let slot = try XCTUnwrap(program.slot(forNote: program.midiNote(forPad: 0)))
+        program.assign(slot: slot, toNote: program.midiNote(forPad: 1))
+        program.setSound(slot: 91, name: "UNUSED", wordCount: 999_999)
+        model.program = program
+        let stereoSize = try XCTUnwrap(model.estimatedExportBytes)
+        XCTAssertEqual(stereoSize, Int64(try audio.encoded().count + program.bytes.count))
+        model.selectPad(0)
+        model.transform("mono")
+        let monoSize = try XCTUnwrap(model.estimatedExportBytes)
+        XCTAssertEqual(stereoSize - monoSize, 512 * 2)
+
+        await model.exportKit(to: destination)?.value
+        XCTAssertNil(model.errorMessage)
+        XCTAssertNotNil(model.lastExportURL)
+        let files = try FileManager.default.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)
+            .filter { ["SND", "PGM"].contains($0.pathExtension.uppercased()) }
+        XCTAssertEqual(files.count, 2, "A shared slot is exported once; an unused inventory name is omitted.")
+        let actual = try files.reduce(Int64(0)) { $0 + Int64(try Data(contentsOf: $1).count) }
+        XCTAssertEqual(monoSize, actual)
+        XCTAssertEqual(try Data(contentsOf: url), sourceBytes, "Estimation and export preserve the original SND, including its trailing bytes.")
+    }
+
+    @MainActor
+    func testMissingCopyContentHasNoSizeOrAutomaticCapacityRecommendation() async throws {
+        let source = try directory("Source")
+        let sample = try nativeSound("KICK", in: source)
+        let model = try testModel()
+        await model.importURLs([sample], atPad: 0)?.value
+        var program = try XCTUnwrap(model.program)
+        program.assign(slot: 91, toNote: program.midiNote(forPad: 1))
+        model.program = program
+        XCTAssertNil(model.estimatedExportBytes)
+        XCTAssertEqual(model.exportSizeLabel, "Taille indisponible")
+        XCTAssertEqual(model.requiredExportFreeBytes, Int64.max)
+        let part = try directory("MPC-PART--S")
+        model.partitions = [LibraryPartition(url: part, letter: "S", kits: [], fileCount: 0,
+                                             folderCount: 0, audioCount: 0, sequenceCount: 0, issues: [],
+                                             availableBytes: 8_000_000, exportDestination: try fixtureMountedReceipt(part))]
+        XCTAssertNil(model.recommendedSDPartition)
+    }
+
+    @MainActor
     func testAutomaticExportRecommendationRequiresAnEmptyPartWithKnownSufficientSpace() async throws {
         let folder = try directory("Source")
         let sample = try nativeSound("KICK", in: folder)
         let model = try testModel()
         await model.importURLs([sample], atPad: 0)?.value
         let required = model.requiredExportFreeBytes
-        XCTAssertGreaterThan(required, model.estimatedExportBytes,
+        XCTAssertGreaterThan(required, try XCTUnwrap(model.estimatedExportBytes),
                              "Allocation and directory overhead must be reserved in addition to file bytes.")
         func part(_ letter: String, files: Int = 0, folders: Int = 0, audio: Int = 0,
                   issues: [String] = [], available: Int64?, verifiedMount: Bool = true) throws -> LibraryPartition {

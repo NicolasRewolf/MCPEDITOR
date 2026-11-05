@@ -1,11 +1,13 @@
 import SwiftUI
 import AppKit
+import Combine
 
 @main
 @MainActor
 struct KitStudioApp: App {
     @NSApplicationDelegateAdaptor(StudioAppDelegate.self) private var appDelegate
     @StateObject private var model = StudioModel()
+    @State private var textEditingRevision = 0
 
     var body: some Scene {
         WindowGroup("MPC Kit Studio") {
@@ -20,6 +22,11 @@ struct KitStudioApp: App {
                     model.refreshLocations()
                     if model.program == nil { model.newKit() }
                 }
+                .onReceive(Publishers.Merge3(
+                    NotificationCenter.default.publisher(for: NSText.didChangeNotification),
+                    NotificationCenter.default.publisher(for: NSText.didBeginEditingNotification),
+                    NotificationCenter.default.publisher(for: NSText.didEndEditingNotification)
+                )) { _ in textEditingRevision &+= 1 }
         }
         .defaultSize(width: 1_320, height: 860)
         .commands {
@@ -32,15 +39,60 @@ struct KitStudioApp: App {
                     .disabled(model.documentLocked)
             }
             CommandGroup(replacing: .saveItem) {
-                Button("Enregistrer une copie…", action: model.exportKit)
+                Button("Enregistrer") { _ = model.saveProgram() }
                     .keyboardShortcut("s")
                     .disabled(model.program == nil || model.documentActionsDisabled)
+                Button("Copier sur la SD…", action: model.exportKit)
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                    .disabled(model.program == nil || model.documentActionsDisabled)
             }
+            StudioUndoCommands(model: model, textEditingRevision: textEditingRevision)
             CommandGroup(after: .importExport) {
                 Button("Importer des samples…", action: model.importAudio)
                     .keyboardShortcut("i")
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }
+        }
+    }
+}
+
+private struct DocumentTextEditingKey: FocusedValueKey {
+    typealias Value = Bool
+}
+
+extension FocusedValues {
+    var editsProgramDocument: Bool? {
+        get { self[DocumentTextEditingKey.self] }
+        set { self[DocumentTextEditingKey.self] = newValue }
+    }
+}
+
+/// Search fields keep native undo; document names, pads and audio share one history.
+private struct StudioUndoCommands: Commands {
+    @ObservedObject var model: StudioModel
+    @FocusedValue(\.editsProgramDocument) private var editsProgramDocument
+    let textEditingRevision: Int
+
+    private var textUndoManager: UndoManager? {
+        guard editsProgramDocument != true else { return nil }
+        guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView, editor.isEditable else { return nil }
+        return editor.undoManager
+    }
+
+    var body: some Commands {
+        CommandGroup(replacing: .undoRedo) {
+            Button(textUndoManager?.canUndo == true ? "Annuler la saisie" : model.undoTitle) {
+                if let manager = textUndoManager, manager.canUndo { manager.undo() }
+                else { model.undo() }
+            }
+            .keyboardShortcut("z")
+            .disabled(model.documentActionsDisabled || !(textUndoManager?.canUndo == true || model.canUndo))
+            Button(textUndoManager?.canRedo == true ? "Rétablir la saisie" : model.redoTitle) {
+                if let manager = textUndoManager, manager.canRedo { manager.redo() }
+                else { model.redo() }
+            }
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+            .disabled(model.documentActionsDisabled || !(textUndoManager?.canRedo == true || model.canRedo))
         }
     }
 }

@@ -17,7 +17,7 @@ final class ExportDestinationValidationTests: XCTestCase {
         let suite = "DestinationValidation-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
-        return StudioModel(defaults: defaults, discardPresenter: { $0(false) }, volumeProvider: { [] },
+        return StudioModel(defaults: defaults, localLibraryURL: FileManager.default.temporaryDirectory.appendingPathComponent("UnusedLibrary-" + UUID().uuidString), discardPresenter: { $0(false) }, volumeProvider: { [] },
                            exportDestinationCapture: capture)
     }
 

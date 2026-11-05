@@ -13,13 +13,13 @@ La signature est locale (ad hoc), sans certificat Developer ID ni notarisation A
 Si macOS bloque l'application téléchargée, utiliser son option **Ouvrir quand même** dans
 Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gatekeeper.
 
-1. Insérer la SD et ouvrir l’application. **.PGM** rassemble les `.PGM` des PART et des dossiers ajoutés,
+1. Ouvrir l’application, avec ou sans SD. **.PGM** rassemble la collection conservée sur le Mac, les `.PGM` des PART montées et des dossiers ajoutés,
    avec leur emplacement visible sur chaque ligne. Un `.PGM` contient les affectations et les réglages ; les sons restent dans les `.SND`.
 2. Créer un nouveau programme .PGM, puis glisser des WAV, AIFF ou SND sur les pads. Une sélection multiple
    remplit les pads suivants dans l’ordre de la sélection, jusqu’à D16.
    Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le programme .PGM disponible
    et conserve ses modifications ; un retour tardif du fournisseur est ignoré.
-3. Dans **Samples**, la vue **Toute la SD** rassemble les samples visibles de toutes les PART, même sans programme.
+3. Dans **Samples**, la vue initiale **Bibliothèque et SD** rassemble les sons référencés par les `.PGM` disponibles et les samples visibles de toutes les PART, même sans programme.
    Chaque ligne indique son emplacement et le nombre de `.PGM` qui le référencent. Sélectionner un son affiche
    les noms et emplacements de ces programmes ; **Ouvrir** charge le programme choisi. Les liens concernent les
    `.PGM` enregistrés de la bibliothèque, pas les modifications encore en mémoire.
@@ -27,12 +27,18 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    La préécoute et l’affectation au pad restent disponibles, ainsi que le glisser-déposer.
    Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
-   Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire.
-5. **Enregistrer une copie…** propose une PART vide disposant d’assez d’espace, avec une réserve pour
-   l’allocation des fichiers. Valider, ou ouvrir **Changer la destination**. Sans PART adaptée,
-   l’application demande une autre destination. Aucun déplacement de programmes .PGM existants n’est automatique.
-6. Après enregistrement, la bibliothèque sélectionne la copie créée ; le titre indique la PART et le nom réel du `.PGM`. L’onglet **PART**
-   affiche les `.PGM` présents et donne accès aux samples de chaque partition.
+   Déplacer un pad vers un autre déplace son affectation ; deux pads occupés sont échangés. Survoler une
+   banque pendant le glissement permet de changer de banque. Copier une affectation via son menu partage
+   le même sample. **⌘Z / ⇧⌘Z** annule/rétablit les éditions ; les sélections ne créent pas d’historique.
+   Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire. Le retour de la vue Samples
+   retrouve sa recherche et sa sélection précédentes.
+5. **Enregistrer (⌘S)** conserve le programme et tous ses sons dans la bibliothèque sur le Mac.
+   Le premier enregistrement d’une source externe en crée une version indépendante ; aucun original n’est remplacé.
+   Enregistrer à nouveau met à jour le même élément de bibliothèque. Le nom se modifie dans l’en-tête.
+6. **Copier sur la SD… (⇧⌘S)** propose une PART vide disposant d’assez d’espace, avec une réserve pour
+   l’allocation des fichiers. Valider ou changer la destination. Sans PART adaptée, choisir un autre dossier.
+   La copie ne renomme pas le document ouvert et ne remplace pas son enregistrement local. Le message de fin
+   indique la PART et le nom réel du `.PGM` à charger. L’onglet **PART** affiche les `.PGM` présents et leurs samples.
 7. Éjecter la SD depuis le Finder, la remettre dans la MPC et charger le `.PGM` indiqué.
 8. Pour retirer un programme .PGM de la bibliothèque, ouvrir son menu **⋯** ou faire un clic droit,
    puis **Mettre le programme à la corbeille…**. La confirmation indique son chemin exact.
@@ -46,11 +52,20 @@ Les programmes et les fichiers invisibles à macOS ne peuvent pas être retrouv�
 incomplet demeure indiqué. Les séquences `.SEQ`, `.APS` et `.ALL` ne sont pas analysées pour ces associations.
 La lecture des associations est bornée, sans décodage audio ; les limites atteintes sont signalées.
 
-Chaque enregistrement crée une nouvelle copie du programme et de ses sons ; les fichiers existants sont conservés.
-Le nom se modifie dans l’en-tête du programme .PGM. La fenêtre d’enregistrement le présente en lecture seule
-et sert à choisir la destination ; l’annuler ne renomme pas le programme.
-Un nom ASCII libre de huit caractères est choisi en cas de collision. Le programme .PGM ouvert d’origine reste
-identifié séparément de la dernière copie enregistrée. Les dossiers ajoutés sont mémorisés localement.
+La collection locale se trouve dans `~/Library/Application Support/MPC Kit Studio/Programs` ; **Finder**
+révèle le `.PGM` courant. Chaque édition enregistrée prépare un ensemble natif complet avant publication
+atomique de sa version courante. Une seule version apparaît dans la bibliothèque. Les révisions précédentes
+et les écritures interrompues restent sur le Mac pour récupération ; elles consomment de l’espace et ne sont
+pas purgées automatiquement. Un enregistrement sans modification ne crée pas de nouvelle révision.
+Un `.PGM` local abîmé est signalé sans masquer les autres. Aucune sauvegarde automatique n’est revendiquée.
+L’historique d’édition est limité à 50 étapes et à un budget conservateur de 256 Mio ; il est propre au document ouvert.
+Avant de changer de document ou de quitter, les choix sont **Enregistrer / Abandonner les modifications / Annuler**.
+Un enregistrement échoué laisse les modifications en mémoire et empêche la fermeture demandée.
+
+Chaque copie de transport crée des fichiers nouveaux, avec un nom ASCII libre de huit caractères en cas de
+collision. L’annulation du dialogue ne renomme pas le programme. Les dossiers ajoutés sont mémorisés localement.
+Le suivi durable des copies SD hors ligne n’est pas encore implémenté : la bibliothèque indique les fichiers
+réellement inventoriés, sans regrouper arbitrairement les homonymes.
 Le titre interne du programme est conservé lors d’une copie sans édition, même s’il diffère du nom
 du fichier. Modifier explicitement le nom du programme .PGM modifie aussi ce titre ; un suffixe attribué pour
 éviter une collision ne le modifie pas.
@@ -125,6 +140,18 @@ Les tests de l'application contrôlent aussi les conversions WAV/AIFF mono/stér
 Ces contrôles ne remplacent pas une écoute humaine ni un chargement sur la MPC.
 
 ## Sources techniques
+
+L’interprétation des en-têtes SND est centralisée dans `MPCSoundHeader`
+(`Sources/MPCCore/NativeFormats.swift`). L’association des fichiers utilise l’identité native
+sans décoder le PCM ; le chargement et l’import vérifient les tailles et leurs budgets avant
+le décodage complet. Les exigences propres à l’import, comme le minimum de 441 points,
+restent dans le chemin d’import.
+
+`KitExport.prepareCopy` (`Sources/MPCCore/KitExport.swift`) prépare les sons référencés
+et les tailles des fichiers pour l’affichage et l’export, sans parcourir les valeurs audio.
+Une préparation impossible affiche « Taille indisponible » et empêche la recommandation
+automatique d’une PART. L’export contrôle ensuite les valeurs PCM et les tailles encodées,
+puis l’espace réel et l’identité de la destination avant toute création de fichier.
 
 - [PGM/SND](../../knowledge/program_sound_files.yaml), [paramètres](../../knowledge/programs.yaml),
   [répertoires](../../knowledge/storage_directory.yaml).

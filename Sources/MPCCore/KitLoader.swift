@@ -36,7 +36,7 @@ public enum KitLoader {
             do {
                 let data = try ProgramSoundResolver.readFile(source.url, limit: MPCSound.maximumFileBytes + 1)
                 guard data.count == source.header.fileBytes,
-                      data.prefix(38) == source.header.bytes else {
+                      data.prefix(MPCSoundHeader.byteCount) == source.header.bytes else {
                     throw MPCFormatError.invalid("le son a changé pendant son ouverture ; réessayez.")
                 }
                 sounds[source.slot] = try MPCSound.decode(data, name: source.name)

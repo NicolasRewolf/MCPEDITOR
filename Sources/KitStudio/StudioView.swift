@@ -32,7 +32,17 @@ struct StudioView: View {
                     .disabled(model.documentActionsDisabled)
                 Button(action: model.importAudio) { Label("Importer", systemImage: "square.and.arrow.down") }
                     .disabled(model.program == nil || model.documentActionsDisabled)
-                Button(action: model.exportKit) { Label("Enregistrer une copie…", systemImage: "square.and.arrow.up") }
+                Button { _ = model.saveProgram() } label: {
+                    Label("Enregistrer", systemImage: "square.and.arrow.down.on.square")
+                        .labelStyle(.titleAndIcon)
+                }
+                    .help("Conserver le .PGM et ses samples dans la bibliothèque sur ce Mac")
+                    .disabled(model.program == nil || model.documentActionsDisabled)
+                Button(action: model.exportKit) {
+                    Label("Copier sur la SD…", systemImage: "sdcard")
+                        .labelStyle(.titleAndIcon)
+                }
+                    .help("Choisir une PART et y copier le .PGM et ses samples")
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }
         }
@@ -79,15 +89,17 @@ struct StudioView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 27, weight: .semibold, design: .rounded))
                     .accessibilityLabel("Nom du .PGM")
+                    .focusedValue(\.editsProgramDocument, true)
                     .disabled(model.program == nil || model.documentActionsDisabled)
                     if model.isDirty {
                         Circle().fill(StudioPalette.orange).frame(width: 7, height: 7)
-                            .help("Modifications non exportées")
+                            .help("Modifications non enregistrées sur le Mac")
+                            .accessibilityLabel("Modifications non enregistrées")
                     }
                 }
                 HStack(spacing: 7) {
-                    Image(systemName: model.kitLocationPath.isEmpty ? "square.grid.3x3" : "externaldrive")
-                    Text(model.kitLocationLabel)
+                    Image(systemName: model.localSaveURL == nil ? "doc" : "internaldrive")
+                    Text(model.documentSaveLabel)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     if !model.kitLocationPath.isEmpty {
@@ -110,9 +122,10 @@ struct StudioView: View {
             VStack(alignment: .trailing, spacing: 6) {
                 Text(ByteCountFormatter.string(fromByteCount: Int64(model.memoryBytes), countStyle: .memory))
                     .font(.system(size: 18, weight: .medium, design: .monospaced))
-                Text("EXPORT · PCM 16 BITS / 44,1 kHz")
-                    .font(.system(size: 9, design: .monospaced))
+                Text("Mémoire audio")
+                    .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
+                    .help("Mémoire audio du .PGM sur la MPC. La copie occupe un peu plus d’espace sur la SD avec les fichiers .PGM et .SND.")
             }
         }
     }
@@ -139,6 +152,12 @@ struct StudioView: View {
                         .accessibilityLabel("Banque \(["A", "B", "C", "D"][bank])")
                         .disabled(model.documentActionsDisabled)
                         .accessibilityAddTraits(model.bank == bank ? .isSelected : [])
+                        .onDrop(of: [UTType(importedAs: "com.nicolasrewolf.mpckitstudio.pad")], delegate: BankDragDestination {
+                            guard !model.documentActionsDisabled else { return }
+                            model.bank = bank
+                            model.selectPad(bank * 16 + model.selectedPad % 16)
+                        })
+                        .help("Survole cette banque pendant le déplacement d’un pad pour y accéder")
                     }
                 }
             }
@@ -149,16 +168,20 @@ struct StudioView: View {
                     PadButton(
                         number: localPad + 1,
                         name: model.padName(index),
+                        hasSound: model.padHasSound(index: index),
                         selected: model.selectedPad == index,
                         missing: model.padIsMissing(index),
                         onPress: { model.selectPad(index); model.playPad(index) },
-                        onDropFiles: { model.dropFiles($0, onPad: index) }
+                        onDropFiles: { model.dropFiles($0, onPad: index) },
+                        onDragPad: { model.padDragProvider(index: index) },
+                        onDropPads: { model.dropPads(providers: $0, onPad: index) }
                     )
+                    .contextMenu { padActions(for: index) }
                 }
             }
             .disabled(model.program == nil || model.documentActionsDisabled)
             HStack(spacing: 8) {
-                Label("Glisse un son sur un pad", systemImage: "arrow.down.doc")
+                Label("Glisse un sample ou déplace un pad", systemImage: "hand.draw")
                     .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
                 Spacer(minLength: 0)
@@ -173,25 +196,45 @@ struct StudioView: View {
             }
             Spacer(minLength: 12)
             VStack(alignment: .leading, spacing: 8) {
-                Label(model.kitLocationLabel, systemImage: "folder")
-                    .font(.system(size: 11, weight: .medium))
-                    .lineLimit(2)
-                    .help(model.kitLocationPath)
-                Text(model.isDirty ? "Modifications à enregistrer" : "Aucune modification en attente")
-                    .font(.caption)
-                    .foregroundStyle(model.isDirty ? StudioPalette.orange : StudioPalette.muted)
-                Text("\(model.assignedPadCount) pad(s) affecté(s) · \(ByteCountFormatter.string(fromByteCount: model.estimatedExportBytes, countStyle: .file)) à enregistrer")
+                Text("\(model.assignedPadCount) pads affectés sur 64")
                     .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Enregistrer une copie…", action: model.exportKit)
-                    .buttonStyle(.bordered)
-                    .disabled(model.program == nil || model.documentActionsDisabled)
+                HStack {
+                    Button(action: model.undo) { Label("Annuler", systemImage: "arrow.uturn.backward") }
+                        .help(model.undoTitle)
+                        .accessibilityLabel(model.undoTitle)
+                        .disabled(!model.canUndo || model.documentActionsDisabled)
+                    Button(action: model.redo) { Image(systemName: "arrow.uturn.forward") }
+                        .help(model.redoTitle)
+                        .accessibilityLabel(model.redoTitle)
+                        .disabled(!model.canRedo || model.documentActionsDisabled)
+                    Spacer(minLength: 0)
+                }
+                .buttonStyle(.bordered)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 12))
         }
+    }
+
+    @ViewBuilder
+    private func padActions(for source: Int) -> some View {
+        let target = model.selectedPad
+        let canTransfer = source != target && model.padHasSound(index: source)
+        let targetHasSound = model.padHasSound(index: target)
+        Button(targetHasSound ? "Échanger avec \(model.selectedLabel)" : "Déplacer vers \(model.selectedLabel)") {
+            model.padTransfer(from: source, to: target)
+        }
+        .disabled(!canTransfer || model.documentActionsDisabled)
+        Button("Copier l’affectation vers \(model.selectedLabel)") {
+            model.padTransfer(from: source, to: target, copy: true)
+        }
+        .disabled(!canTransfer || model.documentActionsDisabled)
+        .help("Les deux pads partagent le même sample.")
+        Divider()
+        Button("Vider ce pad") {
+            model.selectPad(source)
+            model.clearPad()
+        }
+        .disabled(!model.padHasSound(index: source) || model.documentActionsDisabled)
     }
 
     private var statusBar: some View {
@@ -211,11 +254,11 @@ struct StudioView: View {
                     .accessibilityLabel("Annuler la lecture des fichiers déposés")
             }
             Spacer()
-            Text("Préécoute Float ; filtre et enveloppes à vérifier sur la MPC.")
-                .font(.system(size: 10))
+            Image(systemName: "info.circle")
+                .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
-                .lineLimit(1)
                 .help("La préécoute joue le PCM Float de travail avec son accordage. L’export le quantifie en PCM 16 bits. Le moteur audio de la MPC3000 n’est pas simulé.")
+                .accessibilityLabel("La préécoute ne simule pas le filtre et les enveloppes de la MPC3000.")
         }
         .padding(.horizontal, 18)
         .frame(height: 32)
@@ -231,16 +274,49 @@ struct StudioView: View {
     }
 }
 
+/// Hovering over a bank during a pad drag reveals its pads without consuming the drop.
+private struct BankDragDestination: DropDelegate {
+    let reveal: () -> Void
+
+    func dropEntered(info: DropInfo) { reveal() }
+    func performDrop(info: DropInfo) -> Bool { false }
+}
+
 private struct PadButton: View {
     let number: Int
     let name: String
+    let hasSound: Bool
     let selected: Bool
     let missing: Bool
     let onPress: () -> Void
     let onDropFiles: ([NSItemProvider]) -> Bool
+    let onDragPad: () -> NSItemProvider?
+    let onDropPads: ([NSItemProvider]) -> Bool
     @State private var dropTarget = false
 
+    private static let padType = UTType(importedAs: "com.nicolasrewolf.mpckitstudio.pad")
+
     var body: some View {
+        draggableButton
+            .onDrop(of: [Self.padType, UTType.fileURL], isTargeted: $dropTarget) { providers in
+                let pads = providers.filter { $0.hasItemConformingToTypeIdentifier(Self.padType.identifier) }
+                return pads.isEmpty ? onDropFiles(providers) : onDropPads(pads)
+            }
+            .accessibilityLabel("Pad \(number), \(hasSound ? name : "vide")\(missing ? ", sample introuvable" : "")")
+            .accessibilityHint("Écouter et sélectionner. Glisser pour déplacer ; déposer sur un pad occupé pour échanger.")
+            .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var draggableButton: some View {
+        if !hasSound {
+            padButton
+        } else {
+            padButton.onDrag { onDragPad() ?? NSItemProvider() }
+        }
+    }
+
+    private var padButton: some View {
         Button(action: onPress) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -255,11 +331,11 @@ private struct PadButton: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Text(name.isEmpty ? "—" : name)
+                Text(hasSound ? name : "—")
                     .font(.system(size: 10, weight: .medium))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundStyle(name.isEmpty ? StudioPalette.muted : Color.white)
+                    .foregroundStyle(hasSound ? Color.white : StudioPalette.muted)
             }
             .padding(10)
             .frame(height: 80)
@@ -280,10 +356,6 @@ private struct PadButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 9))
         }
         .buttonStyle(.plain)
-        .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: onDropFiles)
-        .accessibilityLabel("Pad \(number), \(name.isEmpty ? "vide" : name)\(missing ? ", sample introuvable" : "")")
-        .accessibilityHint("Écouter et sélectionner le pad")
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -307,6 +379,7 @@ private struct SampleEditor: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12, weight: .medium))
                         .accessibilityLabel("Nom du sample du pad \(model.selectedLabel)")
+                        .focusedValue(\.editsProgramDocument, true)
                         .help(model.sound?.name ?? "")
                         .disabled(model.busy)
                     }
@@ -418,7 +491,7 @@ private struct SampleEditor: View {
                 operation("Petits fondus", symbol: "waveform.path", kind: "fade")
                 operation("Inverser", symbol: "backward.end", kind: "reverse")
             }
-            Text("Les traitements modifient le son du .PGM en cours. L’export crée de nouveaux fichiers et conserve les originaux.")
+            Text("Les traitements restent annulables. Enregistre pour conserver tes modifications sur le Mac.")
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)

@@ -59,7 +59,7 @@ enum AudioImporter {
             throw StudioError.message("Ce sample doit contenir au moins 441 points (10 ms à 44,1 kHz) pour l’export MPC.")
         }
         // The native 32 MiB file limit includes the 38-byte SND header.
-        guard frameCount <= Double((MPCSound.maximumFileBytes - 38) / (channels * 2)) else {
+        guard frameCount <= Double((MPCSound.maximumFileBytes - MPCSoundHeader.byteCount) / (channels * 2)) else {
             throw StudioError.message("Ce sample dépasse la taille maximale d’un fichier SND de 32 Mio.")
         }
         guard maximumPCMBytes >= 0,
@@ -72,21 +72,18 @@ enum AudioImporter {
     private static func loadNativeSound(_ url: URL, maximumPCMBytes: Int) throws -> MPCSound {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
-        let header = try file.read(upToCount: 38) ?? Data()
-        guard header.count == 38 else { throw MPCFormatError.invalid("en-tête SND tronqué.") }
-        let bytes = Array(header)
-        guard bytes[0] == 1 else { throw MPCFormatError.unsupported("ce fichier n'est pas un SND natif.") }
-        if bytes[1] == 0x82 { throw MPCFormatError.unsupported("SND compressé 12 bits (révision 82).") }
-        guard bytes[1] == 2 else { throw MPCFormatError.unsupported("seule la révision SND 02 est prise en charge.") }
-        guard bytes[21] <= 1 else { throw MPCFormatError.invalid("indicateur mono/stéréo incorrect.") }
-        let frames = (0..<4).reduce(UInt32(0)) { $0 | UInt32(bytes[30 + $1]) << (8 * $1) }
-        try validatePCM(frameCount: Double(frames), channels: Int(bytes[21]) + 1, maximumPCMBytes: maximumPCMBytes)
+        let header = MPCSoundHeader(try file.read(upToCount: MPCSoundHeader.byteCount) ?? Data())
+        let declared = try header.declaration()
+        // Import policy intentionally precedes file/body validation: short sounds
+        // and exhausted budgets are rejected before any PCM read or allocation.
+        try validatePCM(frameCount: Double(declared.frameCount), channels: declared.channelCount,
+                        maximumPCMBytes: maximumPCMBytes)
         let fileBytes = try file.seekToEnd()
         guard fileBytes <= MPCSound.maximumFileBytes else { throw MPCFormatError.tooLarge }
         try file.seek(toOffset: 0)
         // A growing or oversized source is never read without a bound.
         let data = try file.read(upToCount: MPCSound.maximumFileBytes + 1) ?? Data()
-        guard data.count == fileBytes, data.prefix(38) == header else {
+        guard data.count == fileBytes, data.prefix(MPCSoundHeader.byteCount) == header.bytes else {
             throw StudioError.message("Ce fichier SND a changé pendant l’import. Réessaie avec un fichier stable.")
         }
         return try MPCSound.decode(data, name: url.deletingPathExtension().lastPathComponent)

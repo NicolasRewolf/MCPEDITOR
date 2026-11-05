@@ -40,6 +40,70 @@ public struct PCM16RangeReport: Equatable, Sendable {
     public let nonFiniteSampleCount: Int
 }
 
+/// Bounded interpretation of a native SND header, without reading or decoding PCM.
+/// Identity remains inspectable when the declared audio is invalid: two files with
+/// the same native name must remain ambiguous even when one has a broken body.
+public struct MPCSoundHeader: Sendable {
+    public static let byteCount = 38
+    public let bytes: Data
+
+    public init(_ data: Data) {
+        // Normalize indices (Data slices need not start at zero) and retain only metadata.
+        bytes = Data(data.prefix(Self.byteCount))
+    }
+
+    public var nativeName: String? {
+        guard bytes.count == Self.byteCount, bytes[0] == 1, bytes[1] == 2 else { return nil }
+        return String(bytes: bytes[2..<18].prefix { $0 != 0 }, encoding: .ascii)?
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The header's declared values. This does not certify the PCM body or markers;
+    /// an importer can enforce its own frame minimum and budget before reading PCM.
+    public struct Declaration: Sendable {
+        public let name: String
+        public let frameCount: Int
+        public let channelCount: Int
+        public let start: Int
+        public let end: Int
+        public let volume: Int
+        public let tune: Int
+        public var pcmByteCount: Int { frameCount * channelCount * 2 }
+    }
+
+    public func declaration() throws -> Declaration {
+        guard bytes.count == Self.byteCount else { throw MPCFormatError.invalid("en-tête SND tronqué.") }
+        let b = Array(bytes)
+        guard b[0] == 1 else { throw MPCFormatError.unsupported("ce fichier n'est pas un SND natif.") }
+        if b[1] == 0x82 { throw MPCFormatError.unsupported("SND compressé 12 bits (révision 82).") }
+        guard b[1] == 2 else { throw MPCFormatError.unsupported("seule la révision SND 02 est prise en charge.") }
+        guard b[21] <= 1 else { throw MPCFormatError.invalid("indicateur mono/stéréo incorrect.") }
+        return Declaration(name: nativeName ?? "", frameCount: Int(MPCBytes.u32(b, 30)),
+                           channelCount: Int(b[21]) + 1, start: Int(MPCBytes.u32(b, 22)),
+                           end: Int(MPCBytes.u32(b, 26)), volume: Int(b[19]),
+                           tune: Int(Int8(bitPattern: b[20])))
+    }
+
+    /// The same validation is used for metadata associations and full decoding.
+    /// File-size errors take precedence over header errors, then declared length,
+    /// available PCM and markers, matching the native decoder's historical order.
+    public func validatedDeclaration(fileBytes: UInt64) throws -> Declaration {
+        guard fileBytes <= UInt64(MPCSound.maximumFileBytes) else { throw MPCFormatError.tooLarge }
+        let value = try declaration()
+        guard value.frameCount > 0 else { throw MPCFormatError.invalid("longueur audio nulle.") }
+        guard value.frameCount <= (MPCSound.maximumFileBytes - Self.byteCount) / (2 * value.channelCount) else {
+            throw MPCFormatError.tooLarge
+        }
+        guard fileBytes >= UInt64(Self.byteCount + value.pcmByteCount) else {
+            throw MPCFormatError.invalid("la longueur PCM ne correspond pas à l'en-tête.")
+        }
+        guard value.start <= value.end && value.end <= value.frameCount else {
+            throw MPCFormatError.invalid("marqueurs début/fin hors du son.")
+        }
+        return value
+    }
+}
+
 /// Native revision-2 SND. Audio uses planar, normalized PCM at 44,100 Hz.
 /// Header bytes without an established meaning survive a read/edit/write cycle.
 public struct MPCSound: Sendable {
@@ -81,7 +145,7 @@ public struct MPCSound: Sendable {
         self.end = end ?? (channels.first?.count ?? 0)
         self.volume = volume
         self.tune = tune
-        self.header = Data(repeating: 0, count: 38)
+        self.header = Data(repeating: 0, count: MPCSoundHeader.byteCount)
     }
 
     /// Shared with exporters: use the returned name when checking collisions.
@@ -98,52 +162,52 @@ public struct MPCSound: Sendable {
     }
 
     public static func decode(_ data: Data, name: String? = nil) throws -> MPCSound {
-        guard data.count <= maximumFileBytes else { throw MPCFormatError.tooLarge }
-        guard data.count >= 38 else { throw MPCFormatError.invalid("en-tête SND tronqué.") }
+        let header = MPCSoundHeader(data)
+        let declared = try header.validatedDeclaration(fileBytes: UInt64(data.count))
+        let count = declared.frameCount
+        let channelCount = declared.channelCount
+        // Allocate the PCM backing bytes and arrays only after every structural check.
         let b = Array(data)
-        guard b[0] == 1 else { throw MPCFormatError.unsupported("ce fichier n'est pas un SND natif.") }
-        if b[1] == 0x82 { throw MPCFormatError.unsupported("SND compressé 12 bits (révision 82).") }
-        guard b[1] == 2 else { throw MPCFormatError.unsupported("seule la révision SND 02 est prise en charge.") }
-        guard b[21] <= 1 else { throw MPCFormatError.invalid("indicateur mono/stéréo incorrect.") }
-        let count = Int(MPCBytes.u32(b, 30))
-        let channelCount = Int(b[21]) + 1
-        guard count > 0 else { throw MPCFormatError.invalid("longueur audio nulle.") }
-        guard count <= (maximumFileBytes - 38) / (2 * channelCount) else { throw MPCFormatError.tooLarge }
-        guard data.count >= 38 + count * 2 * channelCount else {
-            throw MPCFormatError.invalid("la longueur PCM ne correspond pas à l'en-tête.")
-        }
-        let start = Int(MPCBytes.u32(b, 22)), end = Int(MPCBytes.u32(b, 26))
-        guard start <= end && end <= count else { throw MPCFormatError.invalid("marqueurs début/fin hors du son.") }
         var channels = [[Float]]()
         for channel in 0..<channelCount {
             var samples = [Float]()
             samples.reserveCapacity(count)
             for frame in 0..<count {
-                let p = 38 + 2 * (channel * count + frame)
+                let p = MPCSoundHeader.byteCount + 2 * (channel * count + frame)
                 let bits = UInt16(b[p]) | UInt16(b[p + 1]) << 8
                 samples.append(Float(Int16(bitPattern: bits)) / 32768)
             }
             channels.append(samples)
         }
-        var sound = MPCSound(name: name ?? MPCBytes.text(b, at: 2, count: 16),
-                             channels: channels, start: start, end: end,
-                             volume: Int(b[19]), tune: Int(Int8(bitPattern: b[20])))
-        sound.header = Data(b.prefix(38))
-        sound.trailingByteCount = data.count - (38 + count * 2 * channelCount)
+        var sound = MPCSound(name: name ?? declared.name,
+                             channels: channels, start: declared.start, end: declared.end,
+                             volume: declared.volume, tune: declared.tune)
+        sound.header = header.bytes
+        sound.trailingByteCount = data.count - (MPCSoundHeader.byteCount + declared.pcmByteCount)
         return sound
     }
 
+    /// Exact native length from the working shape, without scanning or encoding PCM.
+    /// Checks export structure; audio value validity remains the encoder's concern.
+    public var encodedByteCount: Int {
+        get throws {
+            guard channels.count == 1 || channels.count == 2 else { throw MPCFormatError.invalid("un ou deux canaux sont nécessaires.") }
+            let count = frameCount
+            guard channels.allSatisfy({ $0.count == count }) else { throw MPCFormatError.invalid("longueurs de canaux différentes.") }
+            guard count >= 441 else { throw MPCFormatError.invalid("un son doit contenir au moins 441 échantillons (10 ms).") }
+            guard count <= (Self.maximumFileBytes - MPCSoundHeader.byteCount) / (2 * channels.count) else { throw MPCFormatError.tooLarge }
+            guard start >= 0 && start <= end && end <= count else { throw MPCFormatError.invalid("marqueurs début/fin hors du son.") }
+            return MPCSoundHeader.byteCount + count * 2 * channels.count
+        }
+    }
+
     public func encoded(name overrideName: String? = nil) throws -> Data {
-        guard channels.count == 1 || channels.count == 2 else { throw MPCFormatError.invalid("un ou deux canaux sont nécessaires.") }
+        let byteCount = try encodedByteCount
         let count = frameCount
-        guard channels.allSatisfy({ $0.count == count }) else { throw MPCFormatError.invalid("longueurs de canaux différentes.") }
-        guard count >= 441 else { throw MPCFormatError.invalid("un son doit contenir au moins 441 échantillons (10 ms).") }
-        guard count <= (Self.maximumFileBytes - 38) / (2 * channels.count) else { throw MPCFormatError.tooLarge }
-        guard start >= 0 && start <= end && end <= count else { throw MPCFormatError.invalid("marqueurs début/fin hors du son.") }
         guard channels.allSatisfy({ $0.allSatisfy(\.isFinite) }) else {
             throw MPCFormatError.invalid("l'audio contient une valeur non finie.")
         }
-        var b = header.count == 38 ? Array(header) : [UInt8](repeating: 0, count: 38)
+        var b = header.count == MPCSoundHeader.byteCount ? Array(header) : [UInt8](repeating: 0, count: MPCSoundHeader.byteCount)
         b[0] = 1; b[1] = 2
         MPCBytes.putName(overrideName ?? name, into: &b, at: 2, terminated: false)
         b[19] = UInt8(clamping: volume)
@@ -153,7 +217,7 @@ public struct MPCSound: Sendable {
         MPCBytes.put32(UInt32(end), into: &b, at: 26)
         MPCBytes.put32(UInt32(count), into: &b, at: 30)
         MPCBytes.put32(0, into: &b, at: 34) // Runtime RAM pointer is ignored by the native reader.
-        b.reserveCapacity(38 + count * 2 * channels.count)
+        b.reserveCapacity(byteCount)
         for channel in channels {
             for sample in channel {
                 let scaled = (Double(max(-1, min(1, sample))) * 32768).rounded()

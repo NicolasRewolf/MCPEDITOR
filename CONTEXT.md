@@ -30,3 +30,19 @@ La marque MPC Kit Studio et les identifiants internes restent stables. Cette pas
 ## Contraintes de cette passe
 
 Déboguer et simplifier l’existant, sans ajouter de nettoyage automatique, d’écrasement ou de déplacement. SD en lecture uniquement pour l’investigation ; tests d’écriture sur dossiers locaux. Une PART invérifiable n’est jamais proposée comme vide. Les SEQ, APS, ALL et champs inconnus empêchent de déduire une autorisation de suppression d’une simple absence de référence PGM.
+
+## Correction du flux en 0.7.0 (20), 26 octobre 2026
+
+L’action **Enregistrer** conserve maintenant un PGM et ses SND dans une collection locale gérée par l’app,
+indépendante des supports externes. Seule sa version courante apparaît dans la bibliothèque. Les anciennes
+révisions sont conservées pour récupération, sans effacement automatique ; elles occupent de l’espace disque.
+L’action **Copier sur la SD…** utilise toujours les protections de destination existantes et ne change ni le nom
+ni l’état enregistré du document local. Les fichiers sources externes restent intacts.
+
+Les éditions ont un historique borné d’annulation/rétablissement. Déplacer des pads échange les correspondances
+pad→note afin de préserver tous les paramètres natifs ; copier une affectation partage son sample. Samples
+s’ouvre sur la bibliothèque et la SD et possède un retour conservant recherche et sélection.
+
+Le suivi durable de filiation entre la collection et ses copies SD hors ligne reste absent. Aucun tag n’est écrit
+dans les sons, aucune migration des sources historiques n’est automatique, aucune compatibilité matérielle
+nouvelle n’est déduite des tests logiciels. UNDERSTAND demeure en pause.

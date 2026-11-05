@@ -52,6 +52,121 @@ final class NativeFormatsTests: XCTestCase {
         XCTAssertThrowsError(try MPCSound.decode(huge))
     }
 
+    func testMetadataAndDecoderShareNativeValidationMatrix() throws {
+        let mono = try sound().encoded()
+        let stereo = try sound(stereo: true).encoded()
+        func changing(_ data: Data, _ position: Int, _ value: UInt8) -> Data {
+            var changed = data; changed[position] = value; return changed
+        }
+        func word(_ data: Data, _ position: Int, _ value: UInt32) -> Data {
+            var changed = data
+            for i in 0..<4 { changed[position + i] = UInt8(truncatingIfNeeded: value >> (8 * i)) }
+            return changed
+        }
+        var short = word(word(mono, 26, 220), 30, 220)
+        short = Data(short.prefix(38 + 220 * 2))
+        let badMarkers = word(mono, 22, 442)
+        let cases: [(String, Data, String?)] = [
+            ("mono", mono, nil),
+            ("stereo", stereo, nil),
+            ("trailing bytes", mono + Data([3, 2, 1]), nil),
+            ("positive short sound remains decodable", short, nil),
+            ("truncated header", Data(mono.prefix(37)), "en-tête SND tronqué"),
+            ("foreign signature before revision", changing(changing(mono, 0, 0), 1, 0x82), "pas un SND natif"),
+            ("compressed", changing(mono, 1, 0x82), "révision 82"),
+            ("other revision", changing(mono, 1, 3), "révision SND 02"),
+            ("invalid channels before length", word(changing(mono, 21, 2), 30, 0), "mono/stéréo"),
+            ("zero frames before markers", word(badMarkers, 30, 0), "longueur audio nulle"),
+            ("oversized declaration before body", word(mono, 30, UInt32.max), "limite de 32 Mio"),
+            ("missing PCM before markers", Data(badMarkers.prefix(38)), "longueur PCM"),
+            ("one missing byte", Data(stereo.dropLast()), "longueur PCM"),
+            ("start after end", badMarkers, "marqueurs début/fin"),
+            ("end beyond frames", word(mono, 26, 442), "marqueurs début/fin")
+        ]
+        for (label, data, expectedError) in cases {
+            let metadata = ProgramSoundResolver.Header(bytes: Data(data.prefix(38)), fileBytes: UInt64(data.count))
+            let inspected = Result { try metadata.pcmBytes() }
+            let decoded = Result { try MPCSound.decode(data) }
+            if let expectedError {
+                guard case .failure(let metadataError) = inspected,
+                      case .failure(let decodeError) = decoded else {
+                    XCTFail("\(label): metadata and decode must both reject this fixture")
+                    continue
+                }
+                XCTAssertTrue(metadataError.localizedDescription.contains(expectedError), label)
+                XCTAssertEqual(metadataError.localizedDescription, decodeError.localizedDescription, label)
+            } else {
+                let pcmBytes = try inspected.get()
+                let sound = try decoded.get()
+                XCTAssertEqual(pcmBytes, sound.frameCount * sound.channels.count * 2, label)
+                XCTAssertEqual(sound.trailingByteCount, data.count - 38 - pcmBytes, label)
+                XCTAssertEqual(sound.header, data.prefix(38), label)
+            }
+        }
+
+        // Total-file bounds win even when the header itself is invalid. Metadata
+        // validation needs only 38 bytes and the size, never the sparse/huge body.
+        let hugeCount = MPCSound.maximumFileBytes + 1
+        let invalidHeader = changing(mono, 0, 0).prefix(38)
+        let inspected = ProgramSoundResolver.Header(bytes: Data(invalidHeader), fileBytes: UInt64(hugeCount))
+        XCTAssertThrowsError(try inspected.pcmBytes()) { error in
+            guard case MPCFormatError.tooLarge = error else { return XCTFail("\(error)") }
+        }
+        var oversized = Data(repeating: 0, count: hugeCount)
+        oversized.replaceSubrange(0..<38, with: invalidHeader)
+        XCTAssertThrowsError(try MPCSound.decode(oversized)) { error in
+            guard case MPCFormatError.tooLarge = error else { return XCTFail("\(error)") }
+        }
+    }
+
+    func testNativeIdentitySurvivesBrokenPCMAndNonzeroDataIndices() throws {
+        let valid = try sound().encoded()
+        var badChannels = Data(valid.prefix(38)); badChannels[21] = 255
+        var badLength = Data(valid.prefix(38))
+        for index in 30..<34 { badLength[index] = 255 }
+        for data in [Data(valid.prefix(38)), badChannels, badLength] {
+            let metadata = ProgramSoundResolver.Header(bytes: data, fileBytes: UInt64(data.count))
+            XCTAssertEqual(metadata.nativeName, "KICK")
+            XCTAssertThrowsError(try metadata.pcmBytes())
+        }
+        var foreign = valid; foreign[0] = 0
+        var compressed = valid; compressed[1] = 0x82
+        var invalidName = valid; invalidName[2] = 255
+        for data in [foreign, compressed, Data(valid.prefix(37)), invalidName] {
+            XCTAssertNil(MPCSoundHeader(data).nativeName)
+        }
+        XCTAssertEqual(try MPCSound.decode(invalidName).name, "")
+        let slice = (Data([0xEE]) + valid).dropFirst()
+        XCTAssertEqual(MPCSoundHeader(slice).nativeName, "KICK")
+        XCTAssertEqual(try MPCSound.decode(slice).channels, try MPCSound.decode(valid).channels)
+    }
+
+    func testEncodedByteCountUsesShapeWithoutScanningOrEncodingAudio() throws {
+        for stereo in [false, true] {
+            var source = sound(stereo: stereo)
+            XCTAssertEqual(try source.encodedByteCount, try source.encoded().count)
+            // A size is not certification of PCM values: computing it remains cheap
+            // and succeeds while the encoder still refuses non-finite audio.
+            source.channels[0][0] = .nan
+            XCTAssertEqual(try source.encodedByteCount, 38 + 441 * 2 * (stereo ? 2 : 1))
+            XCTAssertThrowsError(try source.encoded())
+        }
+        var unequal = sound(stereo: true); unequal.channels[1].removeLast()
+        var badMarkers = sound(); badMarkers.start = -1
+        let invalid = [MPCSound(name: "EMPTY", channels: []),
+                       MPCSound(name: "SHORT", channels: [[0]]), unequal, badMarkers]
+        for source in invalid {
+            let counted = Result { try source.encodedByteCount }
+            let encoded = Result { try source.encoded() }
+            guard case .failure(let countError) = counted,
+                  case .failure(let encodeError) = encoded else {
+                XCTFail("An invalid shape must be rejected by both size and encoding")
+                continue
+            }
+            XCTAssertEqual(countError.localizedDescription, encodeError.localizedDescription)
+        }
+    }
+
     func testTrailingBytesAreReportedAndCanonicalExportOmitsThem() throws {
         let canonical = try sound().encoded()
         var input = canonical; input.append(contentsOf: [1, 2, 3, 4])

@@ -12,38 +12,10 @@ final class ProgramSoundResolver {
         let bytes: Data
         let fileBytes: UInt64
 
-        var nativeName: String? {
-            guard bytes.count == 38, bytes[0] == 1, bytes[1] == 2 else { return nil }
-            return String(bytes: bytes[2..<18].prefix { $0 != 0 }, encoding: .ascii)?
-                .trimmingCharacters(in: .whitespaces)
-        }
+        var nativeName: String? { MPCSoundHeader(bytes).nativeName }
 
         func pcmBytes() throws -> Int {
-            guard fileBytes <= UInt64(MPCSound.maximumFileBytes) else { throw MPCFormatError.tooLarge }
-            guard bytes.count == 38 else { throw MPCFormatError.invalid("en-tête SND tronqué.") }
-            let b = Array(bytes)
-            guard b[0] == 1 else { throw MPCFormatError.unsupported("ce fichier n'est pas un SND natif.") }
-            if b[1] == 0x82 { throw MPCFormatError.unsupported("SND compressé 12 bits (révision 82).") }
-            guard b[1] == 2 else { throw MPCFormatError.unsupported("seule la révision SND 02 est prise en charge.") }
-            guard b[21] <= 1 else { throw MPCFormatError.invalid("indicateur mono/stéréo incorrect.") }
-            func u32(_ position: Int) -> Int {
-                Int(UInt32(b[position]) | UInt32(b[position + 1]) << 8 |
-                    UInt32(b[position + 2]) << 16 | UInt32(b[position + 3]) << 24)
-            }
-            let count = u32(30), channelCount = Int(b[21]) + 1
-            guard count > 0 else { throw MPCFormatError.invalid("longueur audio nulle.") }
-            guard count <= (MPCSound.maximumFileBytes - 38) / (2 * channelCount) else {
-                throw MPCFormatError.tooLarge
-            }
-            let pcm = count * channelCount * 2
-            guard fileBytes >= UInt64(38 + pcm) else {
-                throw MPCFormatError.invalid("la longueur PCM ne correspond pas à l'en-tête.")
-            }
-            let start = u32(22), end = u32(26)
-            guard start <= end && end <= count else {
-                throw MPCFormatError.invalid("marqueurs début/fin hors du son.")
-            }
-            return pcm
+            try MPCSoundHeader(bytes).validatedDeclaration(fileBytes: fileBytes).pcmByteCount
         }
     }
 
@@ -78,7 +50,7 @@ final class ProgramSoundResolver {
             let result = Result { () throws -> Header in
                 let handle = try ProgramSoundResolver.openRegularFile(url)
                 defer { try? handle.close() }
-                return Header(bytes: try ProgramSoundResolver.read(handle, limit: 38),
+                return Header(bytes: try ProgramSoundResolver.read(handle, limit: MPCSoundHeader.byteCount),
                               fileBytes: try handle.seekToEnd())
             }
             headers[url] = result
@@ -93,7 +65,7 @@ final class ProgramSoundResolver {
                         let inspected = try header(for: url)
                         // An unreadable/truncated header could hide a second native name.
                         // Do not turn an incomplete inventory into a unique association.
-                        guard inspected.bytes.count == 38 else {
+                        guard inspected.bytes.count == MPCSoundHeader.byteCount else {
                             throw MPCFormatError.invalid("en-tête SND tronqué : \(url.lastPathComponent).")
                         }
                         if let name = inspected.nativeName, !name.isEmpty {

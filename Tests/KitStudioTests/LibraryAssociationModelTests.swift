@@ -37,11 +37,11 @@ final class LibraryAssociationModelTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.set(folders.map(\.path), forKey: "library.kitFolders")
         addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
-        return StudioModel(defaults: defaults, volumeProvider: volumes, sampleFolderLoader: loader)
+        return StudioModel(defaults: defaults, localLibraryURL: FileManager.default.temporaryDirectory.appendingPathComponent("UnusedLibrary-" + UUID().uuidString), volumeProvider: volumes, sampleFolderLoader: loader)
     }
 
     @MainActor
-    func testSamplesDefaultToAllPartsAndResolveOnlyExactFileAssociations() async throws {
+    func testSamplesDefaultToLibraryAndPartsAndResolveOnlyExactFileAssociations() async throws {
         let partA = try directory("MPC-PART--A")
         let partB = try directory("MPC-PART--B")
         let kickA = try sound("KICK", in: partA)
@@ -54,7 +54,7 @@ final class LibraryAssociationModelTests: XCTestCase {
 
         await model.refreshLocations().value
 
-        XCTAssertEqual(model.sampleScope, .sd)
+        XCTAssertEqual(model.sampleScope, .library)
         XCTAssertEqual(Set(model.filteredSamples), Set([kickA, kickB, orphan]))
         XCTAssertEqual(Set(model.programsUsingSample(kickA).map(\.url)), Set([soulA, funkA]))
         XCTAssertEqual(model.programsUsingSample(kickB).map(\.url), [soulB])
@@ -77,7 +77,7 @@ final class LibraryAssociationModelTests: XCTestCase {
         await model.refreshLocations().value
 
         XCTAssertTrue(model.partitions.isEmpty)
-        XCTAssertTrue(model.filteredSamples.isEmpty)
+        XCTAssertEqual(model.filteredSamples, [kick])
         XCTAssertNil(model.libraryKits.first?.partitionLetter)
         XCTAssertEqual(model.sampleLocationLabel(for: kick), "MPC-PART--S")
         XCTAssertEqual(model.libraryKits.first?.locationLabel, "MPC-PART--S")

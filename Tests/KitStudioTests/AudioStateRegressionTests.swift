@@ -20,7 +20,7 @@ final class AudioStateRegressionTests: XCTestCase {
         let suite = "AudioStateRegression-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
-        return StudioModel(defaults: defaults, discardPresenter: { $0(false) }, volumeProvider: { [] })
+        return StudioModel(defaults: defaults, localLibraryURL: FileManager.default.temporaryDirectory.appendingPathComponent("UnusedLibrary-" + UUID().uuidString), discardPresenter: { $0(false) }, volumeProvider: { [] })
     }
 
     @MainActor
@@ -49,7 +49,7 @@ final class AudioStateRegressionTests: XCTestCase {
         XCTAssertEqual(model.kitName, "DISK")
         XCTAssertEqual(model.programTitle, "INTERNAL TITLE")
 
-        for expected in ["DISK1.PGM", "DISK11.PGM"] {
+        for expected in ["DISK1.PGM", "DISK2.PGM"] {
             try await XCTUnwrap(model.exportKit(to: destination)).value
             let output = try XCTUnwrap(model.lastExportURL)
             XCTAssertEqual(output.lastPathComponent, expected)
@@ -197,6 +197,12 @@ final class AudioStateRegressionTests: XCTestCase {
         XCTAssertEqual(model.sound?.channels[0][3500], 0.5)
         XCTAssertTrue(model.isDirty)
         model.showExportSheet = false
+        model.undo()
+        XCTAssertEqual(model.sound?.channels[0][100], 1.25)
+        XCTAssertEqual(model.exportAudioWarnings.count, 1)
+        model.redo()
+        XCTAssertEqual(model.sound?.channels[0][100], 1)
+        XCTAssertTrue(model.exportAudioWarnings.isEmpty)
         try await XCTUnwrap(model.exportKit(to: destination)).value
         XCTAssertNil(model.errorMessage)
         let loaded = try KitLoader.load(programURL: XCTUnwrap(model.lastExportURL))

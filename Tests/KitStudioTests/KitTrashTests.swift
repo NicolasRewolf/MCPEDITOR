@@ -39,7 +39,7 @@ final class KitTrashTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defaults.set([fixture.root.path], forKey: "library.kitFolders")
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
-        return StudioModel(defaults: defaults, trashPresenter: presenter,
+        return StudioModel(defaults: defaults, localLibraryURL: FileManager.default.temporaryDirectory.appendingPathComponent("UnusedLibrary-" + UUID().uuidString), trashPresenter: presenter,
                            trashOperation: operation, volumeProvider: { [] })
     }
 

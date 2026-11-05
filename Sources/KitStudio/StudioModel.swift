@@ -10,6 +10,7 @@ enum LibraryMode: String, CaseIterable, Sendable {
 }
 
 enum LibrarySampleScope: Equatable, Sendable {
+    case library
     case sd
     case folder
     case partition(URL)
@@ -46,7 +47,7 @@ final class StudioModel: ObservableObject {
     @Published var libraryScanning = false
     @Published var kitSearch = ""
     @Published var libraryIssue: String?
-    @Published private(set) var sampleScope: LibrarySampleScope = .sd
+    @Published private(set) var sampleScope: LibrarySampleScope = .library
     @Published private(set) var associations = ProgramAssociationIndex()
     @Published var sampleRoots: [URL] = []
     @Published var selectedSampleRoot: URL?
@@ -57,6 +58,20 @@ final class StudioModel: ObservableObject {
     @Published var samplePreviewBusy = false
     @Published var samplePreviewStatus = "Sélectionne un sample pour l’écouter ou l’affecter à un pad."
     @Published var lastExportURL: URL?
+    @Published private(set) var localSaveURL: URL?
+    @Published private var history = DocumentHistory()
+    private var revision = UUID()
+    private var savedRevision: UUID?
+    private let localStore: LocalProgramStore
+    private let padDragSession = UUID()
+    private struct SampleNavigation {
+        let scope: LibrarySampleScope
+        let root: URL?
+        let folder: URL?
+        let query: String
+        let selection: URL?
+    }
+    @Published private var sampleHistory: [SampleNavigation] = []
     @Published private(set) var awaitingDiscardConfirmation = false
     @Published private(set) var filePanelPresented = false
     @Published private(set) var awaitingKitTrashConfirmation = false
@@ -73,6 +88,9 @@ final class StudioModel: ObservableObject {
     private var volumeRefreshTask: Task<Void, Never>?
     private var libraryTask: Task<Void, Never>?
     private var refreshPending = false
+    enum UnsavedDecision { case save, discard, cancel }
+    typealias UnsavedPresenter = (@escaping (UnsavedDecision) -> Void) -> Void
+    private let unsavedPresenter: UnsavedPresenter?
     typealias DiscardPresenter = (@escaping (Bool) -> Void) -> Void
     typealias TrashPresenter = (KitTrash.Prepared, @escaping (Bool) -> Void) -> Void
     private let discardPresenter: DiscardPresenter?
@@ -137,6 +155,7 @@ final class StudioModel: ObservableObject {
         guard !documentLocked else { return }
         let affected = exportAudioWarnings
         guard !affected.isEmpty else { return }
+        recordEdit("Normaliser les samples hors plage")
         for warning in affected {
             guard let sample = sounds[warning.slot], warning.report.nonFiniteSampleCount == 0 else { continue }
             let normalized = sample.normalized()
@@ -149,7 +168,9 @@ final class StudioModel: ObservableObject {
     }
 
     init(defaults: UserDefaults = .standard,
+         localLibraryURL: URL? = nil,
          discardPresenter: DiscardPresenter? = nil,
+         unsavedPresenter: UnsavedPresenter? = nil,
          trashPresenter: TrashPresenter? = nil,
          trashOperation: @escaping KitTrash.Operation = { try KitTrash.systemTrash($0) },
          volumeProvider: @escaping () -> [URL] = {
@@ -158,6 +179,10 @@ final class StudioModel: ObservableObject {
          },
          sampleFolderLoader: @escaping @Sendable (URL) -> LibraryFolderListing = { LibraryIndex.listSamples(in: $0) },
          exportDestinationCapture: @escaping @Sendable (URL) throws -> ExportDestination = { try ExportDestination.capture(at: $0) }) {
+        localStore = LocalProgramStore(rootURL: localLibraryURL ?? FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MPC Kit Studio/Programs", isDirectory: true))
+        self.unsavedPresenter = unsavedPresenter
         preferences = defaults
         self.discardPresenter = discardPresenter
         self.trashPresenter = trashPresenter
@@ -165,6 +190,7 @@ final class StudioModel: ObservableObject {
         self.volumeProvider = volumeProvider
         self.sampleFolderLoader = sampleFolderLoader
         self.exportDestinationCapture = exportDestinationCapture
+        savedRevision = revision
         kitFolders = (defaults.stringArray(forKey: "library.kitFolders") ?? []).map { URL(fileURLWithPath: $0) }
         sampleRoots = (defaults.stringArray(forKey: "library.sampleRoots") ?? []).map { URL(fileURLWithPath: $0) }
         volumeObservation = WorkspaceMountObservation(center: NSWorkspace.shared.notificationCenter,
@@ -199,6 +225,10 @@ final class StudioModel: ObservableObject {
 
     private var scopedSamples: [URL] {
         switch sampleScope {
+        case .library:
+            return Array(Set(partitions.flatMap(\.samples) + libraryKits.flatMap {
+                associations.association(for: $0.url)?.samples ?? []
+            })).sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         case .sd:
             // PARTs and their samples are already sorted by the background scan.
             return partitions.flatMap(\.samples)
@@ -220,6 +250,7 @@ final class StudioModel: ObservableObject {
 
     var sampleScopeTitle: String {
         switch sampleScope {
+        case .library: return "Samples de la bibliothèque et de la SD"
         case .sd: return "Tous les samples de la SD"
         case .partition(let url):
             return partitions.first { $0.url == url }.map { "Samples · PART \($0.letter)" } ?? url.lastPathComponent
@@ -235,7 +266,7 @@ final class StudioModel: ObservableObject {
 
     var sampleScopeIssue: String? {
         switch sampleScope {
-        case .sd: return libraryIssue
+        case .library, .sd: return libraryIssue
         case .partition(let url):
             guard let part = partitions.first(where: { $0.url == url }) else {
                 return "Cette PART n’est plus disponible. Rebranche la SD puis actualise."
@@ -277,7 +308,14 @@ final class StudioModel: ObservableObject {
         return notice
     }
 
+    func libraryLocationLabel(for kit: LibraryKit) -> String {
+        kit.rootURL == localStore.rootURL ? "Bibliothèque sur le Mac" : kit.locationLabel
+    }
+
     func sampleLocationLabel(for url: URL) -> String {
+        if url.standardizedFileURL.pathComponents.starts(with: localStore.rootURL.pathComponents) {
+            return "Bibliothèque sur le Mac"
+        }
         if let part = partition(containing: url) {
             let folder = url.deletingLastPathComponent()
             let relative = folder.pathComponents.dropFirst(part.url.pathComponents.count).joined(separator: "/")
@@ -297,7 +335,7 @@ final class StudioModel: ObservableObject {
         case .parts: return nil
         case .samples:
             switch sampleScope {
-            case .sd: return nil
+            case .library, .sd: return nil
             case .partition(let url): return partitions.first { $0.url == url }
             case .folder: return partition(containing: sampleFolder ?? selectedSampleRoot)
             case .program(let kit): return partition(containing: kit.url)
@@ -336,26 +374,40 @@ final class StudioModel: ObservableObject {
         return (0..<64).filter { program.slot(forNote: program.midiNote(forPad: $0)) != nil }.count
     }
 
-    var estimatedExportBytes: Int64 {
-        Int64(memoryBytes + (program?.referencedSlots.count ?? 0) * 38 + 4608)
+    private var preparedCopy: KitExport.PreparedCopy? {
+        guard let program else { return nil }
+        return try? KitExport.prepareCopy(program: program, sounds: sounds)
     }
 
-    private var exportFileSizes: [Int] {
-        guard let program else { return [4608] }
-        return program.referencedSlots.sorted().compactMap { sounds[$0] }.map { $0.frameCount * $0.channels.count * 2 + 38 } + [4608]
+    var estimatedExportBytes: Int64? { preparedCopy?.nominalBytes }
+
+    var exportSizeLabel: String {
+        estimatedExportBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+            ?? "Taille indisponible"
     }
 
     var requiredExportFreeBytes: Int64 {
+        guard let preparedCopy else { return Int64.max }
         let conservativeFAT = ExportVolumeSpace(allocationUnitBytes: 8192, availableBytes: 0)
-        return (try? ExportSpace.estimate(fileSizes: exportFileSizes, volume: conservativeFAT).requiredBytes) ?? Int64.max
+        return (try? ExportSpace.estimate(fileSizes: preparedCopy.fileSizes, volume: conservativeFAT).requiredBytes) ?? Int64.max
     }
 
     func requiredExportFreeBytes(in partition: LibraryPartition) -> Int64 {
+        guard let preparedCopy else { return Int64.max }
         let space = partition.volumeSpace ?? ExportVolumeSpace(allocationUnitBytes: 8192, availableBytes: partition.availableBytes ?? 0)
-        return (try? ExportSpace.estimate(fileSizes: exportFileSizes, volume: space).requiredBytes) ?? Int64.max
+        return (try? ExportSpace.estimate(fileSizes: preparedCopy.fileSizes, volume: space).requiredBytes) ?? Int64.max
+    }
+
+    var documentSaveLabel: String {
+        if localSaveURL != nil { return isDirty ? "Modifications non enregistrées" : "Enregistré sur le Mac" }
+        if isDirty { return "À enregistrer sur le Mac" }
+        return programURL == nil ? "Nouveau .PGM" : "Source ouverte · enregistrer sur le Mac pour la conserver"
     }
 
     var kitLocationLabel: String {
+        if let url = localSaveURL {
+            return "\(documentSaveLabel) · \(url.lastPathComponent)"
+        }
         if let url = lastExportURL {
             return "\(isDirty ? "Modifié depuis la dernière copie" : "Dernière copie") · \(sampleLocationLabel(for: url)) · \(url.lastPathComponent)"
         }
@@ -365,7 +417,7 @@ final class StudioModel: ObservableObject {
         return "Programme .PGM en mémoire · non enregistré"
     }
 
-    var kitLocationPath: String { (lastExportURL ?? programURL)?.path ?? "" }
+    var kitLocationPath: String { (localSaveURL ?? programURL ?? lastExportURL)?.path ?? "" }
     var selectedDestinationLabel: String {
         guard let destination = exportDestinationURL else { return "Choisir une destination" }
         return partitions.first { $0.url == destination.standardizedFileURL }.map { "PART \($0.letter)" } ?? destination.lastPathComponent
@@ -384,7 +436,7 @@ final class StudioModel: ObservableObject {
     }
 
     func revealKitLocation() {
-        if let url = lastExportURL ?? programURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        if let url = localSaveURL ?? programURL ?? lastExportURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 
     /// A kit is a program. Its samples and sequences remain independent on disk.
@@ -437,10 +489,13 @@ final class StudioModel: ObservableObject {
                     try KitTrash.move(prepared, operation: operation)
                 }.value
                 let deletedURL = prepared.url.standardizedFileURL
-                let wasCurrent = (self.lastExportURL ?? self.programURL)?.standardizedFileURL == deletedURL
+                let wasCurrent = self.programURL?.standardizedFileURL == deletedURL ||
+                    self.localSaveURL?.standardizedFileURL == deletedURL ||
+                    (self.localSaveURL == nil && self.lastExportURL?.standardizedFileURL == deletedURL)
+                if self.localSaveURL?.standardizedFileURL == deletedURL { self.localSaveURL = nil }
                 if self.programURL?.standardizedFileURL == deletedURL { self.programURL = nil }
                 if self.lastExportURL?.standardizedFileURL == deletedURL { self.lastExportURL = nil }
-                if wasCurrent { self.isDirty = true }
+                if wasCurrent { self.savedRevision = nil; self.isDirty = true }
                 self.libraryKits.removeAll { $0.url == deletedURL }
                 self.busy = false
                 self.status = "\(deletedURL.lastPathComponent) mis à la corbeille. Les samples et les séquences sont conservés."
@@ -475,6 +530,7 @@ final class StudioModel: ObservableObject {
         let partURLs = Array(Set(mounted.filter { LibraryIndex.partitionLetter(for: $0) != nil }).union(partitions.map(\.url)))
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
         let folders = kitFolders
+        let store = localStore
         libraryScanning = true
         let task = Task {
             let result = await Task.detached(priority: .utility) {
@@ -489,6 +545,9 @@ final class StudioModel: ObservableObject {
                 }
                 var kits = parts.flatMap(\.kits)
                 var issues = parts.flatMap(\.issues)
+                let local = store.scan()
+                kits += local.kits
+                issues += local.issues
                 for folder in folders {
                     if let part = partURLs.first(where: { folder.pathComponents.starts(with: $0.pathComponents) }),
                        !mounted.contains(part) { continue }
@@ -558,6 +617,10 @@ final class StudioModel: ObservableObject {
         selectedLocation = nil
     }
 
+    func showAllLibrarySamples() {
+        switchSampleScope(to: .library)
+    }
+
     func showAllSDSamples() {
         switchSampleScope(to: .sd)
     }
@@ -578,6 +641,8 @@ final class StudioModel: ObservableObject {
 
     /// Library navigation never replaces or clears the document being edited.
     private func switchSampleScope(to scope: LibrarySampleScope) {
+        guard sampleScope != scope else { libraryMode = .samples; return }
+        rememberSampleNavigation()
         sampleBrowseGeneration += 1
         stop()
         sampleScope = scope
@@ -618,14 +683,16 @@ final class StudioModel: ObservableObject {
     }
 
     func selectSampleRoot(_ url: URL) {
+        rememberSampleNavigation()
         selectedSampleRoot = url.standardizedFileURL
         sampleQuery = ""
-        browseSamplesFolder(url)
+        _ = loadSamplesFolder(url, preservingSelection: false)
     }
 
     @discardableResult
     func browseSamplesFolder(_ url: URL) -> Task<Void, Never>? {
-        loadSamplesFolder(url, preservingSelection: false)
+        rememberSampleNavigation()
+        return loadSamplesFolder(url, preservingSelection: false)
     }
 
     private func loadSamplesFolder(_ url: URL, preservingSelection: Bool) -> Task<Void, Never>? {
@@ -755,6 +822,8 @@ final class StudioModel: ObservableObject {
                 self.sounds = loaded.sounds
                 self.audioRangeReports = reports
                 self.programURL = url
+                self.localSaveURL = self.localStore.contains(url) ? url : nil
+                self.resetHistory()
                 self.lastExportURL = nil
                 self.kitName = url.deletingPathExtension().lastPathComponent
                 self.isDirty = false
@@ -791,6 +860,8 @@ final class StudioModel: ObservableObject {
         audioRangeReports = [:]
         kitName = "NEWPROG"
         programURL = nil
+        localSaveURL = nil
+        resetHistory()
         lastExportURL = nil
         bank = 0
         selectedPad = 0
@@ -802,6 +873,7 @@ final class StudioModel: ObservableObject {
 
     func selectPad(_ index: Int) {
         guard !documentActionsDisabled, (0..<64).contains(index) else { return }
+        if selectedPad != index { history.endCoalescing() }
         selectedPad = index
         bank = index / 16
         updateSound()
@@ -812,6 +884,11 @@ final class StudioModel: ObservableObject {
         let note = program.midiNote(forPad: index)
         guard let slot = program.slot(forNote: note) else { return "—" }
         return sounds[slot]?.name ?? program.soundName(slot: slot)
+    }
+
+    func padHasSound(index: Int) -> Bool {
+        guard let program, (0..<64).contains(index) else { return false }
+        return program.slot(forNote: program.midiNote(forPad: index)) != nil
     }
 
     func padIsMissing(_ index: Int) -> Bool {
@@ -992,6 +1069,7 @@ final class StudioModel: ObservableObject {
                 try Self.prepareImport(urls, atPad: atPad, program: startingProgram, sounds: startingSounds)
             }.value
             guard token == self.generation else { return }
+            self.recordEdit("Importer des samples")
             self.program = prepared.program
             self.sounds = prepared.sounds
             self.audioRangeReports = prepared.rangeReports
@@ -1009,6 +1087,7 @@ final class StudioModel: ObservableObject {
 
     func setKitName(_ value: String) {
         guard !documentActionsDisabled, value != kitName else { return }
+        recordEdit("Renommer le .PGM", coalescingKey: "programName")
         kitName = value
         program?.name = value
         isDirty = true
@@ -1017,6 +1096,7 @@ final class StudioModel: ObservableObject {
     func setSoundName(_ name: String) {
         guard !documentActionsDisabled, var sample = sound, sample.name != name, var updated = program,
               let slot = updated.slot(forNote: updated.midiNote(forPad: selectedPad)) else { return }
+        recordEdit("Renommer le sample", coalescingKey: "sampleName-\(selectedPad)")
         sample.name = name
         updated.setSound(slot: slot, name: name, wordCount: sample.frameCount * sample.channels.count)
         program = updated
@@ -1026,8 +1106,11 @@ final class StudioModel: ObservableObject {
     func setTrim(start: Int, end: Int) {
         guard !documentActionsDisabled, var sample = sound else { return }
         let lo = min(max(0, start), max(0, sample.frameCount - 1))
+        let hi = min(sample.frameCount, max(lo + 1, end))
+        guard sample.start != lo || sample.end != hi else { return }
+        recordEdit("Régler la découpe", coalescingKey: "trim-\(selectedPad)")
         sample.start = lo
-        sample.end = min(sample.frameCount, max(lo + 1, end))
+        sample.end = hi
         replaceSelected(sample, updateRangeReport: false)
     }
 
@@ -1039,11 +1122,13 @@ final class StudioModel: ObservableObject {
                 errorMessage = "La découpe doit conserver au moins 441 points (10 ms)."
                 return
             }
+            recordEdit("Découper le sample")
             replaceSelected(sound.trimmed())
-        case "normalize": replaceSelected(sound.normalized())
-        case "mono": replaceSelected(sound.mono())
-        case "fade": replaceSelected(sound.faded(milliseconds: 3))
+        case "normalize": recordEdit("Normaliser le sample"); replaceSelected(sound.normalized())
+        case "mono": recordEdit("Convertir en mono"); replaceSelected(sound.mono())
+        case "fade": recordEdit("Appliquer le fondu"); replaceSelected(sound.faded(milliseconds: 3))
         case "reverse":
+            recordEdit("Inverser le sample")
             var copy = sound
             copy.channels = sound.channels.map { Array($0.reversed()) }
             copy.start = sound.frameCount - sound.end
@@ -1051,12 +1136,15 @@ final class StudioModel: ObservableObject {
             replaceSelected(copy)
         default: return
         }
-        status = "Sample modifié en mémoire ; exporte le .PGM pour le conserver."
+        status = "Sample modifié · ⌘S pour enregistrer sur le Mac."
     }
 
     func setPadTune(_ value: Int) {
         guard !documentActionsDisabled, var updated = program else { return }
-        updated.setTune(min(120, max(-120, value)), forNote: updated.midiNote(forPad: selectedPad))
+        let tune = min(120, max(-120, value))
+        guard tune != padTune else { return }
+        recordEdit("Accorder le pad", coalescingKey: "tune-\(selectedPad)")
+        updated.setTune(tune, forNote: updated.midiNote(forPad: selectedPad))
         program = updated
         isDirty = true
     }
@@ -1199,12 +1287,10 @@ final class StudioModel: ObservableObject {
                                                 expectedDestination: expectedDestination)
                 }.value
                 self.busy = false
-                self.isDirty = false
                 self.lastExportURL = output
                 self.libraryMode = .kits
                 self.selectedLocation = nil
                 self.kitSearch = ""
-                self.kitName = output.deletingPathExtension().lastPathComponent
                 if LibraryIndex.partitionLetter(for: destination) == nil && !self.kitFolders.contains(destination) {
                     self.kitFolders.append(destination)
                     self.preferences.set(self.kitFolders.map(\.path), forKey: "library.kitFolders")
@@ -1241,9 +1327,10 @@ final class StudioModel: ObservableObject {
     func clearPad() {
         guard !documentActionsDisabled, var updated = program else { return }
         let note = updated.midiNote(forPad: selectedPad)
-        let oldSlot = updated.slot(forNote: note)
+        guard let oldSlot = updated.slot(forNote: note) else { return }
+        recordEdit("Vider le pad")
         updated.assign(slot: nil, toNote: note)
-        if let oldSlot, !updated.referencedSlots.contains(oldSlot) {
+        if !updated.referencedSlots.contains(oldSlot) {
             sounds.removeValue(forKey: oldSlot)
             audioRangeReports.removeValue(forKey: oldSlot)
             updated.setSound(slot: oldSlot, name: "", wordCount: 0)
@@ -1251,6 +1338,184 @@ final class StudioModel: ObservableObject {
         program = updated
         sound = nil
         isDirty = true
+    }
+
+    private var documentState: StudioDocumentState {
+        StudioDocumentState(program: program, sounds: sounds, reports: audioRangeReports,
+                            name: kitName, selectedPad: selectedPad, revision: revision)
+    }
+
+    private func resetHistory() {
+        history = DocumentHistory()
+        revision = UUID()
+        savedRevision = revision
+    }
+
+    private func recordEdit(_ title: String, coalescingKey: String? = nil) {
+        history.record(documentState, title: title, coalescingKey: coalescingKey)
+        revision = UUID()
+    }
+
+    var canUndo: Bool { !documentActionsDisabled && history.undoTitle != nil }
+    var canRedo: Bool { !documentActionsDisabled && history.redoTitle != nil }
+    var undoTitle: String { history.undoTitle.map { "Annuler · \($0)" } ?? "Annuler" }
+    var redoTitle: String { history.redoTitle.map { "Rétablir · \($0)" } ?? "Rétablir" }
+
+    func undo() {
+        guard canUndo, let state = history.undo(documentState) else { return }
+        restore(state)
+        status = "Modification annulée."
+    }
+
+    func redo() {
+        guard canRedo, let state = history.redo(documentState) else { return }
+        restore(state)
+        status = "Modification rétablie."
+    }
+
+    private func restore(_ state: StudioDocumentState) {
+        stop()
+        program = state.program
+        sounds = state.sounds
+        audioRangeReports = state.reports
+        kitName = state.name
+        selectedPad = state.selectedPad
+        bank = selectedPad / 16
+        revision = state.revision
+        isDirty = revision != savedRevision
+        errorMessage = nil
+        updateSound()
+    }
+
+    func padTransfer(from source: Int, to destination: Int, copy: Bool = false) {
+        guard !documentActionsDisabled, source != destination, var updated = program else { return }
+        do {
+            try updated.transferPad(from: source, to: destination, copy: copy)
+            recordEdit(copy ? "Copier l’affectation" : "Déplacer les pads")
+            program = updated
+            // Copy may replace the last reference to the destination's old sound.
+            let references = updated.referencedSlots
+            sounds = sounds.filter { references.contains($0.key) }
+            audioRangeReports = audioRangeReports.filter { references.contains($0.key) }
+            selectPad(destination)
+            isDirty = true
+            stop()
+            status = copy ? "Affectation copiée ; les deux pads partagent le même sample."
+                : "Pads réorganisés · ⌘Z pour annuler."
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private struct PadDrag: Codable {
+        let session: UUID
+        let revision: UUID
+        let pad: Int
+    }
+    static let padDragType = "com.nicolasrewolf.mpckitstudio.pad"
+
+    func padDragProvider(index: Int) -> NSItemProvider? {
+        guard !documentActionsDisabled, let program, (0..<64).contains(index),
+              program.slot(forNote: program.midiNote(forPad: index)) != nil,
+              let data = try? JSONEncoder().encode(PadDrag(session: padDragSession, revision: revision, pad: index)) else { return nil }
+        let provider = NSItemProvider()
+        provider.registerDataRepresentation(forTypeIdentifier: Self.padDragType, visibility: .ownProcess) { completion in
+            completion(data, nil)
+            return nil
+        }
+        return provider
+    }
+
+    func dropPads(providers: [NSItemProvider], onPad: Int) -> Bool {
+        guard !documentActionsDisabled, (0..<64).contains(onPad), providers.count == 1,
+              let provider = providers.first, provider.hasItemConformingToTypeIdentifier(Self.padDragType) else { return false }
+        provider.loadDataRepresentation(forTypeIdentifier: Self.padDragType) { [weak self] data, _ in
+            guard let data, let drag = try? JSONDecoder().decode(PadDrag.self, from: data) else { return }
+            Task { @MainActor in
+                guard let self, drag.session == self.padDragSession, drag.revision == self.revision else { return }
+                self.padTransfer(from: drag.pad, to: onPad)
+            }
+        }
+        return true
+    }
+
+    @discardableResult
+    func saveProgram() -> Task<Void, Never>? { saveProgram(completion: { _ in }) }
+
+    @discardableResult
+    private func saveProgram(completion: @escaping (Bool) -> Void) -> Task<Void, Never>? {
+        guard !documentActionsDisabled, let program else { completion(false); return nil }
+        if !isDirty, let localSaveURL, localStore.contains(localSaveURL) {
+            status = "Le .PGM est déjà enregistré sur le Mac."
+            completion(true)
+            return nil
+        }
+        if let issue = exportAudioIssue {
+            errorMessage = issue
+            completion(false)
+            return nil
+        }
+        let store = localStore
+        let pool = sounds
+        let name = kitName
+        let previous = localSaveURL
+        let savedState = revision
+        busy = true
+        stop()
+        errorMessage = nil
+        status = "Enregistrement sur le Mac…"
+        return Task {
+            do {
+                let output = try await Task.detached(priority: .userInitiated) {
+                    try store.save(program: program, sounds: pool, name: name, existingProgramURL: previous)
+                }.value
+                self.localSaveURL = output
+                self.programURL = output
+                self.libraryMode = .kits
+                self.selectedLocation = nil
+                self.kitSearch = ""
+                if case .program(let viewed) = self.sampleScope, viewed.url == previous {
+                    self.sampleScope = .program(LibraryKit(url: output, rootURL: store.rootURL,
+                                                          partitionLetter: nil, relativeFolder: ""))
+                }
+                self.savedRevision = savedState
+                self.history.endCoalescing()
+                self.isDirty = self.revision != savedState
+                self.busy = false
+                self.status = "\(output.lastPathComponent) enregistré dans la bibliothèque sur le Mac."
+                self.refreshLocations()
+                completion(true)
+            } catch {
+                self.busy = false
+                self.errorMessage = error.localizedDescription
+                self.status = "Enregistrement interrompu ; tes modifications restent en mémoire."
+                completion(false)
+            }
+        }
+    }
+
+    var canGoBackInSamples: Bool { !sampleHistory.isEmpty }
+
+    private func rememberSampleNavigation() {
+        sampleHistory.append(SampleNavigation(scope: sampleScope, root: selectedSampleRoot,
+                                              folder: sampleFolder, query: sampleQuery, selection: selectedSampleURL))
+        if sampleHistory.count > 30 { sampleHistory.removeFirst() }
+    }
+
+    func goBackInSamples() {
+        guard let previous = sampleHistory.popLast() else { return }
+        sampleBrowseGeneration += 1
+        stop()
+        libraryMode = .samples
+        sampleScope = previous.scope
+        selectedSampleRoot = previous.root
+        sampleFolder = previous.folder
+        sampleQuery = previous.query
+        selectedSampleURL = previous.selection
+        if let folder = previous.folder {
+            _ = loadSamplesFolder(folder, preservingSelection: true)
+        } else {
+            sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
+            updateScopedSampleSelection()
+        }
     }
 
     func requestClose(_ completion: @escaping (Bool) -> Void) {
@@ -1263,18 +1528,28 @@ final class StudioModel: ObservableObject {
         guard !awaitingDiscardConfirmation else { completion(false); return }
         guard isDirty else { completion(true); return }
         awaitingDiscardConfirmation = true
-        let approval: (Bool) -> Void = { [weak self] approved in
-            self?.awaitingDiscardConfirmation = false
-            completion(approved)
+        let decide: (UnsavedDecision) -> Void = { [weak self] decision in
+            guard let self, self.awaitingDiscardConfirmation else { return }
+            self.awaitingDiscardConfirmation = false
+            switch decision {
+            case .save: self.saveProgram(completion: completion)
+            case .discard: completion(true)
+            case .cancel: completion(false)
+            }
         }
-        if let discardPresenter { discardPresenter(approval); return }
+        if let unsavedPresenter { unsavedPresenter(decide); return }
+        if let discardPresenter { discardPresenter { decide($0 ? .discard : .cancel) }; return }
         let alert = NSAlert()
-        alert.messageText = "Des modifications n’ont pas été enregistrées."
-        alert.informativeText = "Continuer ne les enregistrera pas. Les fichiers d’origine restent disponibles."
-        alert.addButton(withTitle: "Continuer")
+        alert.messageText = "Enregistrer les modifications de \(kitName).PGM ?"
+        alert.informativeText = "Le .PGM et ses samples seront conservés dans la bibliothèque sur le Mac."
+        alert.addButton(withTitle: "Enregistrer")
+        alert.addButton(withTitle: "Abandonner les modifications")
         alert.addButton(withTitle: "Annuler")
+        alert.buttons[1].hasDestructiveAction = true
+        alert.buttons[2].keyEquivalent = "\u{1b}"
         let finish: (NSApplication.ModalResponse) -> Void = { response in
-            approval(response == .alertFirstButtonReturn)
+            decide(response == .alertFirstButtonReturn ? .save :
+                    response == .alertSecondButtonReturn ? .discard : .cancel)
         }
         if let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && $0.canBecomeKey }) {
             alert.beginSheetModal(for: window, completionHandler: finish)
