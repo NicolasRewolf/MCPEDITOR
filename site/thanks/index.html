@@ -9,10 +9,10 @@
 <link rel="icon" href="../favicon.png" type="image/png">
 <link rel="stylesheet" href="../styles.css">
 <!--
-  Stripe redirects here after a payment (Payment Link plink_1UYluHPc3KBNseSeyFyUCCtD).
+  Stripe redirects here after a payment (Payment Link plink_1UYluHPc3KBNseSeyFyUCCtD)
+  with ?session_id=cs_... The script asks /api/download whether that session is paid and
+  whether the DMG is online, then shows the download button. Otherwise the email text stays.
   One page for both languages: French is shown when the browser prefers it.
-  The download link is sent by email for now; once a notarized release exists,
-  put its link here instead and update the sales pages.
 -->
 </head>
 <body>
@@ -32,26 +32,44 @@
 
     <section lang="en" data-lang="en">
       <h1>Thank you.</h1>
-      <p class="sub">Your payment went through.</p>
+      <p class="sub js-paid">Your payment went through.</p>
       <p>Link, Stripe’s checkout, sends you the receipt and the invoice by email.</p>
-      <p>I send you the download link for Kit for MPC3000 myself, by email, at the address you paid with. It usually takes less than a day. Keep that email: new versions will reach you the same way.</p>
-      <p>If nothing has arrived after 48 hours, check your spam folder, then write to me at <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
+      <div class="js-download" hidden>
+        <p><a class="button js-download-link" href="#">Download Kit for MPC3000</a></p>
+        <p>A disk image for Apple Silicon Macs, about 3 MB. Open it and drag the app into Applications.</p>
+        <p>Bookmark this page: the same button always gives you the latest version.</p>
+        <p>If the download doesn’t work, write to me at <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
+      </div>
+      <div class="js-email">
+        <p>I send you the download link for Kit for MPC3000 myself, by email, at the address you paid with. It usually takes less than a day. Keep that email: new versions will reach you the same way.</p>
+        <p>If nothing has arrived after 48 hours, check your spam folder, then write to me at <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
+      </div>
+      <p class="js-unconfirmed" hidden>I can’t confirm a payment for this page yet. If you’ve just paid, wait a minute and reload it.</p>
       <p class="small">Before you use it, make a copy of your SD card.</p>
     </section>
 
     <section lang="fr" data-lang="fr">
       <h1>Merci.</h1>
-      <p class="sub">Ton paiement est bien passé.</p>
+      <p class="sub js-paid">Ton paiement est bien passé.</p>
       <p>Link, le système de paiement de Stripe, t’envoie le reçu et la facture par mail.</p>
-      <p>Je t’envoie moi-même le lien de téléchargement de Kit for MPC3000, par mail, à l’adresse utilisée pour payer. En général, c’est fait dans la journée. Garde ce mail : les nouvelles versions arriveront de la même façon.</p>
-      <p>Si rien n’est arrivé au bout de 48 heures, regarde dans tes spams, puis écris-moi à <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
+      <div class="js-download" hidden>
+        <p><a class="button js-download-link" href="#">Télécharger Kit for MPC3000</a></p>
+        <p>Une image disque pour Mac à puce Apple, environ 3 Mo. Ouvre-la et glisse l’app dans Applications.</p>
+        <p>Garde cette page dans tes favoris : le même bouton donne toujours la dernière version.</p>
+        <p>Si le téléchargement ne marche pas, écris-moi à <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
+      </div>
+      <div class="js-email">
+        <p>Je t’envoie moi-même le lien de téléchargement de Kit for MPC3000, par mail, à l’adresse utilisée pour payer. En général, c’est fait dans la journée. Garde ce mail : les nouvelles versions arriveront de la même façon.</p>
+        <p>Si rien n’est arrivé au bout de 48 heures, regarde dans tes spams, puis écris-moi à <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
+      </div>
+      <p class="js-unconfirmed" hidden>Je ne trouve pas encore de paiement pour cette page. Si tu viens de payer, attends une minute et recharge-la.</p>
       <p class="small">Avant de t’en servir, fais une copie de ta carte SD.</p>
     </section>
   </main>
 </div>
 <script>
-  // Show one language: French if the browser prefers it, English otherwise. Without JS both stay visible.
   (function () {
+    // One language: French if the browser prefers it, English otherwise. Without JS both stay visible.
     const sections = document.querySelectorAll("[data-lang]");
     const link = document.querySelector(".js-lang");
     function show(lang) {
@@ -67,6 +85,25 @@
       current = current === "fr" ? "en" : "fr";
       show(current);
     });
+
+    // The download, once Stripe confirms the payment and the file is online.
+    const session = new URLSearchParams(location.search).get("session_id");
+    if (!session) return;
+    const url = "../api/download?session_id=" + encodeURIComponent(session);
+    fetch(url + "&check=1", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((state) => {
+        const all = (selector) => document.querySelectorAll(selector);
+        if (state.paid && state.ready) {
+          all(".js-download-link").forEach((a) => { a.href = url; });
+          all(".js-download").forEach((el) => { el.hidden = false; });
+          all(".js-email").forEach((el) => { el.hidden = true; });
+        } else if (state.paid === false && !state.error) {
+          all(".js-unconfirmed").forEach((el) => { el.hidden = false; });
+          all(".js-paid, .js-email").forEach((el) => { el.hidden = true; });
+        }
+      })
+      .catch(() => {});
   })();
 </script>
 </body>

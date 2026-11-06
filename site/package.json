@@ -1,0 +1,9 @@
+{
+  "name": "kit-for-mpc3000-site",
+  "private": true,
+  "type": "module",
+  "description": "Sales page and paid download for Kit for MPC3000. Static pages plus one Vercel Function (api/download.js).",
+  "dependencies": {
+    "@vercel/blob": "2.8.2"
+  }
+}
