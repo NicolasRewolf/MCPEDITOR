@@ -270,3 +270,11 @@ copié HOUSE avec la 0.9.2 installée. HOUSE.PGM et ses 8 SND sont publiés, san
 octet à la bibliothèque sur le Mac (vérifié en lecture seule). macOS a ajouté un fichier `._` par fichier copié,
 pour l’attribut `com.apple.provenance`. Nicolas a ensuite chargé HOUSE depuis la PART E sur sa MPC3000
 (Vailixi 3.50) : « Part E fonctionne nickel ».
+
+**Glitch de SOUND020 : le sample, pas l’app.** Sur la MPC, Nicolas entend un léger glitch au fond de SOUND020,
+pas de SOUND019. Le PCM copié est identique, échantillon pour échantillon, au `SOUND020.SND` d’origine de la
+PART B, que l’app n’a jamais modifié. Seul le pointeur RAM d’exécution (octets 34 à 36 de l’en-tête) est remis
+à zéro, comme pour SOUND019, qui sonne bien. Le signal contient un second événement faible vers 0,25 s (environ
+−63 dBFS, 15 dB au-dessus de la décroissance) et un bourdonnement vers 50 Hz à −78 dBFS ; la longue queue de
+SOUND019 masquerait ce genre de détail. Joué directement depuis la PART B sur la MPC, l’original donne le même
+glitch.
