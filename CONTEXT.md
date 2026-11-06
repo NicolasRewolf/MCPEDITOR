@@ -136,3 +136,27 @@ ou range ; elle n’ajoute aucune fonction et ne change aucune règle d’écrit
 
 Les cinq dispositions grises de la toile restent à arbitrer ; celles qui montrent plus de choses à la fois
 iraient contre ce retour.
+
+## Navigateur de samples en arborescence en 0.7.6 (26), 6 novembre 2026
+
+Nicolas : « comme dans Ableton je puisse naviguer dans ma bank de sample local genre celle qui est dans mon
+SSD afin de faire du drag and drop. » L’onglet Samples garde sa place (le choix de disposition reste ouvert)
+mais son contenu change :
+
+- Le menu de source devient une liste de lieux toujours visible : Bibliothèque et SD, Carte SD, dossiers
+  ajoutés avec leur volume (« Soul · T9 »), Ajouter un dossier. Clic droit : Afficher dans le Finder,
+  Retirer de la liste. Les PART isolées restent accessibles depuis l’onglet PART.
+- Un dossier s’affiche en arbre. Un sous-dossier se déplie sur place et n’est lu qu’à ce moment, un niveau à
+  la fois, avec les mêmes garde-fous que la navigation précédente : seul un dossier visible dans l’arbre et
+  contenu dans la source peut s’ouvrir, chemin résolu compris ; une PART démontée reste indisponible.
+  Les dossiers ouverts sont relus avec la source à l’actualisation ; une sélection disparue est retirée.
+  Un dossier vide ou illisible le dit à sa place.
+- La recherche d’un dossier devient récursive, mais seulement parce qu’un mot est tapé : choisir une source
+  ne lance toujours aucun parcours complet du SSD. Elle attend 250 ms après la frappe, s’annule au mot
+  suivant, ne suit aucun lien symbolique, saute fichiers cachés et paquets, et s’arrête à 500 résultats,
+  12 niveaux ou 100 000 éléments en le signalant (« 500+ résultats »). Chaque mot doit figurer dans le
+  chemin sous la source. En attendant, les dossiers déjà lus donnent une réponse partielle.
+- Le casque à côté de la recherche active l’écoute en parcourant ; la colonne passe de 300 à 320 points.
+
+Rien n’est écrit sur le SSD ni sur la SD par ce navigateur : il liste, lit l’audio pour l’écoute et ouvre
+le Finder. Les cinq dispositions habillées à la DA de l’app sont sur la toile, page « Habillées ».

@@ -39,7 +39,7 @@ struct StudioView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 LibraryBrowser()
-                    .frame(width: 300)
+                    .frame(width: 320)
                 Divider()
                 workspace
             }

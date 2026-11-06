@@ -80,6 +80,19 @@ public struct LibraryFolderListing: Equatable, Sendable {
     }
 }
 
+public struct LibrarySampleSearch: Equatable, Sendable {
+    public let samples: [URL]
+    /// A limit stopped the search: more matches may exist.
+    public let truncated: Bool
+    public let issue: String?
+
+    public init(samples: [URL], truncated: Bool, issue: String?) {
+        self.samples = samples
+        self.truncated = truncated
+        self.issue = issue
+    }
+}
+
 public enum LibraryIndexError: LocalizedError, Sendable {
     case incomplete([String])
 
@@ -223,6 +236,65 @@ public enum LibraryIndex {
         let result = scan(url, recursive: false, maximumDepth: 0, maximumEntries: maximumEntries)
         return LibraryFolderListing(folders: result.folders, samples: result.samples,
                                     issue: result.issues.isEmpty ? nil : result.issues.joined(separator: "\n"))
+    }
+
+    /// Every word of the query must appear in the path below the browsed source, so
+    /// "sloppy loops" finds `SONG003 - Sloppy Drums/LOOPS/…wav`. Case and accents are ignored.
+    public static func sampleMatches(relativePath: String, query: String) -> Bool {
+        let terms = query.split(whereSeparator: \.isWhitespace)
+        return !terms.isEmpty && terms.allSatisfy { relativePath.localizedStandardContains($0) }
+    }
+
+    /// Searches below a folder the user is browsing, only because a query was typed.
+    /// Bounded in depth, entries and results, and cancellable between entries; symbolic
+    /// links, hidden files and package contents are never followed.
+    public static func searchSamples(in url: URL, matching query: String,
+                                     maximumDepth: Int = 12, maximumEntries: Int = 100_000,
+                                     maximumResults: Int = 500,
+                                     isCancelled: @Sendable () -> Bool = { false }) -> LibrarySampleSearch {
+        var root = url.standardizedFileURL
+        root.removeAllCachedResourceValues()
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]
+        guard root.isFileURL,
+              let values = try? root.resourceValues(forKeys: keys),
+              values.isDirectory == true, values.isSymbolicLink != true else {
+            return LibrarySampleSearch(samples: [], truncated: false,
+                                       issue: "Dossier indisponible : \(root.path).")
+        }
+        var issue: String?
+        guard let entries = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles, .skipsPackageDescendants],
+            errorHandler: { failed, error in
+                issue = "Lecture impossible : \(failed.path). \(error.localizedDescription)"
+                return true
+            }
+        ) else {
+            return LibrarySampleSearch(samples: [], truncated: false,
+                                       issue: "Impossible de parcourir le dossier : \(root.path).")
+        }
+        let prefix = root.pathComponents.count
+        var samples: [URL] = []
+        var visited = 0
+        var truncated = false
+        while let entry = entries.nextObject() as? URL {
+            if isCancelled() { break }
+            guard visited < maximumEntries, samples.count < maximumResults else { truncated = true; break }
+            visited += 1
+            guard let values = try? entry.resourceValues(forKeys: keys) else { continue }
+            if values.isSymbolicLink == true { entries.skipDescendants(); continue }
+            if values.isDirectory == true {
+                if entries.level >= maximumDepth { entries.skipDescendants(); truncated = true }
+                continue
+            }
+            guard values.isRegularFile == true,
+                  supportedAudioExtensions.contains(entry.pathExtension.lowercased()) else { continue }
+            let standardized = entry.standardizedFileURL
+            let relative = standardized.pathComponents.dropFirst(prefix).joined(separator: "/")
+            if sampleMatches(relativePath: relative, query: query) { samples.append(standardized) }
+        }
+        samples.sort { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+        return LibrarySampleSearch(samples: samples, truncated: truncated, issue: issue)
     }
 
     private struct ScanResult {

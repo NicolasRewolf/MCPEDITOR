@@ -226,7 +226,8 @@ struct LibraryBrowser: View {
     /// An inventory caveat is one icon beside the count; its explanation is the tooltip.
     @ViewBuilder
     private var inventoryBadge: some View {
-        if let issue = model.libraryContentIssue ?? model.libraryIssue {
+        let folderScope = model.libraryMode == .samples && model.sampleScope == .folder
+        if let issue = folderScope ? model.sampleFolderIssue : (model.libraryContentIssue ?? model.libraryIssue) {
             Image(systemName: "exclamationmark.triangle")
                 .foregroundStyle(.yellow)
                 .help("\(model.libraryInventoryWarningTitle). \(model.libraryInventoryWarningDetail)\n\n\(issue)")
@@ -250,111 +251,199 @@ struct LibraryBrowser: View {
     }
 
     private var sampleBrowser: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 7) {
-                if model.canGoBackInSamples {
-                    Button(action: model.goBackInSamples) {
-                        Image(systemName: "chevron.backward")
+        VStack(alignment: .leading, spacing: 8) {
+            samplePlaces
+            Divider().opacity(0.6)
+            if model.selectedSamplePlace == nil || model.canGoUpSamples {
+                HStack(spacing: 7) {
+                    if model.canGoBackInSamples {
+                        Button(action: model.goBackInSamples) { Image(systemName: "chevron.backward") }
+                            .buttonStyle(.borderless)
+                            .help("Revenir à la vue de samples précédente")
+                            .accessibilityLabel("Retour aux samples précédents")
                     }
-                    .buttonStyle(.borderless)
-                    .help("Revenir à la vue de samples précédente")
-                    .accessibilityLabel("Retour aux samples précédents")
-                }
-                Menu {
-                    Button("Bibliothèque et SD", action: model.showAllLibrarySamples)
-                    Button("Toute la SD", action: model.showAllSDSamples)
-                    Divider()
-                    // Empty PARTs hold no sample: listing them would only lengthen the menu.
-                    ForEach(model.partitions.filter { $0.audioCount > 0 || !$0.issues.isEmpty }, id: \.url) { partition in
-                        Button("PART \(partition.letter) · \(partition.issues.isEmpty ? "\(partition.audioCount) samples" : "à vérifier")") {
-                            model.showSamples(in: partition)
-                        }
+                    if model.canGoUpSamples {
+                        Button(action: model.sampleGoUp) { Image(systemName: "arrow.up") }
+                            .buttonStyle(.borderless)
+                            .help("Ouvrir le dossier parent")
+                            .accessibilityLabel("Dossier parent")
                     }
-                    Divider()
-                    ForEach(model.sampleRoots, id: \.self) { root in
-                        Button(root.lastPathComponent.isEmpty ? root.path : root.lastPathComponent) {
-                            model.selectSampleRoot(root)
-                        }
-                        .help(root.path)
-                    }
-                    Divider()
-                    Button("Ajouter un dossier de samples…", action: model.chooseSampleFolder)
-                    if !model.sampleRoots.isEmpty {
-                        Menu("Retirer de la liste") {
-                            ForEach(model.sampleRoots, id: \.self) { root in
-                                Button(root.lastPathComponent.isEmpty ? root.path : root.lastPathComponent) {
-                                    model.removeSampleRoot(root)
-                                }
-                                .help("\(root.path)\nLes fichiers restent sur le disque.")
-                            }
-                        }
-                        .disabled(model.documentLocked)
-                    }
-                    Divider()
-                    Toggle("Écouter en parcourant avec ↑ ↓", isOn: $model.autoPreviewSamples)
-                } label: {
-                    Label(
-                        model.sampleScopeTitle,
-                        systemImage: "folder"
-                    )
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .help("Choisir les samples de la bibliothèque, de la SD ou d’un dossier")
-            }
-            if model.sampleScope == .folder {
-                HStack(spacing: 8) {
-                    Button(action: model.sampleGoUp) { Image(systemName: "arrow.up") }
-                        .buttonStyle(.borderless)
-                        .disabled(!model.canGoUpSamples)
-                        .help("Ouvrir le dossier parent")
-                        .accessibilityLabel("Dossier parent")
-                    Text(model.sampleFolder?.lastPathComponent ?? model.sampleScopeTitle)
+                    Text(model.sampleScopeTitle)
                         .font(.system(size: 11, weight: .medium))
-                        .lineLimit(2)
-                        .help(model.sampleFolder?.path ?? "")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(model.sampleFolder?.path ?? model.sampleScopeTitle)
                     Spacer(minLength: 0)
                 }
             }
-            TextField("Rechercher dans cette vue", text: $model.sampleQuery)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Rechercher des samples dans la vue courante")
             HStack(spacing: 6) {
-                Text((model.sampleScope == .folder ? Self.count(model.filteredSampleFolders.count, "dossier") + " · " : "")
-                     + Self.count(model.filteredSamples.count, "sample"))
-                inventoryBadge
+                TextField(searchPrompt, text: $model.sampleQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel(searchPrompt)
+                Button { model.autoPreviewSamples.toggle() } label: {
+                    Image(systemName: "headphones")
+                        .foregroundStyle(model.autoPreviewSamples ? StudioPalette.orange : StudioPalette.muted)
+                }
+                .buttonStyle(.borderless)
+                .help(model.autoPreviewSamples ? "Écoute en parcourant avec ↑ ↓ : activée" : "Écouter en parcourant avec ↑ ↓")
+                .accessibilityLabel("Écouter en parcourant")
+                .accessibilityValue(model.autoPreviewSamples ? "activée" : "désactivée")
             }
-            .font(.caption)
-            .foregroundStyle(StudioPalette.muted)
-            sampleFileList
+            if let line = sampleCountLine {
+                HStack(spacing: 6) {
+                    if model.sampleSearchInProgress { ProgressView().controlSize(.mini) }
+                    Text(line)
+                    inventoryBadge
+                }
+                .font(.caption)
+                .foregroundStyle(StudioPalette.muted)
+            }
+            if model.sampleScope == .folder && !model.isSampleTreeSearch {
+                sampleTree
+            } else {
+                sampleFileList
+            }
             sampleActions
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private var searchPrompt: String {
+        guard model.sampleScope == .folder, let folder = model.sampleFolder ?? model.selectedSampleRoot else {
+            return "Rechercher dans cette vue"
+        }
+        return "Rechercher dans \(folder.lastPathComponent)"
+    }
+
+    /// The tree speaks only when asked: a search answer or a list that is not a tree.
+    private var sampleCountLine: String? {
+        if model.isSampleTreeSearch {
+            if model.sampleSearchInProgress { return "Recherche…" }
+            let count = model.filteredSamples.count
+            return model.sampleSearchTruncated ? "\(count)+ résultats · précise ta recherche" : Self.count(count, "résultat")
+        }
+        if model.sampleScope == .folder { return model.libraryContentIssue == nil ? nil : "Dossier à vérifier" }
+        return Self.count(model.filteredSamples.count, "sample")
+    }
+
+    /// Like a DAW browser: the sources stay in view, one click opens one.
+    private var samplePlaces: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            let place = model.selectedSamplePlace
+            PlaceRow(title: "Bibliothèque et SD", symbol: "square.stack", detail: nil,
+                     selected: place == .library, help: "Les samples de la bibliothèque sur le Mac et de la SD",
+                     action: model.showAllLibrarySamples)
+            if !model.partitions.isEmpty {
+                PlaceRow(title: "Carte SD", symbol: "sdcard",
+                         detail: "\(model.partsWithContent.count) PART",
+                         selected: place == .sd, help: "Les samples de la SD, rangés par PART",
+                         action: model.showAllSDSamples)
+            }
+            ForEach(model.sampleRoots, id: \.self) { root in
+                PlaceRow(title: root.lastPathComponent.isEmpty ? root.path : root.lastPathComponent,
+                         symbol: Self.volumeName(of: root) == nil ? "folder" : "externaldrive",
+                         detail: Self.volumeName(of: root),
+                         selected: place == .root(root.standardizedFileURL), help: root.path) {
+                    model.selectSampleRoot(root)
+                }
+                .contextMenu {
+                    Button("Afficher dans le Finder") { model.revealInFinder(root) }
+                    Button("Retirer de la liste") { model.removeSampleRoot(root) }
+                        .disabled(model.documentLocked)
+                }
+            }
+            Button(action: model.chooseSampleFolder) {
+                Label("Ajouter un dossier…", systemImage: "plus")
+                    .font(.system(size: 11))
+                    .foregroundStyle(StudioPalette.muted)
+                    .padding(.horizontal, 6)
+                    .frame(height: 24)
+            }
+            .buttonStyle(.plain)
+            .disabled(model.documentLocked)
+            .help("Ajouter un dossier de samples, par exemple sur ton SSD")
+        }
+    }
+
+    /// "/Volumes/T9/…" → "T9"; a folder of the Mac's own disk has no volume to name.
+    static func volumeName(of url: URL) -> String? {
+        let components = url.standardizedFileURL.pathComponents
+        guard components.count > 2, components[1] == "Volumes" else { return nil }
+        return components[2]
+    }
+
+    private var sampleTree: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    let rows = model.sampleTreeRows
+                    if rows.isEmpty && model.sampleFolderReading {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Lecture du dossier…").font(.caption).foregroundStyle(StudioPalette.muted)
+                        }
+                        .padding(.vertical, 14)
+                    } else if rows.isEmpty {
+                        LibraryEmptyState(
+                            symbol: "folder",
+                            title: model.sampleListing.issue == nil ? "Dossier vide" : "Dossier indisponible",
+                            detail: model.sampleListing.issue ?? "Aucun sample ni sous-dossier ici."
+                        )
+                    }
+                    ForEach(rows) { row in
+                        SampleTreeRowView(row: row, selected: row.kind == .sample && model.selectedSampleURL == row.url) {
+                            switch row.kind {
+                            case .folder: model.toggleSampleFolder(row.url)
+                            case .sample: model.playSample(row.url)
+                            case .notice: break
+                            }
+                            sampleListFocused = true
+                        }
+                        .id(row.id)
+                        .modifier(SampleRowDrag(url: row.kind == .sample ? row.url : nil))
+                        .contextMenu {
+                            if row.kind == .sample {
+                                Button("Affecter au pad \(model.selectedLabel)") { model.assignSample(row.url) }
+                                    .disabled(model.program == nil || model.documentActionsDisabled)
+                            }
+                            if !row.isNotice { Button("Afficher dans le Finder") { model.revealInFinder(row.url) } }
+                        }
+                    }
+                }
+                .padding(.trailing, 4)
+            }
+            .scrollIndicators(.visible)
+            .focusable()
+            .modifier(NoFocusRing())
+            .focused($sampleListFocused)
+            .onMoveCommand { direction in
+                switch direction {
+                case .up: model.moveSampleSelection(by: -1)
+                case .down: model.moveSampleSelection(by: 1)
+                default: break
+                }
+            }
+            .onChange(of: model.selectedSampleURL) { url in
+                if let url { proxy.scrollTo(url.path) }
+            }
+        }
     }
 
     private var sampleFileList: some View {
         ScrollViewReader { proxy in
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
-                if model.filteredSampleFolders.isEmpty && model.filteredSamples.isEmpty {
+                if model.filteredSamples.isEmpty && !model.sampleSearchInProgress {
                     LibraryEmptyState(
                         symbol: "waveform",
-                        title: model.libraryContentIssue == nil ? "Aucun sample dans cette vue" : "Aucun sample visible dans cette vue",
-                        detail: model.libraryContentIssue == nil
-                            ? "Ouvre un sous-dossier, choisis une autre PART ou ajoute un dossier de ton SSD."
-                            : "Actualise la bibliothèque pour vérifier les fichiers accessibles."
+                        title: model.isSampleTreeSearch ? "Aucun sample trouvé"
+                            : (model.libraryContentIssue == nil ? "Aucun sample dans cette vue" : "Aucun sample visible dans cette vue"),
+                        detail: model.isSampleTreeSearch
+                            ? "Chaque mot cherché doit apparaître dans le nom du sample ou de ses dossiers."
+                            : (model.libraryContentIssue == nil
+                                ? "Choisis une autre source ou ajoute un dossier de ton SSD."
+                                : "Actualise la bibliothèque pour vérifier les fichiers accessibles.")
                     )
-                }
-                ForEach(model.filteredSampleFolders, id: \.self) { folder in
-                    BrowserRow(
-                        title: folder.lastPathComponent,
-                        subtitle: "",
-                        symbol: "folder",
-                        selected: false,
-                        path: folder.path
-                    ) { model.browseSamplesFolder(folder) }
-                    .accessibilityHint("Parcourir ce sous-dossier")
                 }
                 let groups = model.groupedFilteredSamples
                 ForEach(groups) { group in
@@ -364,7 +453,7 @@ struct LibraryBrowser: View {
                         }
                     } header: {
                         if groups.count > 1 {
-                            KitGroupHeader(title: group.title, count: group.samples.count, unit: "samples")
+                            KitGroupHeader(title: group.title, count: group.samples.count, unit: "sample")
                         }
                     }
                 }
@@ -373,6 +462,7 @@ struct LibraryBrowser: View {
         }
         .scrollIndicators(.visible)
         .focusable()
+        .modifier(NoFocusRing())
         .focused($sampleListFocused)
         .onMoveCommand { direction in
             switch direction {
@@ -565,7 +655,7 @@ private struct KitGroupHeader: View {
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .tracking(1)
             Spacer()
-            Text("\(count) \(unit)")
+            Text(unit == ".PGM" ? "\(count) \(unit)" : LibraryBrowser.count(count, unit))
                 .font(.system(size: 10, design: .monospaced))
         }
         .foregroundStyle(StudioPalette.muted)
@@ -576,6 +666,141 @@ private struct KitGroupHeader: View {
         .background(StudioPalette.inset)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// One source of samples in the places list.
+private struct PlaceRow: View {
+    let title: String
+    let symbol: String
+    let detail: String?
+    let selected: Bool
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .foregroundStyle(selected ? StudioPalette.orange : StudioPalette.muted)
+                    .frame(width: 16)
+                Text(title)
+                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 4)
+                if let detail {
+                    Text(detail).font(.system(size: 10)).foregroundStyle(StudioPalette.muted).lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 6)
+            .frame(height: 26)
+            .background(selected ? Color.white.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// A folder opens in place; a sample plays on click and drags onto a pad.
+private struct SampleTreeRowView: View {
+    let row: StudioModel.SampleTreeRow
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        switch row.kind {
+        case .notice(let text):
+            label {
+                Text(text)
+                    .font(.caption)
+                    .foregroundStyle(StudioPalette.muted)
+                    .lineLimit(2)
+                    .help(text)
+            }
+        case .folder(let expanded, let loading):
+            Button(action: action) {
+                label {
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(StudioPalette.muted)
+                        .frame(width: 10)
+                    Image(systemName: expanded ? "folder.fill" : "folder")
+                        .foregroundStyle(StudioPalette.muted)
+                        .frame(width: 16)
+                    name
+                    if loading { ProgressView().controlSize(.mini) }
+                }
+            }
+            .buttonStyle(.plain)
+            .help(row.url.path)
+            .accessibilityLabel(row.name)
+            .accessibilityValue(expanded ? "déplié" : "replié")
+            .accessibilityHint(expanded ? "Replier ce dossier" : "Déplier ce dossier")
+        case .sample:
+            Button(action: action) {
+                label {
+                    Color.clear.frame(width: 10, height: 1)
+                    Image(systemName: "waveform")
+                        .foregroundStyle(selected ? StudioPalette.orange : StudioPalette.muted)
+                        .frame(width: 16)
+                    name
+                }
+            }
+            .buttonStyle(.plain)
+            .help(row.url.path)
+            .accessibilityLabel(row.name)
+            .accessibilityHint("Écouter ; glisser vers un pad pour l’affecter")
+            .accessibilityAddTraits(selected ? .isSelected : [])
+        }
+    }
+
+    /// Sample names often differ only in the middle ("…Snare Roll 1_CB.wav"): they get two lines.
+    private var name: some View {
+        Text(row.name)
+            .font(.system(size: 12, weight: selected ? .medium : .regular))
+            .lineLimit(row.kind == .sample ? 2 : 1)
+            .truncationMode(.middle)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func label<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: 5) {
+            Color.clear.frame(width: CGFloat(row.depth) * 14, height: 1)
+            content()
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .frame(minHeight: 24)
+        .background(selected ? StudioPalette.orange.opacity(0.2) : Color.clear, in: RoundedRectangle(cornerRadius: 5))
+        .contentShape(Rectangle())
+    }
+}
+
+/// Selection already shows where the keyboard is; the blue ring only adds noise (macOS 14+).
+private struct NoFocusRing: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 14.0, *) {
+            content.focusEffectDisabled()
+        } else {
+            content
+        }
+    }
+}
+
+/// Only samples are dragged onto pads; folders and notices stay put.
+private struct SampleRowDrag: ViewModifier {
+    let url: URL?
+
+    func body(content: Content) -> some View {
+        if let url {
+            content.onDrag { NSItemProvider(object: url as NSURL) }
+        } else {
+            content
+        }
     }
 }
 

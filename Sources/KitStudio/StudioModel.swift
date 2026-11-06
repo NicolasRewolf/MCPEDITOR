@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftUI
 import UniformTypeIdentifiers
 import MPCCore
@@ -54,7 +55,17 @@ final class StudioModel: ObservableObject {
     @Published var sampleFolder: URL?
     @Published var sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
     @Published var selectedSampleURL: URL?
-    @Published var sampleQuery = ""
+    @Published var sampleQuery = "" {
+        didSet { if sampleQuery != oldValue { scheduleSampleSearch() } }
+    }
+    /// Folders opened in place in the sample tree, like a DAW browser. Kept per URL, so
+    /// returning to a source finds it opened as it was left.
+    @Published private(set) var expandedSampleFolders: Set<URL> = []
+    @Published private(set) var sampleTreeListings: [URL: LibraryFolderListing] = [:]
+    @Published private(set) var sampleSearch: SampleSearchState?
+    /// A source is being read for the first time: the tree waits instead of saying "empty".
+    @Published private(set) var sampleFolderReading = false
+    private var sampleSearchTask: Task<Void, Never>?
     @Published var samplePreviewBusy = false
     /// Choosing samples for a bank: play each one as soon as it is selected.
     @Published var autoPreviewSamples = false {
@@ -277,17 +288,216 @@ final class StudioModel: ObservableObject {
         case .partition(let url):
             return partitions.first { $0.url == url }?.samples ?? []
         case .folder:
-            return sampleListing.samples
+            return sampleTreeRows.compactMap { $0.kind == .sample ? $0.url : nil }
         case .program(let kit):
             return associations.association(for: kit.url)?.samples ?? []
         }
     }
 
     var filteredSamples: [URL] {
-        scopedSamples.filter {
+        if sampleScope == .folder { return folderSamples }
+        return scopedSamples.filter {
             sampleQuery.isEmpty || $0.lastPathComponent.localizedStandardContains(sampleQuery) ||
                 sampleLocationLabel(for: $0).localizedStandardContains(sampleQuery)
         }
+    }
+
+    // MARK: Sample tree
+
+    struct SampleTreeRow: Identifiable, Equatable {
+        enum Kind: Equatable {
+            case folder(expanded: Bool, loading: Bool)
+            case sample
+            case notice(String)
+        }
+        let id: String
+        let url: URL
+        let depth: Int
+        let kind: Kind
+        var name: String { url.lastPathComponent }
+        var isNotice: Bool {
+            if case .notice = kind { return true }
+            return false
+        }
+    }
+
+    struct SampleSearchState: Equatable {
+        let root: URL
+        let query: String
+        /// nil while the search is running.
+        let result: LibrarySampleSearch?
+    }
+
+    /// The browsed source as a tree: opened folders show their content in place,
+    /// folders first, then samples, both in Finder order.
+    var sampleTreeRows: [SampleTreeRow] {
+        guard sampleScope == .folder else { return [] }
+        var rows: [SampleTreeRow] = []
+        func append(_ listing: LibraryFolderListing, depth: Int) {
+            for folder in listing.folders {
+                let expanded = expandedSampleFolders.contains(folder)
+                let child = expanded ? sampleTreeListings[folder] : nil
+                rows.append(SampleTreeRow(id: folder.path, url: folder, depth: depth,
+                                          kind: .folder(expanded: expanded, loading: expanded && child == nil)))
+                guard let child else { continue }
+                if let issue = child.issue {
+                    rows.append(SampleTreeRow(id: folder.path + "#issue", url: folder, depth: depth + 1, kind: .notice(issue)))
+                } else if child.folders.isEmpty && child.samples.isEmpty {
+                    rows.append(SampleTreeRow(id: folder.path + "#empty", url: folder, depth: depth + 1,
+                                              kind: .notice("Aucun sample ici")))
+                }
+                append(child, depth: depth + 1)
+            }
+            for sample in listing.samples {
+                rows.append(SampleTreeRow(id: sample.path, url: sample, depth: depth, kind: .sample))
+            }
+        }
+        append(sampleListing, depth: 0)
+        return rows
+    }
+
+    /// A query searches the whole source (bounded); until its answer arrives, the
+    /// folders already read give an immediate partial answer.
+    private var folderSamples: [URL] {
+        let query = sampleQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return scopedSamples }
+        if let search = sampleSearch, search.query == sampleQuery, search.root == sampleTreeRoot,
+           let result = search.result {
+            return result.samples
+        }
+        guard let root = sampleTreeRoot else { return [] }
+        let loaded = sampleListing.samples + sampleTreeListings.values.flatMap(\.samples)
+        return Array(Set(loaded)).filter {
+            LibraryIndex.sampleMatches(relativePath: Self.relativePath(of: $0, in: root), query: query)
+        }.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+    }
+
+    var sampleSearchInProgress: Bool {
+        guard let search = sampleSearch else { return false }
+        return search.result == nil && search.query == sampleQuery
+    }
+
+    /// A problem of the browsed folder or of its search, never the SD's own inventory.
+    var sampleFolderIssue: String? {
+        libraryContentIssue ?? (sampleSearch?.query == sampleQuery ? sampleSearch?.result?.issue : nil)
+    }
+
+    var sampleSearchTruncated: Bool {
+        sampleSearch.map { $0.query == sampleQuery && $0.result?.truncated == true } ?? false
+    }
+
+    /// The folder the tree starts from: the source itself, or a subfolder it was focused on.
+    private var sampleTreeRoot: URL? {
+        guard sampleScope == .folder else { return nil }
+        return (sampleFolder ?? selectedSampleRoot)?.standardizedFileURL
+    }
+
+    var isSampleTreeSearch: Bool {
+        sampleScope == .folder && !sampleQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    nonisolated private static func relativePath(of url: URL, in root: URL) -> String {
+        url.standardizedFileURL.pathComponents.dropFirst(root.pathComponents.count).joined(separator: "/")
+    }
+
+    nonisolated private static func isInside(_ folder: URL, root: URL) -> Bool {
+        folder.pathComponents.starts(with: root.pathComponents) &&
+            folder.resolvingSymlinksInPath().pathComponents.starts(with: root.resolvingSymlinksInPath().pathComponents)
+    }
+
+    /// Opens or closes a folder of the tree in place. Only a folder the tree shows can
+    /// open, and only inside the browsed source; each folder is read once, one level deep.
+    @discardableResult
+    func toggleSampleFolder(_ url: URL) -> Task<Void, Never>? {
+        let folder = URL(fileURLWithPath: url.standardizedFileURL.path, isDirectory: true)
+        if expandedSampleFolders.contains(folder) {
+            expandedSampleFolders.remove(folder)
+            return nil
+        }
+        guard let root = sampleTreeRoot,
+              sampleTreeRows.contains(where: { $0.url == folder && $0.id == folder.path }) else { return nil }
+        expandedSampleFolders.insert(folder)
+        return loadMissingTreeFolders(root: root)
+    }
+
+    /// Reads the opened folders the tree shows without content yet.
+    private func loadMissingTreeFolders(root: URL) -> Task<Void, Never>? {
+        let missing = sampleTreeRows.compactMap { row -> URL? in
+            if case .folder(true, true) = row.kind { return row.url }
+            return nil
+        }.filter { Self.isInside($0, root: root) }
+        guard !missing.isEmpty else { return nil }
+        let loader = sampleFolderLoader
+        return Task {
+            let listings = await Task.detached(priority: .userInitiated) {
+                missing.map { ($0, loader($0)) }
+            }.value
+            guard self.sampleTreeRoot == root else { return }
+            for (folder, listing) in listings where self.expandedSampleFolders.contains(folder) {
+                self.sampleTreeListings[folder] = listing
+            }
+            // A folder opened inside one that just arrived may itself be open already.
+            await self.loadMissingTreeFolders(root: root)?.value
+        }
+    }
+
+    func collapseAllSampleFolders() {
+        guard let root = sampleTreeRoot else { return }
+        expandedSampleFolders = expandedSampleFolders.filter { !$0.pathComponents.starts(with: root.pathComponents) }
+    }
+
+    private func scheduleSampleSearch() {
+        sampleSearchTask?.cancel()
+        sampleSearchTask = nil
+        let original = sampleQuery
+        let query = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty, let root = sampleTreeRoot else {
+            sampleSearch = nil
+            return
+        }
+        sampleSearch = SampleSearchState(root: root, query: original, result: nil)
+        let cancelled = OSAllocatedUnfairLock(initialState: false)
+        sampleSearchTask = Task {
+            // Typing a word should start one search, not one per letter.
+            do { try await Task.sleep(nanoseconds: 250_000_000) } catch { return }
+            let result = await withTaskCancellationHandler {
+                await Task.detached(priority: .utility) {
+                    LibraryIndex.searchSamples(in: root, matching: query,
+                                               isCancelled: { cancelled.withLock { $0 } })
+                }.value
+            } onCancel: {
+                cancelled.withLock { $0 = true }
+            }
+            guard !Task.isCancelled, self.sampleQuery == original, self.sampleTreeRoot == root else { return }
+            self.sampleSearch = SampleSearchState(root: root, query: original, result: result)
+        }
+    }
+
+    /// The running search, for tests that wait for its answer.
+    var pendingSampleSearch: Task<Void, Never>? { sampleSearchTask }
+
+    enum SamplePlace: Hashable {
+        case library
+        case sd
+        case root(URL)
+    }
+
+    /// Which entry of the places list the browser is showing, if any.
+    var selectedSamplePlace: SamplePlace? {
+        switch sampleScope {
+        case .library: return .library
+        case .sd, .partition: return .sd
+        case .program: return nil
+        case .folder:
+            guard let root = selectedSampleRoot?.standardizedFileURL else { return nil }
+            if sampleRoots.contains(where: { $0.standardizedFileURL == root }) { return .root(root) }
+            return partition(containing: root) == nil ? nil : .sd
+        }
+    }
+
+    /// Showing a file in the Finder reads nothing and changes nothing.
+    func revealInFinder(_ url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     struct SampleGroup: Identifiable, Equatable {
@@ -300,12 +510,19 @@ final class StudioModel: ObservableObject {
     var groupedFilteredSamples: [SampleGroup] {
         var order: [String] = []
         var members: [String: [URL]] = [:]
+        let treeRoot = sampleTreeRoot
         for sample in filteredSamples {
-            let label = sampleLocationLabel(for: sample)
+            let label = treeRoot.map { sampleFolderLabel(for: sample, in: $0) } ?? sampleLocationLabel(for: sample)
             if members[label] == nil { order.append(label) }
             members[label, default: []].append(sample)
         }
         return order.map { SampleGroup(id: $0, samples: members[$0] ?? []) }
+    }
+
+    /// Search results say their folder below the source, not only its last name.
+    private func sampleFolderLabel(for sample: URL, in root: URL) -> String {
+        let relative = Self.relativePath(of: sample.deletingLastPathComponent(), in: root)
+        return relative.isEmpty ? root.lastPathComponent : relative.replacingOccurrences(of: "/", with: " / ")
     }
 
     /// Only a real problem reaches the sample panel; routine progress stays silent.
@@ -808,6 +1025,7 @@ final class StudioModel: ObservableObject {
         stop()
         sampleScope = scope
         libraryMode = .samples
+        sampleFolderReading = false
         selectedSampleRoot = nil
         sampleFolder = nil
         sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
@@ -930,19 +1148,41 @@ final class StudioModel: ObservableObject {
             selectedSampleURL = nil
             sampleQuery = ""
             sampleListing = LibraryFolderListing(folders: [], samples: [], issue: nil)
+            sampleTreeListings = [:]
+            sampleFolderReading = true
             samplePreviewStatus = "Lecture du dossier…"
         }
         let loader = sampleFolderLoader
+        let expanded = expandedSampleFolders
         return Task {
-            let listing = await Task.detached(priority: .utility) { loader(folder) }.value
+            // The folders left open are read again with it, so the tree comes back whole.
+            let (listing, children) = await Task.detached(priority: .utility) {
+                let listing = loader(folder)
+                var children: [URL: LibraryFolderListing] = [:]
+                var pending = listing.issue == nil ? listing.folders.filter(expanded.contains) : []
+                while let next = pending.popLast() {
+                    guard Self.isInside(next, root: root) else { continue }
+                    let child = loader(next)
+                    children[next] = child
+                    if child.issue == nil { pending += child.folders.filter(expanded.contains) }
+                }
+                return (listing, children)
+            }.value
             guard token == self.sampleBrowseGeneration else { return }
+            self.sampleFolderReading = false
             self.sampleListing = listing
+            self.sampleTreeListings = children
             // Validate the current selection: it may have changed while the
             // refresh was reading. Never restore a selection captured earlier.
-            if listing.issue != nil || self.selectedSampleURL.map({ !listing.samples.contains($0) }) == true {
+            let known = Set(listing.samples + children.values.flatMap(\.samples)
+                            + (self.sampleSearch?.result?.samples ?? []))
+            if listing.issue != nil || self.selectedSampleURL.map({ !known.contains($0) }) == true {
                 self.stop()
                 self.selectedSampleURL = nil
             }
+            if !self.sampleQuery.isEmpty, preservingSelection { self.scheduleSampleSearch() }
+            // A folder opened while this read was running is read on its own.
+            _ = self.loadMissingTreeFolders(root: folder)
             guard self.selectedSampleURL == nil else { return }
             if listing.issue != nil {
                 self.samplePreviewStatus = "Dossier indisponible ou inventaire incomplet. Actualise la bibliothèque."
@@ -958,6 +1198,9 @@ final class StudioModel: ObservableObject {
         sampleBrowseGeneration += 1
         stop()
         sampleFolder = folder
+        sampleTreeListings = [:]
+        sampleSearch = nil
+        sampleFolderReading = false
         selectedSampleURL = nil
         sampleListing = LibraryFolderListing(folders: [], samples: [], issue: issue)
         samplePreviewStatus = status
@@ -1759,6 +2002,7 @@ final class StudioModel: ObservableObject {
         sampleFolder = previous.folder
         sampleQuery = previous.query
         selectedSampleURL = previous.selection
+        scheduleSampleSearch()
         if let folder = previous.folder {
             _ = loadSamplesFolder(folder, preservingSelection: true)
         } else {

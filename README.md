@@ -23,10 +23,20 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    Les samples sont groupés par source et chaque ligne ne montre que leur nom. Un clic écoute le sample ;
    **⌘.** arrête l’écoute. Le ⓘ du sample choisi indique les `.PGM` enregistrés qui l’utilisent ; **Ouvrir**
    charge le programme choisi. Les liens ne tiennent pas compte des modifications encore en mémoire.
-   Le menu de source permet aussi de parcourir une PART ou un dossier du SSD. La recherche filtre la vue courante.
+   En haut, la liste des **lieux** reste visible : Bibliothèque et SD, Carte SD, puis chaque dossier ajouté
+   (par exemple `Soul` sur le SSD `T9`), et **Ajouter un dossier…**. Un dossier s’affiche en arborescence,
+   comme le navigateur d’un logiciel de musique : un clic sur un sous-dossier le déplie sur place, un second le
+   replie ; chaque dossier n’est lu qu’à son ouverture, un niveau à la fois, et les dossiers ouverts le restent
+   quand on revient à ce lieu ou qu’on actualise. Un sample se glisse sur un pad depuis n’importe quelle
+   profondeur ; le clic droit propose **Affecter au pad** et **Afficher dans le Finder** (aussi sur un lieu,
+   avec **Retirer de la liste**). Dans un dossier, la recherche parcourt tout le dossier, sous-dossiers fermés
+   compris : chaque mot doit figurer dans le nom du sample ou de ses dossiers (« sloppy loops »). Elle ne part
+   qu’après la frappe, ne suit aucun lien symbolique, ignore les fichiers cachés et s’arrête à 500 résultats,
+   12 niveaux ou 100 000 éléments, ce qu’elle signale. Les résultats sont groupés par sous-dossier.
+   Ailleurs, la recherche filtre la vue courante.
    **Affecter au pad** pose le sample choisi ; le glisser-déposer reste possible. Les flèches ↑ ↓ passent
-   d’un sample à l’autre ; **Écouter en parcourant avec ↑ ↓** (menu de source ou menu **Bibliothèque**) les joue
-   en passant. Un `.SND` est écouté entre ses marqueurs de début et de fin.
+   d’un sample visible à l’autre ; le casque à côté de la recherche (ou le menu **Bibliothèque**) active
+   **Écouter en parcourant avec ↑ ↓**. Un `.SND` est écouté entre ses marqueurs de début et de fin.
    Une réserve sur l’inventaire n’est plus qu’un ⚠ à côté du compteur, expliqué au survol.
    Dans **.PGM**, la liste est groupée : bibliothèque sur le Mac, puis PART A à Z, puis dossiers par nom.
    Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes comme plusieurs
@@ -34,7 +44,7 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    L’onglet **PART** regroupe les PART vides en une seule carte (lettres et capacité), puis détaille
    les autres avec leur place libre et une barre de remplissage. Il signale les fichiers laissés par macOS
    (`._*` des copies du Finder, `.Trashes`, index) et la place qu’ils occupent. Kit Studio n’en crée pas
-   et ne les supprime pas. Le menu des samples ne liste que les PART qui contiennent des samples.
+   et ne les supprime pas. Le lieu **Carte SD** indique le nombre de PART qui ont un contenu.
    Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Déplacer un pad vers un autre déplace son affectation ; deux pads occupés sont échangés. Survoler une
@@ -83,7 +93,7 @@ Un enregistrement échoué laisse les modifications en mémoire et empêche la f
 
 Chaque copie de transport crée des fichiers nouveaux, avec un nom ASCII libre de huit caractères en cas de
 collision. L’annulation du dialogue ne renomme pas le programme. Les dossiers ajoutés sont mémorisés localement ;
-**Retirer de la liste**, dans le menu Dossiers ou dans le menu des sources de samples, les oublie sans toucher aux fichiers.
+**Retirer de la liste**, dans le menu Dossiers ou par clic droit sur un lieu de samples, les oublie sans toucher aux fichiers.
 Chaque dossier est aussi mémorisé par un bookmark : un volume remonté sous un autre nom (« T9 » puis « T9 1 »)
 reste retrouvé tant que le dossier garde son chemin dans ce volume. Un dossier déplacé ou renommé devient
 indisponible, comme avant. Une ancienne entrée sans bookmark est réparée si un seul volume voisin
