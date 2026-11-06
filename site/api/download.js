@@ -44,9 +44,11 @@ export async function GET(request) {
   }
 
   // Pass the store's token explicitly: the runtime also has an OIDC token without a store id,
-  // and the SDK refuses to pick between half-configured credentials.
-  const blob = await get(RELEASE_PATHNAME, { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN })
-    .catch(() => null);
+  // and the SDK refuses to pick between half-configured credentials. useCache: false, because
+  // publishing a version overwrites the same pathname and a cached read would serve the old DMG.
+  const blob = await get(RELEASE_PATHNAME, {
+    access: "private", token: process.env.BLOB_READ_WRITE_TOKEN, useCache: false,
+  }).catch(() => null);
   const ready = Boolean(blob && blob.statusCode === 200);
   if (check) {
     if (blob?.stream) await blob.stream.cancel().catch(() => {});
