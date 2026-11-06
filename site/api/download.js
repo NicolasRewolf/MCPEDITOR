@@ -60,7 +60,10 @@ export async function GET(request) {
                  : reply(403, "No completed payment for Kit for MPC3000 matches this link. Aucun paiement de Kit for MPC3000 ne correspond à ce lien.");
   }
 
-  const blob = await get(RELEASE_PATHNAME, { access: "private" }).catch(() => null);
+  // Pass the store's token explicitly: the runtime also has an OIDC token without a store id,
+  // and the SDK refuses to pick between half-configured credentials.
+  const blob = await get(RELEASE_PATHNAME, { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN })
+    .catch(() => null);
   const ready = Boolean(blob && blob.statusCode === 200);
   if (check) {
     if (blob?.stream) await blob.stream.cancel().catch(() => {});

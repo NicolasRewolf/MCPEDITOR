@@ -8,7 +8,7 @@
 | Page | https://kitmpc3000.rewolf.studio (anglais) et `/fr/`, hébergée sur Vercel (projet `kitmpc3000`, dossier `site/`). |
 | Paiement | Stripe en **mode réel** avec **Managed Payments** : Stripe (via Link) vend à ta place et gère la TVA, les reçus, les factures et les litiges, pour 3,5 % de plus par vente. Produit `prod_VZvjTdxJ5PeHgn`, 29 € TTC ; lien `https://buy.stripe.com/bJe00le8mgyA8Ob0rCfAc00` (`plink_1UYluHPc3KBNseSeyFyUCCtD`), qui renvoie vers `/thanks/` après paiement. |
 | TVA | Assujetti. Le prix affiché est TTC (4,83 € de TVA sur 29 €), calculé par Managed Payments. |
-| Livraison | **Par mail, à la main**, en général dans la journée : la page `/thanks/` le dit. Tu vois l'adresse de l'acheteur dans Stripe → Transactions. Remplacer par un lien direct dès qu'un DMG notarisé est publié. |
+| Livraison | **Téléchargement vérifié** : Stripe renvoie vers `/thanks/?session_id=…`, `site/api/download.js` vérifie le paiement auprès de Stripe puis sert le DMG depuis le stockage privé Vercel Blob `kitmpc3000-releases` (`releases/Kit-for-MPC3000-Apple-Silicon.dmg`). En ligne : 0.9.1 (30) notarisée, SHA-256 `40e6a416…a8ca0`. Publier une version = écraser ce fichier (`vercel blob put … --allow-overwrite true`). Tant que la clé Stripe n'est pas dans Vercel, la page garde « lien par mail ». |
 | Apple | Programme développeur actif, certificat « Developer ID Application: Nicolas Doucet (94497Y576D) » installé. Il manque le profil `kitstudio-notary`. |
 
 Ce qu'il reste à rendre vrai avant la première livraison : le DMG notarisé, l'essai sur la MPC,
