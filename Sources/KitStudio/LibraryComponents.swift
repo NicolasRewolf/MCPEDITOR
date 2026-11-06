@@ -66,7 +66,7 @@ struct FilterLetter: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(warning ? "\(label) · à vérifier" : label)
+        .help(warning ? String(localized: "\(label) · à vérifier") : label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -126,7 +126,7 @@ struct SampleLinksPopover: View {
                 .font(.caption.weight(.semibold))
             let programs = model.programsUsingSample(sample)
             if programs.isEmpty {
-                Text(model.libraryScanning ? "Lecture des liens en cours…" : "Aucun lien trouvé dans les .PGM lus.")
+                Text(model.libraryScanning ? String(localized: "Lecture des liens en cours…") : String(localized: "Aucun lien trouvé dans les .PGM lus."))
                     .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
             } else {
@@ -195,8 +195,7 @@ struct PartFillBar: View {
 
 struct KitGroupHeader: View {
     let title: String
-    let count: Int
-    var unit = ".PGM"
+    let countText: String
 
     var body: some View {
         HStack {
@@ -204,7 +203,7 @@ struct KitGroupHeader: View {
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .tracking(1)
             Spacer()
-            Text(unit == ".PGM" ? "\(count) \(unit)" : LibraryFormat.count(count, unit))
+            Text(countText)
                 .font(.system(size: 10, design: .monospaced))
         }
         .foregroundStyle(StudioPalette.muted)
@@ -251,8 +250,8 @@ struct SampleTreeRowView: View {
             .buttonStyle(.plain)
             .help(row.url.path)
             .accessibilityLabel(row.name)
-            .accessibilityValue(expanded ? "déplié" : "replié")
-            .accessibilityHint(expanded ? "Replier ce dossier" : "Déplier ce dossier")
+            .accessibilityValue(expanded ? String(localized: "déplié") : String(localized: "replié"))
+            .accessibilityHint(expanded ? String(localized: "Replier ce dossier") : String(localized: "Déplier ce dossier"))
         case .sample:
             Button(action: action) {
                 label {

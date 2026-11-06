@@ -345,7 +345,7 @@ final class StudioModelTests: XCTestCase {
         XCTAssertTrue(model.isDirty)
         XCTAssertFalse(model.busy)
         XCTAssertNil(model.errorMessage)
-        XCTAssertEqual(model.status, "2 sample(s) importé(s).")
+        XCTAssertEqual(model.status, "2 samples importés.")
     }
 
     @MainActor

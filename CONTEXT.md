@@ -203,3 +203,22 @@ ne change ; tout ce que l’interface n’atteignait plus est retiré, avec ses 
   `LibraryComponents`, `LibraryFormat` et `ExportDestinationSheet`.
 - CI : `actions/checkout` v7.0.1 et `actions/upload-artifact` v7.0.2 (Node.js 24), épinglés sur leur commit.
 - README : la portée parlait encore d’absence de sauvegarde et d’annulation, et d’un onglet PART.
+
+## Français et anglais en 0.9.0 (29), 6 novembre 2026
+
+Nicolas : « Fais une version anglaise et une version française de l’app. » Une seule app : elle suit la langue
+de macOS, en français par défaut.
+
+- Le français reste la langue source dans le code. Chaque texte montré passe par SwiftUI ou par
+  `String(localized:)` : messages du modèle, erreurs de MPCCore, panneaux, alertes, infobulles et étiquettes
+  vocales. 408 textes, dont les pluriels, ont leur anglais dans `Localization/Localizable.xcstrings`.
+- La construction relève les textes utilisés et refuse un texte sans anglais, inutilisé ou aux formats
+  différents ; le catalogue est compilé dans `en.lproj` et `fr.lproj`, et l’app déclare les deux langues.
+- « Annuler » servait à la fois pour Undo et pour Cancel : le menu Édition a sa propre clé.
+- Les pluriels fabriqués par concaténation (« sample » + « s ») deviennent des textes complets ; le français
+  choisit sa forme dans le code pour rester juste sans catalogue, l’anglais a ses formes dans le catalogue.
+- L’étiquette d’accessibilité du curseur de découpe ne se déduit plus de son titre affiché.
+- `build-app.sh` prend Xcode quand `xcode-select` désigne les outils en ligne de commande.
+
+Vérifié dans une copie de revue en anglais : barre d’outils, colonnes, menus (File, Edit, View, Library).
+La notarisation reste à faire : l’app est signée localement, sans Developer ID.

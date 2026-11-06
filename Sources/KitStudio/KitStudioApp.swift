@@ -105,13 +105,13 @@ private struct StudioUndoCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
-            Button(textUndoManager?.canUndo == true ? "Annuler la saisie" : model.undoTitle) {
+            Button(textUndoManager?.canUndo == true ? String(localized: "Annuler la saisie") : model.undoTitle) {
                 if let manager = textUndoManager, manager.canUndo { manager.undo() }
                 else { model.undo() }
             }
             .keyboardShortcut("z")
             .disabled(model.documentActionsDisabled || !(textUndoManager?.canUndo == true || model.canUndo))
-            Button(textUndoManager?.canRedo == true ? "Rétablir la saisie" : model.redoTitle) {
+            Button(textUndoManager?.canRedo == true ? String(localized: "Rétablir la saisie") : model.redoTitle) {
                 if let manager = textUndoManager, manager.canRedo { manager.redo() }
                 else { model.redo() }
             }

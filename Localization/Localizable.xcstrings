@@ -1,0 +1,4141 @@
+{
+  "sourceLanguage" : "fr",
+  "strings" : {
+    "\nTitre sur la MPC : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\nTitle on the MPC: %@"
+          }
+        }
+      }
+    },
+    " Dossier ouvert : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " Open folder: %@."
+          }
+        }
+      }
+    },
+    " Elle apparaît quand un fichier de la PART est mis à la corbeille." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " It appears when a file of the PART is moved to the Trash."
+          }
+        }
+      }
+    },
+    " Ils se trouvent dans le dossier ouvert : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " They are in the open folder: %@."
+          }
+        }
+      }
+    },
+    " Leur emplacement actuel doit être vérifié dans le Finder." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " Check where they are now in the Finder."
+          }
+        }
+      }
+    },
+    " L’inventaire est incomplet ; d’autres liens peuvent manquer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " The inventory is incomplete; other links may be missing."
+          }
+        }
+      }
+    },
+    " Par sécurité, aucun fichier créé n’a été supprimé automatiquement. Fichiers à vérifier : " : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " For safety, no created file was deleted automatically. Files to check: "
+          }
+        }
+      }
+    },
+    " libres" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " free"
+          }
+        }
+      }
+    },
+    " macOS y a créé une corbeille cachée (.Trashes) dont le contenu ne peut pas être lu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " macOS created a hidden Trash (.Trashes) there whose content cannot be read."
+          }
+        }
+      }
+    },
+    "%@\nLes fichiers restent sur le disque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@\nThe files stay on the disk."
+          }
+        }
+      }
+    },
+    "%@ (nom de fichier ambigu)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (ambiguous file name)"
+          }
+        }
+      }
+    },
+    "%@ (nom interne SND ambigu)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (ambiguous internal SND name)"
+          }
+        }
+      }
+    },
+    "%@ (noms internes non vérifiés : %@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (internal names not checked: %@)"
+          }
+        }
+      }
+    },
+    "%@ / %@ sur une PART" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ / %@ on one PART"
+          }
+        }
+      }
+    },
+    "%@ enregistré dans la bibliothèque sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ saved to the library on this Mac."
+          }
+        }
+      }
+    },
+    "%@ libres" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ free"
+          }
+        }
+      }
+    },
+    "%@ mis à la corbeille. Les samples et les séquences sont conservés." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ moved to the Trash. Samples and sequences are kept."
+          }
+        }
+      }
+    },
+    "%@ retiré de la liste. Ses fichiers restent sur le disque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ removed from the list. Its files stay on the disk."
+          }
+        }
+      }
+    },
+    "%@ retiré des sources de samples. Ses fichiers restent sur le disque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ removed from the sample sources. Its files stay on the disk."
+          }
+        }
+      }
+    },
+    "%@ · liens incomplets" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · incomplete links"
+          }
+        }
+      }
+    },
+    "%@ · à vérifier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · to check"
+          }
+        }
+      }
+    },
+    "%@ échantillons" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ frames"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, %@"
+          }
+        }
+      }
+    },
+    "%@. Les fichiers visibles ne permettent pas de conclure.\n\n%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@. The visible files are not enough to conclude.\n\n%@"
+          }
+        }
+      }
+    },
+    "%@.PGM · %@ : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@.PGM · %@: %@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld .PGM"
+          }
+        }
+      }
+    },
+    "%lld fichier ._ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ._ file (%@)"
+          }
+        }
+      }
+    },
+    "%lld fichiers ._ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ._ files (%@)"
+          }
+        }
+      }
+    },
+    "%lld octets occupés ne sont pas expliqués par l’inventaire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld used bytes are not explained by the inventory."
+          }
+        }
+      }
+    },
+    "%lld pad(s) affecté(s)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pad(s) assigned"
+          }
+        }
+      }
+    },
+    "%lld points pour la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld points for the SD"
+          }
+        }
+      }
+    },
+    "%lld résultat" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld result"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld results"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld résultats" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld results"
+          }
+        }
+      }
+    },
+    "%lld sample" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sample"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld samples"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld sample importé." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sample imported."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld samples imported."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld sample(s) dépassent le niveau maximal du PCM 16 bits (crête %@). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sample(s) exceed the 16-bit PCM maximum (peak %@). Exporting would clip them. Normalize those samples on purpose, or replace them. Preview uses the working Float audio."
+          }
+        }
+      }
+    },
+    "%lld samples" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld samples"
+          }
+        }
+      }
+    },
+    "%lld samples importés." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld samples imported."
+          }
+        }
+      }
+    },
+    "%lld · %lld PART" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld · %lld PART"
+          }
+        }
+      }
+    },
+    "%lld+ résultats · précise ta recherche" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld+ results · narrow your search"
+          }
+        }
+      }
+    },
+    "+ %lld PART vide" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+ %lld empty PART"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+ %lld empty PARTs"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "+ %lld PART vides" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ %lld empty PARTs"
+          }
+        }
+      }
+    },
+    "+ %lld PART vides · %@ chacune" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ %lld empty PARTs · %@ each"
+          }
+        }
+      }
+    },
+    "+ 1 PART vide · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ 1 empty PART · %@"
+          }
+        }
+      }
+    },
+    "A" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A"
+          }
+        }
+      }
+    },
+    "Abandonner les modifications" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard Changes"
+          }
+        }
+      }
+    },
+    "Accordage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuning"
+          }
+        }
+      }
+    },
+    "Accorder le pad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tune Pad"
+          }
+        }
+      }
+    },
+    "Actions pour %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions for %@"
+          }
+        }
+      }
+    },
+    "Actions pour %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions for %@, %@"
+          }
+        }
+      }
+    },
+    "Actualisation de la bibliothèque" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing the library"
+          }
+        }
+      }
+    },
+    "Actualisation des liens vers les .PGM enregistrés…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing links to saved .PGM files…"
+          }
+        }
+      }
+    },
+    "Actualise la bibliothèque (⌘R) pour vérifier les fichiers accessibles." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh the library (⌘R) to check which files are reachable."
+          }
+        }
+      }
+    },
+    "Actualiser" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "Affectation copiée ; les deux pads partagent le même sample." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assignment copied; both pads share the same sample."
+          }
+        }
+      }
+    },
+    "Affecter au pad %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assign to Pad %@"
+          }
+        }
+      }
+    },
+    "Afficher dans le Finder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Finder"
+          }
+        }
+      }
+    },
+    "Afficher le .PGM dans le Finder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show the .PGM in Finder"
+          }
+        }
+      }
+    },
+    "Ajouter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "Ajouter un dossier de .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a .PGM Folder"
+          }
+        }
+      }
+    },
+    "Ajouter un dossier de .PGM…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a .PGM Folder…"
+          }
+        }
+      }
+    },
+    "Ajouter un dossier de samples" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a sample folder"
+          }
+        }
+      }
+    },
+    "Ajouter un dossier de samples, par exemple sur ton SSD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a sample folder, for example on your SSD"
+          }
+        }
+      }
+    },
+    "Ajouter un dossier de samples…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Sample Folder…"
+          }
+        }
+      }
+    },
+    "Ajouter une source de samples" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a Sample Source"
+          }
+        }
+      }
+    },
+    "Annuler" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Annuler la lecture des fichiers déposés" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel reading the dropped files"
+          }
+        }
+      }
+    },
+    "Annuler la saisie" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo Typing"
+          }
+        }
+      }
+    },
+    "Annuler le dépôt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel Drop"
+          }
+        }
+      }
+    },
+    "Annuler · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo %@"
+          }
+        }
+      }
+    },
+    "Appliquer le fondu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply Fade"
+          }
+        }
+      }
+    },
+    "Arrêter la lecture" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop playback"
+          }
+        }
+      }
+    },
+    "Arrêter l’écoute" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Preview"
+          }
+        }
+      }
+    },
+    "Associations incomplètes : limite de %lld .PGM atteinte." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incomplete links: limit of %lld .PGM files reached."
+          }
+        }
+      }
+    },
+    "Aucun .PGM ici" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No .PGM here"
+          }
+        }
+      }
+    },
+    "Aucun .PGM visible ici" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No visible .PGM here"
+          }
+        }
+      }
+    },
+    "Aucun lien trouvé dans les .PGM lus." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No link found in the .PGM files read."
+          }
+        }
+      }
+    },
+    "Aucun sample dans cette vue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sample in this view"
+          }
+        }
+      }
+    },
+    "Aucun sample ici" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sample here"
+          }
+        }
+      }
+    },
+    "Aucun sample ni sous-dossier ici." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sample or subfolder here."
+          }
+        }
+      }
+    },
+    "Aucun sample sur la SD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sample on the SD."
+          }
+        }
+      }
+    },
+    "Aucun sample trouvé" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sample found"
+          }
+        }
+      }
+    },
+    "Aucun sample trouvé sur la SD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sample found on the SD."
+          }
+        }
+      }
+    },
+    "Aucun sample visible" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No visible sample"
+          }
+        }
+      }
+    },
+    "Aucune PART montée. Tu peux choisir un dossier sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No PART mounted. You can choose a folder on the Mac."
+          }
+        }
+      }
+    },
+    "Aucune PART proposée : ce .PGM et ses samples demandent %@, une PART vide en offre %@. Retire ou raccourcis des samples, ou choisis un dossier sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No PART offered: this .PGM and its samples need %@, an empty PART offers %@. Remove or shorten samples, or choose a folder on the Mac."
+          }
+        }
+      }
+    },
+    "Aucune PART proposée. Branche la SD ou choisis un dossier pour cette copie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No PART offered. Connect the SD or choose a folder for this copy."
+          }
+        }
+      }
+    },
+    "Aucune destination choisie" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No destination chosen"
+          }
+        }
+      }
+    },
+    "B" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "B"
+          }
+        }
+      }
+    },
+    "Banque %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bank %@"
+          }
+        }
+      }
+    },
+    "Bibliothèque" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library"
+          }
+        }
+      }
+    },
+    "Bibliothèque locale · %@ : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local library · %@: %@"
+          }
+        }
+      }
+    },
+    "Bibliothèque sur le Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library on this Mac"
+          }
+        }
+      }
+    },
+    "Branche la SD pour piocher dans ses samples." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect the SD to pick from its samples."
+          }
+        }
+      }
+    },
+    "C" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C"
+          }
+        }
+      }
+    },
+    "Ce .PGM local n’est plus la version courante. Rouvre-le depuis la bibliothèque avant de l’enregistrer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This local .PGM is no longer the current version. Reopen it from the library before saving it."
+          }
+        }
+      }
+    },
+    "Ce .PGM n’est plus disponible dans la bibliothèque. Rebranche sa source puis actualise." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This .PGM is no longer in the library. Reconnect its source, then refresh."
+          }
+        }
+      }
+    },
+    "Ce dossier ne se trouve plus dans la source de samples sélectionnée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This folder is no longer inside the selected sample source."
+          }
+        }
+      }
+    },
+    "Ce dossier n’est pas un emplacement local." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This folder is not a local location."
+          }
+        }
+      }
+    },
+    "Ce fichier SND a changé pendant l’import. Réessaie avec un fichier stable." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This SND file changed during import. Try again with a stable file."
+          }
+        }
+      }
+    },
+    "Ce fichier contient trop d’échantillons audio pour cet import." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file has too many audio frames for this import."
+          }
+        }
+      }
+    },
+    "Ce fichier contient une valeur audio non finie (NaN ou infini)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file contains a non-finite audio value (NaN or infinity)."
+          }
+        }
+      }
+    },
+    "Ce nom de programme apparaît plusieurs fois dans le dossier. L’app refuse de choisir un fichier ; aucun fichier n’a été supprimé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This program name appears several times in the folder. The app will not pick one; no file was deleted."
+          }
+        }
+      }
+    },
+    "Ce pad partage son sample avec un autre pad." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This pad shares its sample with another pad."
+          }
+        }
+      }
+    },
+    "Ce sample doit contenir au moins 441 échantillons (10 ms à 44,1 kHz) pour la MPC." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This sample must have at least 441 frames (10 ms at 44.1 kHz) for the MPC."
+          }
+        }
+      }
+    },
+    "Ce sample dépasse la mémoire PCM disponible pour cet import (%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This sample exceeds the PCM memory available for this import (%@)."
+          }
+        }
+      }
+    },
+    "Ce sample dépasse la taille maximale d’un fichier SND de 32 Mio." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This sample exceeds the 32 MiB maximum size of an SND file."
+          }
+        }
+      }
+    },
+    "Cette PART doit être vérifiée avant l’enregistrement. Actualise la bibliothèque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PART must be checked before saving. Refresh the library."
+          }
+        }
+      }
+    },
+    "Cette PART n’est plus montée. Rebranche la SD puis actualise." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PART is no longer mounted. Reconnect the SD, then refresh."
+          }
+        }
+      }
+    },
+    "Cette destination doit être vérifiée avant l’enregistrement. %@ Aucun fichier n’a été créé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This destination must be checked before saving. %@ No file was created."
+          }
+        }
+      }
+    },
+    "Changer la destination" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Destination"
+          }
+        }
+      }
+    },
+    "Chaque mot cherché doit apparaître dans le nom du sample ou de ses dossiers." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every word searched must appear in the name of the sample or of its folders."
+          }
+        }
+      }
+    },
+    "Choisir" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose"
+          }
+        }
+      }
+    },
+    "Choisir le dossier d’export" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the Export Folder"
+          }
+        }
+      }
+    },
+    "Choisir un WAV, AIFF ou SND pour le pad %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a WAV, AIFF or SND for pad %@"
+          }
+        }
+      }
+    },
+    "Choisir une PART et y copier le .PGM et ses samples (⇧⌘S)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a PART and copy the .PGM and its samples to it (⇧⌘S)"
+          }
+        }
+      }
+    },
+    "Choisir une destination" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a destination"
+          }
+        }
+      }
+    },
+    "Choisis où retrouver le .PGM et ses samples sur ta MPC." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose where to find the .PGM and its samples on your MPC."
+          }
+        }
+      }
+    },
+    "Choisis un dossier ou une PART accessible en écriture." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a writable folder or PART."
+          }
+        }
+      }
+    },
+    "Choisis un fichier audio mono ou stéréo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a mono or stereo audio file."
+          }
+        }
+      }
+    },
+    "Choisis une PART ou ouvre un dossier de .PGM." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a PART or open a .PGM folder."
+          }
+        }
+      }
+    },
+    "Choisis une autre PART, ou crée un .PGM avec +." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose another PART, or create a .PGM with +."
+          }
+        }
+      }
+    },
+    "Choisis une autre source ou ajoute un dossier de ton SSD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose another source or add a folder from your SSD."
+          }
+        }
+      }
+    },
+    "Choisis à nouveau la destination pour vérifier son emplacement." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the destination again to check its location."
+          }
+        }
+      }
+    },
+    "Conserver le .PGM et ses samples dans la bibliothèque de l’app, sur ce Mac (⌘S)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep the .PGM and its samples in the app’s library, on this Mac (⌘S)"
+          }
+        }
+      }
+    },
+    "Conversion audio vers 44,1 kHz…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Converting audio to 44.1 kHz…"
+          }
+        }
+      }
+    },
+    "Convertir en mono" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convert to Mono"
+          }
+        }
+      }
+    },
+    "Copier dans un dossier…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to a Folder…"
+          }
+        }
+      }
+    },
+    "Copier ici" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Here"
+          }
+        }
+      }
+    },
+    "Copier le .PGM sur la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy the .PGM to the SD"
+          }
+        }
+      }
+    },
+    "Copier l’affectation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Assignment"
+          }
+        }
+      }
+    },
+    "Copier l’affectation vers %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Assignment to %@"
+          }
+        }
+      }
+    },
+    "Copier sur la SD…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to SD…"
+          }
+        }
+      }
+    },
+    "Corbeille indisponible sur la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trash Unavailable on the SD"
+          }
+        }
+      }
+    },
+    "Créer un programme vide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create an empty program"
+          }
+        }
+      }
+    },
+    "Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit Studio n’en crée pas et ne les supprime pas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created by macOS while the card is mounted: Finder copies (._), index and Trash. They take up clusters of the PART. Kit Studio neither creates nor deletes them."
+          }
+        }
+      }
+    },
+    "Crête %@ : ce sample dépasse le niveau du PCM 16 bits. Normalise-le avant l’export pour éviter l’écrêtage." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peak %@: this sample exceeds the 16-bit PCM level. Normalize it before exporting to avoid clipping."
+          }
+        }
+      }
+    },
+    "D" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "D"
+          }
+        }
+      }
+    },
+    "Destination PART %@, %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destination PART %@, %@, %@"
+          }
+        }
+      }
+    },
+    "Deux pads de ce lot partagent la même note MIDI. Importe ces samples séparément ou modifie l’affectation des pads." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Two pads of this batch share the same MIDI note. Import these samples separately or change the pad assignment."
+          }
+        }
+      }
+    },
+    "Données audio invalides pour l’emplacement MPC %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid audio data for MPC slot %lld."
+          }
+        }
+      }
+    },
+    "Dossier de samples" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample folder"
+          }
+        }
+      }
+    },
+    "Dossier indisponible" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder unavailable"
+          }
+        }
+      }
+    },
+    "Dossier indisponible : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder unavailable: %@."
+          }
+        }
+      }
+    },
+    "Dossier indisponible : %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder unavailable: %@. %@"
+          }
+        }
+      }
+    },
+    "Dossier indisponible ou inventaire incomplet. Actualise la bibliothèque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder unavailable or inventory incomplete. Refresh the library."
+          }
+        }
+      }
+    },
+    "Dossier indisponible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder unavailable."
+          }
+        }
+      }
+    },
+    "Dossier vide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty folder"
+          }
+        }
+      }
+    },
+    "Dossier à vérifier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder to check"
+          }
+        }
+      }
+    },
+    "Dossiers de .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".PGM folders"
+          }
+        }
+      }
+    },
+    "DÉBUT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "START"
+          }
+        }
+      }
+    },
+    "Début du sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample start"
+          }
+        }
+      }
+    },
+    "Découper" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trim"
+          }
+        }
+      }
+    },
+    "Découper le sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trim Sample"
+          }
+        }
+      }
+    },
+    "Déplacer les pads" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Pads"
+          }
+        }
+      }
+    },
+    "Déplacer vers %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to %@"
+          }
+        }
+      }
+    },
+    "Déplier ce dossier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand this folder"
+          }
+        }
+      }
+    },
+    "Dépôt annulé ; le .PGM et ses modifications sont conservés." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop cancelled; the .PGM and its changes are kept."
+          }
+        }
+      }
+    },
+    "Emplacement de son MPC invalide : %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid MPC sound slot: %lld."
+          }
+        }
+      }
+    },
+    "Enregistrement interrompu ; tes modifications restent en mémoire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save interrupted; your changes stay in memory."
+          }
+        }
+      }
+    },
+    "Enregistrement sur le Mac…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving to this Mac…"
+          }
+        }
+      }
+    },
+    "Enregistrer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "Enregistrer les modifications de %@.PGM ?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save the changes to %@.PGM?"
+          }
+        }
+      }
+    },
+    "Enregistrer sur le Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to Mac"
+          }
+        }
+      }
+    },
+    "Enregistré sous %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved as %@"
+          }
+        }
+      }
+    },
+    "Enregistré sur le Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved on this Mac"
+          }
+        }
+      }
+    },
+    "Espace inconnu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown space"
+          }
+        }
+      }
+    },
+    "Espace insuffisant : %@ nécessaires, %@ libres, avec l’allocation et les métadonnées macOS. Choisis une autre destination ou raccourcis les sons." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough space: %@ needed, %@ free, including allocation and macOS metadata. Choose another destination or shorten the sounds."
+          }
+        }
+      }
+    },
+    "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la dernière PART vide observée. La SD n’est pas branchée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space needed to copy this .PGM and its samples, FAT allocation and reserve included, compared with the last empty PART seen. The SD is not connected."
+          }
+        }
+      }
+    },
+    "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la plus grande PART vide de la SD (PART %@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space needed to copy this .PGM and its samples, FAT allocation and reserve included, compared with the largest empty PART of the SD (PART %@)."
+          }
+        }
+      }
+    },
+    "Export terminé · %@ · %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export done · %@ · %@."
+          }
+        }
+      }
+    },
+    "Export vers %@…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporting to %@…"
+          }
+        }
+      }
+    },
+    "FIN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "END"
+          }
+        }
+      }
+    },
+    "Fichier MPC invalide : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid MPC file: %@"
+          }
+        }
+      }
+    },
+    "Fin du sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample end"
+          }
+        }
+      }
+    },
+    "Finder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder"
+          }
+        }
+      }
+    },
+    "Format MPC non pris en charge : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsupported MPC format: %@"
+          }
+        }
+      }
+    },
+    "Forme d’onde du sample, début %lld, fin %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample waveform, start %lld, end %lld"
+          }
+        }
+      }
+    },
+    "Import interrompu ; le .PGM est conservé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import interrupted; the .PGM is kept."
+          }
+        }
+      }
+    },
+    "Importer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import"
+          }
+        }
+      }
+    },
+    "Importer des samples" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Samples"
+          }
+        }
+      }
+    },
+    "Importer des samples sur les pads" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Samples to the Pads"
+          }
+        }
+      }
+    },
+    "Importer des samples…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Samples…"
+          }
+        }
+      }
+    },
+    "Importer le sample choisi sur le pad %@ du .PGM en cours ; ou glisse-le sur un pad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import the chosen sample to pad %@ of the current .PGM, or drag it onto a pad"
+          }
+        }
+      }
+    },
+    "Importer un sample…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a Sample…"
+          }
+        }
+      }
+    },
+    "Importer un son…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a Sound…"
+          }
+        }
+      }
+    },
+    "Impossible de lire le fichier déposé %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot read dropped file %lld."
+          }
+        }
+      }
+    },
+    "Impossible de parcourir le dossier : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot browse the folder: %@."
+          }
+        }
+      }
+    },
+    "Impossible de préparer la conversion audio." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot prepare the audio conversion."
+          }
+        }
+      }
+    },
+    "Impossible de terminer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could Not Finish"
+          }
+        }
+      }
+    },
+    "Impossible de trouver un nom MPC libre de huit caractères." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot find a free eight-character MPC name."
+          }
+        }
+      }
+    },
+    "Impossible de vérifier l’espace libre. Rebranche le disque puis actualise la bibliothèque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot check the free space. Reconnect the disk, then refresh the library."
+          }
+        }
+      }
+    },
+    "Inventaire de la SD incomplet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incomplete SD inventory"
+          }
+        }
+      }
+    },
+    "Inventaire incomplet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incomplete inventory"
+          }
+        }
+      }
+    },
+    "Inverser" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reverse"
+          }
+        }
+      }
+    },
+    "Inverser le sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reverse Sample"
+          }
+        }
+      }
+    },
+    "La PART proposée n’est plus vide. Actualise la bibliothèque puis choisis une autre destination. Aucun fichier n’a été créé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The offered PART is no longer empty. Refresh the library, then choose another destination. No file was created."
+          }
+        }
+      }
+    },
+    "La PART vide ne peut pas être vérifiée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The empty PART cannot be checked."
+          }
+        }
+      }
+    },
+    "La bibliothèque locale a changé pendant l’enregistrement. La version précédente reste disponible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The local library changed during the save. The previous version is still available."
+          }
+        }
+      }
+    },
+    "La bibliothèque locale ne peut pas être ouverte en toute sécurité." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The local library cannot be opened safely."
+          }
+        }
+      }
+    },
+    "La conversion contient une valeur audio non finie (NaN ou infini)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversion contains a non-finite audio value (NaN or infinity)."
+          }
+        }
+      }
+    },
+    "La conversion de ce fichier audio a échoué." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Converting this audio file failed."
+          }
+        }
+      }
+    },
+    "La corbeille n’est pas proposée sur la SD. macOS garderait %@ dans un dossier caché .Trashes de la PART %@ : la place resterait occupée et la PART ne pourrait plus être vérifiée. Supprime ce .PGM depuis la MPC si nécessaire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moving to the Trash is not offered on the SD. macOS would keep %@ in a hidden .Trashes folder of PART %@: the space would stay used and the PART could no longer be checked. Delete this .PGM from the MPC if needed."
+          }
+        }
+      }
+    },
+    "La destination a changé depuis sa sélection. Actualise la bibliothèque puis choisis-la à nouveau. Aucun fichier n’a été créé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The destination changed since it was selected. Refresh the library, then choose it again. No file was created."
+          }
+        }
+      }
+    },
+    "La destination a changé pendant l’enregistrement : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The destination changed during the save: %@."
+          }
+        }
+      }
+    },
+    "La découpe doit conserver au moins 441 échantillons (10 ms)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The trim must keep at least 441 frames (10 ms)."
+          }
+        }
+      }
+    },
+    "La lecture de ce fichier audio est incomplète." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This audio file could not be read completely."
+          }
+        }
+      }
+    },
+    "La lecture du dossier est incomplète." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder could not be read completely."
+          }
+        }
+      }
+    },
+    "La mise à la corbeille a échoué. L’app ne force jamais l’effacement d’un programme. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moving to the Trash failed. The app never forces a program’s deletion. %@"
+          }
+        }
+      }
+    },
+    "La mise à la corbeille n’a pas abouti ; le .PGM en mémoire est conservé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moving to the Trash did not complete; the .PGM in memory is kept."
+          }
+        }
+      }
+    },
+    "La note MIDI %lld est partagée par plusieurs pads. Le déplacement ou la copie est annulé pour préserver leurs réglages." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIDI note %lld is shared by several pads. The move or copy is cancelled to keep their settings."
+          }
+        }
+      }
+    },
+    "La taille nécessaire à l’enregistrement ne peut pas être calculée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The size needed for the save cannot be calculated."
+          }
+        }
+      }
+    },
+    "Le .PGM est déjà enregistré sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The .PGM is already saved on this Mac."
+          }
+        }
+      }
+    },
+    "Le .PGM et ses samples seront conservés dans la bibliothèque sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The .PGM and its samples will be kept in the library on this Mac."
+          }
+        }
+      }
+    },
+    "Le compteur FAT est incohérent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The FAT counter is inconsistent."
+          }
+        }
+      }
+    },
+    "Le dossier est incomplet ou contient des noms répétés." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder is incomplete or contains repeated names."
+          }
+        }
+      }
+    },
+    "Le dossier est indisponible ou constitue un lien symbolique : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder is unavailable or is a symbolic link: %@."
+          }
+        }
+      }
+    },
+    "Le dossier ne peut pas être inventorié." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder cannot be inventoried."
+          }
+        }
+      }
+    },
+    "Le dossier portant ce nom de PART n’est pas une partition FAT montée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder with this PART name is not a mounted FAT partition."
+          }
+        }
+      }
+    },
+    "Le fichier %@ a changé pendant l’enregistrement. L’enregistrement du .PGM n’a pas été confirmé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file %@ changed during the save. Saving the .PGM was not confirmed."
+          }
+        }
+      }
+    },
+    "Le format de la partition n’est pas accessible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The partition format cannot be read."
+          }
+        }
+      }
+    },
+    "Le montage n’est pas accessible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The mount cannot be read."
+          }
+        }
+      }
+    },
+    "Le nom, la découpe et les traitements s’appliquent aussi à ces pads. L’accordage reste propre à chaque pad." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The name, trim and processing also apply to these pads. Tuning stays specific to each pad."
+          }
+        }
+      }
+    },
+    "Le pad %@ est vide." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pad %@ is empty."
+          }
+        }
+      }
+    },
+    "Le pad %lld n’existe pas ; les pads vont de A01 à D16." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pad %lld does not exist; pads go from A01 to D16."
+          }
+        }
+      }
+    },
+    "Le pad de départ est invalide." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The starting pad is invalid."
+          }
+        }
+      }
+    },
+    "Le parcours est incomplet : limite de %lld éléments atteinte." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The scan is incomplete: limit of %lld items reached."
+          }
+        }
+      }
+    },
+    "Le parcours est incomplet : limite de lecture atteinte." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The scan is incomplete: reading limit reached."
+          }
+        }
+      }
+    },
+    "Le parcours est incomplet : profondeur maximale atteinte dans %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The scan is incomplete: maximum depth reached in %@."
+          }
+        }
+      }
+    },
+    "Le programme .PGM se trouve ici :\n%@\n\nLes samples .SND et les séquences .SEQ restent sur le disque. Cette action libère très peu d’espace. Le .PGM ouvert reste en mémoire ; tu peux l’enregistrer à nouveau." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The .PGM program is here:\n%@\n\nThe .SND samples and .SEQ sequences stay on the disk. This frees very little space. The open .PGM stays in memory; you can save it again."
+          }
+        }
+      }
+    },
+    "Le programme contient une affectation de pad invalide." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The program contains an invalid pad assignment."
+          }
+        }
+      }
+    },
+    "Le programme modèle Default.pgm manque dans le paquet MPCCore." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Default.pgm template is missing from the MPCCore bundle."
+          }
+        }
+      }
+    },
+    "Le programme ou son dossier ne peut pas être vérifié. Aucun fichier n’a été supprimé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The program or its folder cannot be checked. No file was deleted."
+          }
+        }
+      }
+    },
+    "Le programme ou son emplacement a changé depuis la confirmation. Aucun fichier n’a été supprimé ; actualise la bibliothèque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The program or its location changed since the confirmation. No file was deleted; refresh the library."
+          }
+        }
+      }
+    },
+    "Le programme utilise déjà 128 samples." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The program already uses 128 samples."
+          }
+        }
+      }
+    },
+    "Le son de l’emplacement MPC %lld dépasse la plage PCM16 : crête %@, %lld valeurs hors plage et %lld valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sound of MPC slot %lld exceeds the PCM16 range: peak %@, %lld values out of range and %lld non-finite values. Lower its gain or normalize it before saving."
+          }
+        }
+      }
+    },
+    "Le son dépasse la limite de 32 Mio." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sound exceeds the 32 MiB limit."
+          }
+        }
+      }
+    },
+    "Lecture des fichiers déposés…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the dropped files…"
+          }
+        }
+      }
+    },
+    "Lecture des liens en cours…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading links…"
+          }
+        }
+      }
+    },
+    "Lecture du dossier…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the folder…"
+          }
+        }
+      }
+    },
+    "Lecture impossible : %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot read: %@. %@"
+          }
+        }
+      }
+    },
+    "Les deux pads partagent le même sample." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both pads share the same sample."
+          }
+        }
+      }
+    },
+    "Les fichiers visibles ne permettent pas de conclure que ce dossier est vide." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The visible files are not enough to conclude that this folder is empty."
+          }
+        }
+      }
+    },
+    "Les liens de ce .PGM ne sont pas encore vérifiés. Actualise la bibliothèque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The links of this .PGM are not checked yet. Refresh the library."
+          }
+        }
+      }
+    },
+    "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The samples of this .PGM exceed the prototype’s 32 MiB audio data limit."
+          }
+        }
+      }
+    },
+    "Les samples des .PGM enregistrés sur le Mac apparaissent ici. Ajoute un dossier de ton SSD avec +." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Samples of the .PGM files saved on this Mac show here. Add a folder from your SSD with +."
+          }
+        }
+      }
+    },
+    "Les samples des .PGM enregistrés sur le Mac. L’app les range dans son dossier :\n%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Samples of the .PGM files saved on this Mac. The app keeps them in its folder:\n%@"
+          }
+        }
+      }
+    },
+    "Liens vérifiés dans les .PGM enregistrés de la bibliothèque. Les modifications en mémoire ne sont pas incluses." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links checked in the library’s saved .PGM files. Changes in memory are not included."
+          }
+        }
+      }
+    },
+    "L’allocation annoncée ne correspond pas à l’inventaire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reported allocation does not match the inventory."
+          }
+        }
+      }
+    },
+    "L’allocation ne peut pas être calculée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The allocation cannot be calculated."
+          }
+        }
+      }
+    },
+    "L’espace de cette PART ne peut pas être vérifié." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The space of this PART cannot be checked."
+          }
+        }
+      }
+    },
+    "L’espace libre de cette PART est insuffisant pour ce .PGM et ses samples." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PART does not have enough free space for this .PGM and its samples."
+          }
+        }
+      }
+    },
+    "L’export attend ta décision sur le niveau des samples ; le .PGM est conservé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The export waits for your decision on the sample levels; the .PGM is kept."
+          }
+        }
+      }
+    },
+    "L’export n’a pas abouti ; le .PGM est conservé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The export did not complete; the .PGM is kept."
+          }
+        }
+      }
+    },
+    "L’identité du volume FAT n’est pas accessible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The identity of the FAT volume cannot be read."
+          }
+        }
+      }
+    },
+    "L’import contient %lld samples, mais seuls %lld pads restent jusqu’à D16. Choisis moins de fichiers ou un pad de départ plus tôt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The import has %lld samples, but only %lld pads remain up to D16. Choose fewer files or an earlier starting pad."
+          }
+        }
+      }
+    },
+    "L’import ferait dépasser 32 Mio de mémoire PCM." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The import would exceed 32 MiB of PCM memory."
+          }
+        }
+      }
+    },
+    "L’inventaire FAT révèle des fichiers absents du premier relevé. Actualise la bibliothèque." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The FAT inventory shows files missing from the first scan. Refresh the library."
+          }
+        }
+      }
+    },
+    "L’inventaire contient des allocations répétées." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The inventory contains repeated allocations."
+          }
+        }
+      }
+    },
+    "L’inventaire contient un lien ou un type indéterminé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The inventory contains a link or an unknown type."
+          }
+        }
+      }
+    },
+    "L’inventaire dépasse la profondeur autorisée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The inventory goes deeper than allowed."
+          }
+        }
+      }
+    },
+    "L’inventaire est incomplet ou contient des noms ambigus." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The inventory is incomplete or contains ambiguous names."
+          }
+        }
+      }
+    },
+    "L’inventaire traverse un emplacement indéterminé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The inventory crosses an unknown location."
+          }
+        }
+      }
+    },
+    "L’occupation FAT a changé pendant la vérification." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FAT usage changed during the check."
+          }
+        }
+      }
+    },
+    "L’occupation FAT ne peut pas être calculée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FAT usage cannot be calculated."
+          }
+        }
+      }
+    },
+    "L’occupation FAT n’est pas accessible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FAT usage cannot be read."
+          }
+        }
+      }
+    },
+    "L’occupation FAT n’est pas vérifiable." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FAT usage cannot be checked."
+          }
+        }
+      }
+    },
+    "MPC Kit Studio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MPC Kit Studio"
+          }
+        }
+      }
+    },
+    "Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        }
+      }
+    },
+    "Mettre %@ à la corbeille ?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move %@ to the Trash?"
+          }
+        }
+      }
+    },
+    "Mettre le programme à la corbeille…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Program to Trash…"
+          }
+        }
+      }
+    },
+    "Mettre à la corbeille" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Trash"
+          }
+        }
+      }
+    },
+    "Modification annulée." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change undone."
+          }
+        }
+      }
+    },
+    "Modification rétablie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change redone."
+          }
+        }
+      }
+    },
+    "Modifications non enregistrées" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsaved changes"
+          }
+        }
+      }
+    },
+    "Modifications non enregistrées sur le Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes not saved on this Mac"
+          }
+        }
+      }
+    },
+    "Mono" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mono"
+          }
+        }
+      }
+    },
+    "Mémoire audio du .PGM sur la MPC" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio memory of the .PGM on the MPC"
+          }
+        }
+      }
+    },
+    "Mémoire audio sur la MPC : %@. La jauge compare la copie sur la SD à une PART vide." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio memory on the MPC: %@. The gauge compares the copy on the SD with an empty PART."
+          }
+        }
+      }
+    },
+    "Ne tient pas dans une PART · %@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Does not fit in one PART · %@ / %@"
+          }
+        }
+      }
+    },
+    "Nom 8.3 utilisé dans le .PGM et sur la SD. Si ce nom existe déjà, un chiffre remplace sa fin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8.3 name used in the .PGM and on the SD. If this name already exists, a digit replaces its end."
+          }
+        }
+      }
+    },
+    "Nom 8.3 utilisé sur le Mac et sur la SD. Si ce nom existe déjà, un chiffre remplace sa fin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8.3 name used on the Mac and on the SD. If this name already exists, a digit replaces its end."
+          }
+        }
+      }
+    },
+    "Nom du .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".PGM name"
+          }
+        }
+      }
+    },
+    "Nom du sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample name"
+          }
+        }
+      }
+    },
+    "Nom du sample du pad %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample name of pad %@"
+          }
+        }
+      }
+    },
+    "Normaliser" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normalize"
+          }
+        }
+      }
+    },
+    "Normaliser le sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normalize Sample"
+          }
+        }
+      }
+    },
+    "Normaliser les samples concernés" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normalize Those Samples"
+          }
+        }
+      }
+    },
+    "Normaliser les samples hors plage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normalize Out-of-Range Samples"
+          }
+        }
+      }
+    },
+    "Nouveau .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New .PGM"
+          }
+        }
+      }
+    },
+    "Nouveau .PGM. Importe des WAV, AIFF ou SND sur les pads." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New .PGM. Import WAV, AIFF or SND onto the pads."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Ou glisse un WAV, AIFF ou SND sur le pad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Or drag a WAV, AIFF or SND onto the pad"
+          }
+        }
+      }
+    },
+    "Ouverture de %@…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening %@…"
+          }
+        }
+      }
+    },
+    "Ouverture interrompue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening interrupted."
+          }
+        }
+      }
+    },
+    "Ouvrir" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "Ouvrir %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open %@"
+          }
+        }
+      }
+    },
+    "Ouvrir ce programme MPC" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open this MPC program"
+          }
+        }
+      }
+    },
+    "Ouvrir un dossier…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open a Folder…"
+          }
+        }
+      }
+    },
+    "Où %@ est utilisé" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where %@ is used"
+          }
+        }
+      }
+    },
+    "Où ce sample est utilisé" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where this sample is used"
+          }
+        }
+      }
+    },
+    "PART %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@"
+          }
+        }
+      }
+    },
+    "PART %@ : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@: %@"
+          }
+        }
+      }
+    },
+    "PART %@ non proposée comme destination : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@ not offered as a destination: %@"
+          }
+        }
+      }
+    },
+    "PART %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@ · %@"
+          }
+        }
+      }
+    },
+    "PART %@ à vérifier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@ to check"
+          }
+        }
+      }
+    },
+    "PART %@ à vérifier :\n%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@ to check:\n%@"
+          }
+        }
+      }
+    },
+    "PART %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART %@, %@"
+          }
+        }
+      }
+    },
+    "PART DE LA SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SD PART"
+          }
+        }
+      }
+    },
+    "PART indisponible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PART unavailable."
+          }
+        }
+      }
+    },
+    "PART vides : %@. « Copier sur la SD… » propose la première qui peut recevoir la bank." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty PARTs: %@. “Copy to SD…” offers the first one that can take the bank."
+          }
+        }
+      }
+    },
+    "Pad %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pad %lld"
+          }
+        }
+      }
+    },
+    "Pad vide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty pad"
+          }
+        }
+      }
+    },
+    "Pads réorganisés · ⌘Z pour annuler." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pads rearranged · ⌘Z to undo."
+          }
+        }
+      }
+    },
+    "Petits fondus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Short Fades"
+          }
+        }
+      }
+    },
+    "Programme .PGM ouvert. %lld octets hors PCM seront omis à l’enregistrement et à la copie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".PGM program opened. %lld bytes outside the PCM will be left out when saving and copying."
+          }
+        }
+      }
+    },
+    "Programme .PGM ouvert. Les fichiers d’origine restent intacts ; ⌘S l’enregistre sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".PGM program opened. The original files stay untouched; ⌘S saves it on this Mac."
+          }
+        }
+      }
+    },
+    "Rechercher dans %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search in %@"
+          }
+        }
+      }
+    },
+    "Rechercher dans cette vue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search this view"
+          }
+        }
+      }
+    },
+    "Rechercher dans les samples de la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search the SD samples"
+          }
+        }
+      }
+    },
+    "Rechercher sur la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search the SD"
+          }
+        }
+      }
+    },
+    "Recherche…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching…"
+          }
+        }
+      }
+    },
+    "Renommer le .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename .PGM"
+          }
+        }
+      }
+    },
+    "Renommer le sample" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Sample"
+          }
+        }
+      }
+    },
+    "Replier ce dossier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse this folder"
+          }
+        }
+      }
+    },
+    "Retirer de la liste" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from List"
+          }
+        }
+      }
+    },
+    "Retour aux samples précédents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to the previous samples"
+          }
+        }
+      }
+    },
+    "Revenir à la vue de samples précédente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go back to the previous sample view"
+          }
+        }
+      }
+    },
+    "Régler la découpe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Trim"
+          }
+        }
+      }
+    },
+    "Rétablir" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redo"
+          }
+        }
+      }
+    },
+    "Rétablir la saisie" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redo Typing"
+          }
+        }
+      }
+    },
+    "Rétablir · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redo %@"
+          }
+        }
+      }
+    },
+    "SD absente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No SD"
+          }
+        }
+      }
+    },
+    "SND compressé 12 bits (révision 82)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12-bit compressed SND (revision 82)."
+          }
+        }
+      }
+    },
+    "STÉRÉO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STEREO"
+          }
+        }
+      }
+    },
+    "Sample modifié · ⌘S pour enregistrer sur le Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample changed · ⌘S to save on this Mac."
+          }
+        }
+      }
+    },
+    "Sample partagé avec %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample shared with %@"
+          }
+        }
+      }
+    },
+    "Samples de la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Samples on the SD"
+          }
+        }
+      }
+    },
+    "Samples hors plage normalisés en mémoire à ta demande ; les sources sont conservées." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Out-of-range samples normalized in memory as you asked; the sources are kept."
+          }
+        }
+      }
+    },
+    "Samples · PART %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Samples · PART %@"
+          }
+        }
+      }
+    },
+    "Seul un fichier programme .PGM ordinaire peut être mis à la corbeille." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only a regular .PGM program file can be moved to the Trash."
+          }
+        }
+      }
+    },
+    "Sons indisponibles : %@. L’enregistrement et la copie exigent tous les samples du .PGM." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sounds unavailable: %@. Saving and copying need every sample of the .PGM."
+          }
+        }
+      }
+    },
+    "Sons manquants pour les emplacements MPC : " : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing sounds for MPC slots: "
+          }
+        }
+      }
+    },
+    "Source ouverte · enregistrer sur le Mac pour la conserver" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source opened · save to Mac to keep it"
+          }
+        }
+      }
+    },
+    "Survole cette banque pendant le déplacement d’un pad pour y accéder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hover over this bank while moving a pad to reach it"
+          }
+        }
+      }
+    },
+    "Séparation entre les samples de l’ordinateur et ceux de la SD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Divider between the computer’s samples and the SD’s"
+          }
+        }
+      }
+    },
+    "Taille indisponible" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size unavailable"
+          }
+        }
+      }
+    },
+    "Titre sur la MPC : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title on the MPC: %@"
+          }
+        }
+      }
+    },
+    "Tous les .PGM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All .PGM files"
+          }
+        }
+      }
+    },
+    "Tout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "Un dossier ne peut pas être parcouru." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A folder cannot be browsed."
+          }
+        }
+      }
+    },
+    "Un enregistrement de la bibliothèque locale est incomplet ou a été modifié. Aucun original n’a été remplacé." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A local library entry is incomplete or was changed. No original was replaced."
+          }
+        }
+      }
+    },
+    "Un programme .PGM et ses sons .SND seront créés. Les fichiers existants sont conservés ; un nom libre est choisi si nécessaire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A .PGM program and its .SND sounds will be created. Existing files are kept; a free name is chosen if needed."
+          }
+        }
+      }
+    },
+    "Une entrée de l’inventaire est indisponible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An inventory entry is unavailable."
+          }
+        }
+      }
+    },
+    "Utilisé par" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used by"
+          }
+        }
+      }
+    },
+    "Vide (fichiers visibles)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty (visible files)"
+          }
+        }
+      }
+    },
+    "Vider ce pad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear This Pad"
+          }
+        }
+      }
+    },
+    "Vider le pad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Pad"
+          }
+        }
+      }
+    },
+    "Vider le pad sélectionné" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear the selected pad"
+          }
+        }
+      }
+    },
+    "Voir ses samples à gauche" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Its Samples on the Left"
+          }
+        }
+      }
+    },
+    "Vérification de la PART vide impossible. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot check the empty PART. %@"
+          }
+        }
+      }
+    },
+    "Vérification de l’emplacement en cours… Tu peux annuler sans modifier le .PGM." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking the location… You can cancel without changing the .PGM."
+          }
+        }
+      }
+    },
+    "activée" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on"
+          }
+        }
+      }
+    },
+    "ce fichier n'est pas un SND natif." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this file is not a native SND."
+          }
+        }
+      }
+    },
+    "déplié" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "expanded"
+          }
+        }
+      }
+    },
+    "désactivée" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "off"
+          }
+        }
+      }
+    },
+    "edit.undo" : {
+      "comment" : "Edit menu item when nothing can be undone",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "en-tête SND tronqué : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "truncated SND header: %@."
+          }
+        }
+      }
+    },
+    "en-tête SND tronqué." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "truncated SND header."
+          }
+        }
+      }
+    },
+    "indicateur mono/stéréo incorrect." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wrong mono/stereo flag."
+          }
+        }
+      }
+    },
+    "inventaire des associations incomplet : limite de lecture atteinte." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "incomplete link inventory: reading limit reached."
+          }
+        }
+      }
+    },
+    "l'audio contient une valeur non finie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the audio contains a non-finite value."
+          }
+        }
+      }
+    },
+    "la longueur PCM ne correspond pas à l'en-tête." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the PCM length does not match the header."
+          }
+        }
+      }
+    },
+    "le dossier du .PGM est indisponible ou constitue un lien." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the .PGM folder is unavailable or is a link."
+          }
+        }
+      }
+    },
+    "le dossier du .PGM ne peut pas être parcouru." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the .PGM folder cannot be browsed."
+          }
+        }
+      }
+    },
+    "le son a changé pendant son ouverture ; réessaie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the sound changed while opening; try again."
+          }
+        }
+      }
+    },
+    "longueur audio nulle." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zero audio length."
+          }
+        }
+      }
+    },
+    "longueurs de canaux différentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "different channel lengths."
+          }
+        }
+      }
+    },
+    "macOS : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS: %@"
+          }
+        }
+      }
+    },
+    "macOS : %@ · relevé incomplet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS: %@ · incomplete scan"
+          }
+        }
+      }
+    },
+    "marqueurs début/fin hors du son." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "start/end markers outside the sound."
+          }
+        }
+      }
+    },
+    "note MIDI %lld : index de son %u ; 0…127 ou 255 (vide) attendu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIDI note %lld: sound index %u; 0…127 or 255 (empty) expected."
+          }
+        }
+      }
+    },
+    "pad %@ : note MIDI %u ; 35…98 attendu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "pad %@: MIDI note %u; 35…98 expected."
+          }
+        }
+      }
+    },
+    "replié" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "collapsed"
+          }
+        }
+      }
+    },
+    "sample introuvable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sample not found"
+          }
+        }
+      }
+    },
+    "sample partagé" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "shared sample"
+          }
+        }
+      }
+    },
+    "seule la révision SND 02 est prise en charge." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "only SND revision 02 is supported."
+          }
+        }
+      }
+    },
+    "signature PGM native 07 00 attendue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "native PGM signature 07 00 expected."
+          }
+        }
+      }
+    },
+    "slot %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "slot %lld"
+          }
+        }
+      }
+    },
+    "un PGM natif doit mesurer 4 608 octets." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a native PGM must be 4,608 bytes."
+          }
+        }
+      }
+    },
+    "un fichier SND est un lien : %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "an SND file is a link: %@."
+          }
+        }
+      }
+    },
+    "un fichier local est nécessaire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a local file is required."
+          }
+        }
+      }
+    },
+    "un fichier régulier est nécessaire." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a regular file is required."
+          }
+        }
+      }
+    },
+    "un ou deux canaux sont nécessaires." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "one or two channels are required."
+          }
+        }
+      }
+    },
+    "un son doit contenir au moins 441 échantillons (10 ms)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a sound must have at least 441 frames (10 ms)."
+          }
+        }
+      }
+    },
+    "vide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "empty"
+          }
+        }
+      }
+    },
+    "À enregistrer sur le Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To save on this Mac"
+          }
+        }
+      }
+    },
+    "À vérifier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To check"
+          }
+        }
+      }
+    },
+    "Échanger avec %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap with %@"
+          }
+        }
+      }
+    },
+    "Écoute en parcourant avec ↑ ↓ : activée" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview while browsing with ↑ ↓: on"
+          }
+        }
+      }
+    },
+    "Écoute impossible : %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot preview: %@"
+          }
+        }
+      }
+    },
+    "Écouter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listen"
+          }
+        }
+      }
+    },
+    "Écouter ; glisser vers un pad pour l’affecter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listen; drag onto a pad to assign it"
+          }
+        }
+      }
+    },
+    "Écouter en parcourant" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview while browsing"
+          }
+        }
+      }
+    },
+    "Écouter en parcourant avec ↑ ↓" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview While Browsing with ↑ ↓"
+          }
+        }
+      }
+    },
+    "Écouter et sélectionner. Glisser pour déplacer ; déposer sur un pad occupé pour échanger." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listen and select. Drag to move; drop on a used pad to swap."
+          }
+        }
+      }
+    },
+    "Écriture impossible de %@ : " : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot write %@: "
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

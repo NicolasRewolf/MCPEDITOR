@@ -7,9 +7,9 @@ public enum MPCFormatError: LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalid(let detail): return "Fichier MPC invalide : \(detail)"
-        case .unsupported(let detail): return "Format MPC non pris en charge : \(detail)"
-        case .tooLarge: return "Le son dépasse la limite de 32 Mio."
+        case .invalid(let detail): return String(localized: "Fichier MPC invalide : \(detail)")
+        case .unsupported(let detail): return String(localized: "Format MPC non pris en charge : \(detail)")
+        case .tooLarge: return String(localized: "Le son dépasse la limite de 32 Mio.")
         }
     }
 }
@@ -72,12 +72,12 @@ public struct MPCSoundHeader: Sendable {
     }
 
     public func declaration() throws -> Declaration {
-        guard bytes.count == Self.byteCount else { throw MPCFormatError.invalid("en-tête SND tronqué.") }
+        guard bytes.count == Self.byteCount else { throw MPCFormatError.invalid(String(localized: "en-tête SND tronqué.")) }
         let b = Array(bytes)
-        guard b[0] == 1 else { throw MPCFormatError.unsupported("ce fichier n'est pas un SND natif.") }
-        if b[1] == 0x82 { throw MPCFormatError.unsupported("SND compressé 12 bits (révision 82).") }
-        guard b[1] == 2 else { throw MPCFormatError.unsupported("seule la révision SND 02 est prise en charge.") }
-        guard b[21] <= 1 else { throw MPCFormatError.invalid("indicateur mono/stéréo incorrect.") }
+        guard b[0] == 1 else { throw MPCFormatError.unsupported(String(localized: "ce fichier n'est pas un SND natif.")) }
+        if b[1] == 0x82 { throw MPCFormatError.unsupported(String(localized: "SND compressé 12 bits (révision 82).")) }
+        guard b[1] == 2 else { throw MPCFormatError.unsupported(String(localized: "seule la révision SND 02 est prise en charge.")) }
+        guard b[21] <= 1 else { throw MPCFormatError.invalid(String(localized: "indicateur mono/stéréo incorrect.")) }
         return Declaration(name: nativeName ?? "", frameCount: Int(MPCBytes.u32(b, 30)),
                            channelCount: Int(b[21]) + 1, start: Int(MPCBytes.u32(b, 22)),
                            end: Int(MPCBytes.u32(b, 26)), volume: Int(b[19]),
@@ -90,15 +90,15 @@ public struct MPCSoundHeader: Sendable {
     public func validatedDeclaration(fileBytes: UInt64) throws -> Declaration {
         guard fileBytes <= UInt64(MPCSound.maximumFileBytes) else { throw MPCFormatError.tooLarge }
         let value = try declaration()
-        guard value.frameCount > 0 else { throw MPCFormatError.invalid("longueur audio nulle.") }
+        guard value.frameCount > 0 else { throw MPCFormatError.invalid(String(localized: "longueur audio nulle.")) }
         guard value.frameCount <= (MPCSound.maximumFileBytes - Self.byteCount) / (2 * value.channelCount) else {
             throw MPCFormatError.tooLarge
         }
         guard fileBytes >= UInt64(Self.byteCount + value.pcmByteCount) else {
-            throw MPCFormatError.invalid("la longueur PCM ne correspond pas à l'en-tête.")
+            throw MPCFormatError.invalid(String(localized: "la longueur PCM ne correspond pas à l'en-tête."))
         }
         guard value.start <= value.end && value.end <= value.frameCount else {
-            throw MPCFormatError.invalid("marqueurs début/fin hors du son.")
+            throw MPCFormatError.invalid(String(localized: "marqueurs début/fin hors du son."))
         }
         return value
     }
@@ -191,12 +191,12 @@ public struct MPCSound: Sendable {
     /// Checks export structure; audio value validity remains the encoder's concern.
     public var encodedByteCount: Int {
         get throws {
-            guard channels.count == 1 || channels.count == 2 else { throw MPCFormatError.invalid("un ou deux canaux sont nécessaires.") }
+            guard channels.count == 1 || channels.count == 2 else { throw MPCFormatError.invalid(String(localized: "un ou deux canaux sont nécessaires.")) }
             let count = frameCount
-            guard channels.allSatisfy({ $0.count == count }) else { throw MPCFormatError.invalid("longueurs de canaux différentes.") }
-            guard count >= 441 else { throw MPCFormatError.invalid("un son doit contenir au moins 441 échantillons (10 ms).") }
+            guard channels.allSatisfy({ $0.count == count }) else { throw MPCFormatError.invalid(String(localized: "longueurs de canaux différentes.")) }
+            guard count >= 441 else { throw MPCFormatError.invalid(String(localized: "un son doit contenir au moins 441 échantillons (10 ms).")) }
             guard count <= (Self.maximumFileBytes - MPCSoundHeader.byteCount) / (2 * channels.count) else { throw MPCFormatError.tooLarge }
-            guard start >= 0 && start <= end && end <= count else { throw MPCFormatError.invalid("marqueurs début/fin hors du son.") }
+            guard start >= 0 && start <= end && end <= count else { throw MPCFormatError.invalid(String(localized: "marqueurs début/fin hors du son.")) }
             return MPCSoundHeader.byteCount + count * 2 * channels.count
         }
     }
@@ -205,7 +205,7 @@ public struct MPCSound: Sendable {
         let byteCount = try encodedByteCount
         let count = frameCount
         guard channels.allSatisfy({ $0.allSatisfy(\.isFinite) }) else {
-            throw MPCFormatError.invalid("l'audio contient une valeur non finie.")
+            throw MPCFormatError.invalid(String(localized: "l'audio contient une valeur non finie."))
         }
         var b = header.count == MPCSoundHeader.byteCount ? Array(header) : [UInt8](repeating: 0, count: MPCSoundHeader.byteCount)
         b[0] = 1; b[1] = 2
@@ -295,9 +295,9 @@ public struct MPCProgram: Sendable {
     private static let padMap = image + 1854
 
     public init(data: Data) throws {
-        guard data.count == 4608 else { throw MPCFormatError.invalid("un PGM natif doit mesurer 4 608 octets.") }
+        guard data.count == 4608 else { throw MPCFormatError.invalid(String(localized: "un PGM natif doit mesurer 4 608 octets.")) }
         guard data[data.startIndex] == 7 && data[data.startIndex + 1] == 0 else {
-            throw MPCFormatError.unsupported("signature PGM native 07 00 attendue.")
+            throw MPCFormatError.unsupported(String(localized: "signature PGM native 07 00 attendue."))
         }
         bytes = Data(Array(data))
     }
@@ -307,17 +307,17 @@ public struct MPCProgram: Sendable {
     /// No unknown byte or invalid assignment is repaired by this check.
     public func validateKnownFields() throws {
         guard bytes.count == 4608 else {
-            throw MPCFormatError.invalid("un PGM natif doit mesurer 4 608 octets.")
+            throw MPCFormatError.invalid(String(localized: "un PGM natif doit mesurer 4 608 octets."))
         }
         let b = Array(bytes)
         guard b[0] == 7 && b[1] == 0 else {
-            throw MPCFormatError.unsupported("signature PGM native 07 00 attendue.")
+            throw MPCFormatError.unsupported(String(localized: "signature PGM native 07 00 attendue."))
         }
         for note in 35...98 {
             let value = b[Self.assignments + (note - 35) * 24]
             guard value < 128 || value == 0xFF else {
                 throw MPCFormatError.invalid(
-                    "note MIDI \(note) : index de son \(value) ; 0…127 ou 255 (vide) attendu.")
+                    String(localized: "note MIDI \(note) : index de son \(value) ; 0…127 ou 255 (vide) attendu."))
             }
         }
         for pad in 0..<64 {
@@ -326,7 +326,7 @@ public struct MPCProgram: Sendable {
                 let bank = ["A", "B", "C", "D"][pad / 16]
                 let label = bank + String(format: "%02d", pad % 16 + 1)
                 throw MPCFormatError.invalid(
-                    "pad \(label) : note MIDI \(value) ; 35…98 attendu.")
+                    String(localized: "pad \(label) : note MIDI \(value) ; 35…98 attendu."))
             }
         }
     }
@@ -337,7 +337,7 @@ public struct MPCProgram: Sendable {
         guard let url = templateURL,
               let data = try? Data(contentsOf: url),
               var program = try? MPCProgram(data: data) else {
-            preconditionFailure("Le programme modèle Default.pgm manque dans le paquet MPCCore.")
+            preconditionFailure(String(localized: "Le programme modèle Default.pgm manque dans le paquet MPCCore."))
         }
         var b = Array(program.bytes)
         for i in 2..<2690 { b[i] = 0 } // Empty 128-name inventory and memory-word table.

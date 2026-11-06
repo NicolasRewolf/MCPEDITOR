@@ -21,28 +21,28 @@ public enum KitExportError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidDestination:
-            return "Choisis un dossier ou une PART accessible en écriture."
+            return String(localized: "Choisis un dossier ou une PART accessible en écriture.")
         case .missingSounds(let slots):
-            return "Sons manquants pour les emplacements MPC : " + slots.map { String($0 + 1) }.joined(separator: ", ") + "."
+            return String(localized: "Sons manquants pour les emplacements MPC : ") + slots.map { String($0 + 1) }.joined(separator: ", ") + "."
         case .invalidSlot(let slot):
-            return "Emplacement de son MPC invalide : \(slot)."
+            return String(localized: "Emplacement de son MPC invalide : \(slot).")
         case .invalidSound(let slot):
-            return "Données audio invalides pour l’emplacement MPC \(slot + 1)."
+            return String(localized: "Données audio invalides pour l’emplacement MPC \(slot + 1).")
         case .invalidPCM16Range(let slot, let peak, let outOfRange, let nonFinite):
-            return "Le son de l’emplacement MPC \(slot + 1) dépasse la plage PCM16 : crête \(String(format: "%.3f", peak)), \(outOfRange) valeurs hors plage et \(nonFinite) valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement."
+            return String(localized: "Le son de l’emplacement MPC \(slot + 1) dépasse la plage PCM16 : crête \(String(format: "%.3f", peak)), \(outOfRange) valeurs hors plage et \(nonFinite) valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement.")
         case .memoryLimitExceeded:
-            return "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype."
+            return String(localized: "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype.")
         case .namesExhausted:
-            return "Impossible de trouver un nom MPC libre de huit caractères."
+            return String(localized: "Impossible de trouver un nom MPC libre de huit caractères.")
         case .io(let file, let code):
-            return "Écriture impossible de \(file) : " + NSError(domain: NSPOSIXErrorDomain, code: Int(code)).localizedDescription
+            return String(localized: "Écriture impossible de \(file) : ") + NSError(domain: NSPOSIXErrorDomain, code: Int(code)).localizedDescription
         case .destinationChangedDuringWrite(let selected, let actual):
-            let location = actual.map { " Ils se trouvent dans le dossier ouvert : \($0)." } ?? " Leur emplacement actuel doit être vérifié dans le Finder."
-            return "La destination a changé pendant l’enregistrement : \(selected)." + location
+            let location = actual.map { String(localized: " Ils se trouvent dans le dossier ouvert : \($0).") } ?? String(localized: " Leur emplacement actuel doit être vérifié dans le Finder.")
+            return String(localized: "La destination a changé pendant l’enregistrement : \(selected).") + location
         case .publishedFileChanged(let filename):
-            return "Le fichier \(filename) a changé pendant l’enregistrement. L’enregistrement du .PGM n’a pas été confirmé."
+            return String(localized: "Le fichier \(filename) a changé pendant l’enregistrement. L’enregistrement du .PGM n’a pas été confirmé.")
         case .incompleteRollback(let cause, let files):
-            return cause + " Par sécurité, aucun fichier créé n’a été supprimé automatiquement. Fichiers à vérifier : " + files.joined(separator: ", ") + "."
+            return cause + String(localized: " Par sécurité, aucun fichier créé n’a été supprimé automatiquement. Fichiers à vérifier : ") + files.joined(separator: ", ") + "."
         }
     }
 }
@@ -265,7 +265,7 @@ public struct KitExport {
             // Even a matching live descriptor does not close that race. Retain all
             // created names on failure; report their names and never claim rollback.
             if !artifacts.isEmpty {
-                let location = currentDirectoryPath(directoryFD).map { " Dossier ouvert : \($0)." } ?? ""
+                let location = currentDirectoryPath(directoryFD).map { String(localized: " Dossier ouvert : \($0).") } ?? ""
                 throw KitExportError.incompleteRollback(cause: error.localizedDescription + location, files: artifacts)
             }
             throw error

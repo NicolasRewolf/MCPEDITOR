@@ -28,7 +28,7 @@ final class StudioModel: ObservableObject {
     @Published var isDirty = false
     @Published var busy = false
     @Published private(set) var resolvingDroppedFiles = false
-    @Published var status = "Choisis une PART ou ouvre un dossier de .PGM."
+    @Published var status = String(localized: "Choisis une PART ou ouvre un dossier de .PGM.")
     @Published var errorMessage: String?
     @Published var sound: MPCSound?
     @Published var program: MPCProgram?
@@ -164,7 +164,7 @@ final class StudioModel: ObservableObject {
         let warnings = exportAudioWarnings
         guard !warnings.isEmpty else { return nil }
         let peak = warnings.map(\.report.peakMagnitude).max() ?? 0
-        return "\(warnings.count) sample(s) dépassent le niveau maximal du PCM 16 bits (crête \(String(format: "%.2f", peak))). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail."
+        return String(localized: "\(warnings.count) sample(s) dépassent le niveau maximal du PCM 16 bits (crête \(String(format: "%.2f", peak))). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail.")
     }
 
     /// The user explicitly chooses the gain change; imports and exports never
@@ -173,7 +173,7 @@ final class StudioModel: ObservableObject {
         guard !documentLocked else { return }
         let affected = exportAudioWarnings
         guard !affected.isEmpty else { return }
-        recordEdit("Normaliser les samples hors plage")
+        recordEdit(String(localized: "Normaliser les samples hors plage"))
         for warning in affected {
             guard let sample = sounds[warning.slot], warning.report.nonFiniteSampleCount == 0 else { continue }
             let normalized = sample.normalized()
@@ -182,7 +182,7 @@ final class StudioModel: ObservableObject {
         }
         updateSound()
         isDirty = true
-        status = "Samples hors plage normalisés en mémoire à ta demande ; les sources sont conservées."
+        status = String(localized: "Samples hors plage normalisés en mémoire à ta demande ; les sources sont conservées.")
     }
 
     init(defaults: UserDefaults = .standard,
@@ -260,8 +260,8 @@ final class StudioModel: ObservableObject {
     }
 
     private func kitGroup(for kit: LibraryKit) -> (key: String, title: String) {
-        if isMacLibraryKit(kit) { return ("0", "Bibliothèque sur le Mac") }
-        if let letter = kit.partitionLetter { return ("1-\(letter)", "PART \(letter)") }
+        if isMacLibraryKit(kit) { return ("0", String(localized: "Bibliothèque sur le Mac")) }
+        if let letter = kit.partitionLetter { return ("1-\(letter)", String(localized: "PART \(letter)")) }
         // Folders sort by their visible name; the path only separates homonyms.
         let name = kit.rootURL.lastPathComponent
         return ("2-\(name.lowercased())-\(kit.rootURL.path)", name)
@@ -336,7 +336,7 @@ final class StudioModel: ObservableObject {
                     rows.append(SampleTreeRow(id: folder.path + "#issue", url: folder, depth: depth + 1, kind: .notice(issue)))
                 } else if child.folders.isEmpty && child.samples.isEmpty {
                     rows.append(SampleTreeRow(id: folder.path + "#empty", url: folder, depth: depth + 1,
-                                              kind: .notice("Aucun sample ici")))
+                                              kind: .notice(String(localized: "Aucun sample ici"))))
                 }
                 append(child, depth: depth + 1)
             }
@@ -518,11 +518,11 @@ final class StudioModel: ObservableObject {
 
     var sampleScopeTitle: String {
         switch sampleScope {
-        case .library: return "Bibliothèque sur le Mac"
+        case .library: return String(localized: "Bibliothèque sur le Mac")
         case .folder:
-            guard let sampleFolder else { return "Dossier de samples" }
+            guard let sampleFolder else { return String(localized: "Dossier de samples") }
             if let part = partition(containing: sampleFolder) {
-                return sampleFolder == part.url ? "Samples · PART \(part.letter)" : "PART \(part.letter) · \(sampleFolder.lastPathComponent)"
+                return sampleFolder == part.url ? String(localized: "Samples · PART \(part.letter)") : String(localized: "PART \(part.letter) · \(sampleFolder.lastPathComponent)")
             }
             return sampleFolder.lastPathComponent
         case .program(let kit): return "\(kit.url.lastPathComponent) · \(kit.locationLabel)"
@@ -538,9 +538,9 @@ final class StudioModel: ObservableObject {
         case .folder: return sampleListing.issue
         case .program(let kit):
             guard libraryKits.contains(where: { $0.url == kit.url }) else {
-                return "Ce .PGM n’est plus disponible dans la bibliothèque. Rebranche sa source puis actualise."
+                return String(localized: "Ce .PGM n’est plus disponible dans la bibliothèque. Rebranche sa source puis actualise.")
             }
-            let issues = associations.association(for: kit.url)?.issues ?? ["Les liens de ce .PGM ne sont pas encore vérifiés. Actualise la bibliothèque."]
+            let issues = associations.association(for: kit.url)?.issues ?? [String(localized: "Les liens de ce .PGM ne sont pas encore vérifiés. Actualise la bibliothèque.")]
             return issues.isEmpty ? nil : issues.joined(separator: "\n")
         }
     }
@@ -553,10 +553,10 @@ final class StudioModel: ObservableObject {
 
     var selectedSampleAssociationNotice: String? {
         guard selectedSampleURL != nil else { return nil }
-        if libraryScanning { return "Actualisation des liens vers les .PGM enregistrés…" }
-        var notice = "Liens vérifiés dans les .PGM enregistrés de la bibliothèque. Les modifications en mémoire ne sont pas incluses."
+        if libraryScanning { return String(localized: "Actualisation des liens vers les .PGM enregistrés…") }
+        var notice = String(localized: "Liens vérifiés dans les .PGM enregistrés de la bibliothèque. Les modifications en mémoire ne sont pas incluses.")
         if libraryIssue != nil || !associations.issues.isEmpty {
-            notice += " L’inventaire est incomplet ; d’autres liens peuvent manquer."
+            notice += String(localized: " L’inventaire est incomplet ; d’autres liens peuvent manquer.")
         }
         return notice
     }
@@ -565,9 +565,8 @@ final class StudioModel: ObservableObject {
     /// as several PROGRAM_.pgm files across PARTs. Read-only, like the associations.
     func kitContentSummary(for kit: LibraryKit) -> String? {
         guard !libraryScanning, let association = associations.association(for: kit.url) else { return nil }
-        let count = association.samples.count
-        let samples = "\(count) sample\(count > 1 ? "s" : "")"
-        return association.isComplete ? samples : "\(samples) · liens incomplets"
+        let samples = LibraryFormat.samples(association.samples.count)
+        return association.isComplete ? samples : String(localized: "\(samples) · liens incomplets")
     }
 
     func kitTitleOnMPC(for kit: LibraryKit) -> String? {
@@ -576,17 +575,17 @@ final class StudioModel: ObservableObject {
     }
 
     func libraryLocationLabel(for kit: LibraryKit) -> String {
-        isMacLibraryKit(kit) ? "Bibliothèque sur le Mac" : kit.locationLabel
+        isMacLibraryKit(kit) ? String(localized: "Bibliothèque sur le Mac") : kit.locationLabel
     }
 
     func sampleLocationLabel(for url: URL) -> String {
         if url.standardizedFileURL.pathComponents.starts(with: localStore.rootURL.pathComponents) {
-            return "Bibliothèque sur le Mac"
+            return String(localized: "Bibliothèque sur le Mac")
         }
         if let part = partition(containing: url) {
             let folder = url.deletingLastPathComponent()
             let relative = folder.pathComponents.dropFirst(part.url.pathComponents.count).joined(separator: "/")
-            return relative.isEmpty ? "PART \(part.letter)" : "PART \(part.letter) · \(relative)"
+            return relative.isEmpty ? String(localized: "PART \(part.letter)") : String(localized: "PART \(part.letter) · \(relative)")
         }
         return url.deletingLastPathComponent().lastPathComponent
     }
@@ -610,7 +609,7 @@ final class StudioModel: ObservableObject {
 
     var exportSizeLabel: String {
         estimatedExportBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-            ?? "Taille indisponible"
+            ?? String(localized: "Taille indisponible")
     }
 
     var requiredExportFreeBytes: Int64 {
@@ -681,26 +680,26 @@ final class StudioModel: ObservableObject {
     }
 
     var documentSaveLabel: String {
-        if localSaveURL != nil { return isDirty ? "Modifications non enregistrées" : "Enregistré sur le Mac" }
-        if isDirty { return "À enregistrer sur le Mac" }
-        return programURL == nil ? "Nouveau .PGM" : "Source ouverte · enregistrer sur le Mac pour la conserver"
+        if localSaveURL != nil { return isDirty ? String(localized: "Modifications non enregistrées") : String(localized: "Enregistré sur le Mac") }
+        if isDirty { return String(localized: "À enregistrer sur le Mac") }
+        return programURL == nil ? String(localized: "Nouveau .PGM") : String(localized: "Source ouverte · enregistrer sur le Mac pour la conserver")
     }
 
     var kitLocationPath: String { (localSaveURL ?? programURL ?? lastExportURL)?.path ?? "" }
 
     var selectedDestinationLabel: String {
-        guard let destination = exportDestinationURL else { return "Choisir une destination" }
-        return partitions.first { $0.url == destination.standardizedFileURL }.map { "PART \($0.letter)" } ?? destination.lastPathComponent
+        guard let destination = exportDestinationURL else { return String(localized: "Choisir une destination") }
+        return partitions.first { $0.url == destination.standardizedFileURL }.map { String(localized: "PART \($0.letter)") } ?? destination.lastPathComponent
     }
 
     var exportDestinationIssue: String? {
-        if validatingExportDestination { return "Vérification de l’emplacement en cours… Tu peux annuler sans modifier le .PGM." }
+        if validatingExportDestination { return String(localized: "Vérification de l’emplacement en cours… Tu peux annuler sans modifier le .PGM.") }
         guard let destination = exportDestinationURL else { return nil }
         if let part = partitions.first(where: { $0.url == destination.standardizedFileURL }), !part.issues.isEmpty {
-            return "Cette PART doit être vérifiée avant l’enregistrement. Actualise la bibliothèque."
+            return String(localized: "Cette PART doit être vérifiée avant l’enregistrement. Actualise la bibliothèque.")
         }
         guard exportDestinationReceipt?.url.standardizedFileURL == destination.standardizedFileURL else {
-            return "Choisis à nouveau la destination pour vérifier son emplacement."
+            return String(localized: "Choisis à nouveau la destination pour vérifier son emplacement.")
         }
         return nil
     }
@@ -726,7 +725,7 @@ final class StudioModel: ObservableObject {
     /// its clusters stay occupied and the PART can no longer be verified as a destination.
     func trashRefusal(for kit: LibraryKit) -> String? {
         guard let letter = kit.partitionLetter else { return nil }
-        return "La corbeille n’est pas proposée sur la SD. macOS garderait \(kit.url.lastPathComponent) dans un dossier caché .Trashes de la PART \(letter) : la place resterait occupée et la PART ne pourrait plus être vérifiée. Supprime ce .PGM depuis la MPC si nécessaire."
+        return String(localized: "La corbeille n’est pas proposée sur la SD. macOS garderait \(kit.url.lastPathComponent) dans un dossier caché .Trashes de la PART \(letter) : la place resterait occupée et la PART ne pourrait plus être vérifiée. Supprime ce .PGM depuis la MPC si nécessaire.")
     }
 
     /// A kit is a program. Its samples and sequences remain independent on disk.
@@ -767,10 +766,10 @@ final class StudioModel: ObservableObject {
             return
         }
         let alert = NSAlert()
-        alert.messageText = "Mettre \(prepared.url.lastPathComponent) à la corbeille ?"
-        alert.informativeText = "Le programme .PGM se trouve ici :\n\(prepared.url.path)\n\nLes samples .SND et les séquences .SEQ restent sur le disque. Cette action libère très peu d’espace. Le .PGM ouvert reste en mémoire ; tu peux l’enregistrer à nouveau."
-        alert.addButton(withTitle: "Mettre à la corbeille")
-        alert.addButton(withTitle: "Annuler")
+        alert.messageText = String(localized: "Mettre \(prepared.url.lastPathComponent) à la corbeille ?")
+        alert.informativeText = String(localized: "Le programme .PGM se trouve ici :\n\(prepared.url.path)\n\nLes samples .SND et les séquences .SEQ restent sur le disque. Cette action libère très peu d’espace. Le .PGM ouvert reste en mémoire ; tu peux l’enregistrer à nouveau.")
+        alert.addButton(withTitle: String(localized: "Mettre à la corbeille"))
+        alert.addButton(withTitle: String(localized: "Annuler"))
         alert.buttons.first?.hasDestructiveAction = true
         let finish: (NSApplication.ModalResponse) -> Void = { response in
             confirmation(response == .alertFirstButtonReturn)
@@ -801,12 +800,12 @@ final class StudioModel: ObservableObject {
                 if wasCurrent { self.savedRevision = nil; self.isDirty = true }
                 self.libraryKits.removeAll { $0.url == deletedURL }
                 self.busy = false
-                self.status = "\(deletedURL.lastPathComponent) mis à la corbeille. Les samples et les séquences sont conservés."
+                self.status = String(localized: "\(deletedURL.lastPathComponent) mis à la corbeille. Les samples et les séquences sont conservés.")
                 self.refreshLocations()
             } catch {
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "La mise à la corbeille n’a pas abouti ; le .PGM en mémoire est conservé."
+                self.status = String(localized: "La mise à la corbeille n’a pas abouti ; le .PGM en mémoire est conservé.")
             }
         }
     }
@@ -842,7 +841,7 @@ final class StudioModel: ObservableObject {
                     guard mounted.contains(url) else {
                         return LibraryPartition(url: url, letter: LibraryIndex.partitionLetter(for: url) ?? url.lastPathComponent,
                                                 kits: [], fileCount: 0, folderCount: 0, audioCount: 0,
-                                                sequenceCount: 0, issues: ["Cette PART n’est plus montée. Rebranche la SD puis actualise."],
+                                                sequenceCount: 0, issues: [String(localized: "Cette PART n’est plus montée. Rebranche la SD puis actualise.")],
                                                 availableBytes: nil)
                     }
                     return LibraryIndex.scanPartition(url)
@@ -900,8 +899,8 @@ final class StudioModel: ObservableObject {
     func chooseFolder() {
         guard !documentLocked else { return }
         let panel = NSOpenPanel()
-        panel.title = "Ajouter un dossier de .PGM"
-        panel.prompt = "Ajouter"
+        panel.title = String(localized: "Ajouter un dossier de .PGM")
+        panel.prompt = String(localized: "Ajouter")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         presentFilePanel(panel) { [weak self] response in
@@ -948,8 +947,8 @@ final class StudioModel: ObservableObject {
     func chooseSampleFolder() {
         guard !documentLocked else { return }
         let panel = NSOpenPanel()
-        panel.title = "Ajouter une source de samples"
-        panel.prompt = "Ajouter"
+        panel.title = String(localized: "Ajouter une source de samples")
+        panel.prompt = String(localized: "Ajouter")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         presentFilePanel(panel) { [weak self] response in
@@ -991,7 +990,7 @@ final class StudioModel: ObservableObject {
            selected.starts(with: URL(fileURLWithPath: path).pathComponents) {
             selectedLocation = nil
         }
-        status = "\(url.lastPathComponent) retiré de la liste. Ses fichiers restent sur le disque."
+        status = String(localized: "\(url.lastPathComponent) retiré de la liste. Ses fichiers restent sur le disque.")
         refreshLocations()
     }
 
@@ -1005,7 +1004,7 @@ final class StudioModel: ObservableObject {
         if sampleScope == .folder, selectedSampleRoot?.standardizedFileURL.path == path {
             showAllLibrarySamples()
         }
-        status = "\(url.lastPathComponent) retiré des sources de samples. Ses fichiers restent sur le disque."
+        status = String(localized: "\(url.lastPathComponent) retiré des sources de samples. Ses fichiers restent sur le disque.")
     }
 
     /// The computer pane reopens on the source left last time, without a back step.
@@ -1034,15 +1033,15 @@ final class StudioModel: ObservableObject {
         sampleScope = .folder
         if let part = partitions.first(where: { folder.pathComponents.starts(with: $0.url.pathComponents) }),
            !Set(volumeProvider().map(\.standardizedFileURL)).contains(part.url) {
-            invalidateSampleFolder(folder, issue: "Cette PART n’est plus montée. Rebranche la SD puis actualise.",
-                                   problem: "PART indisponible.")
+            invalidateSampleFolder(folder, issue: String(localized: "Cette PART n’est plus montée. Rebranche la SD puis actualise."),
+                                   problem: String(localized: "PART indisponible."))
             return nil
         }
         guard folder.pathComponents.starts(with: root.pathComponents),
               folder.resolvingSymlinksInPath().pathComponents.starts(with: root.resolvingSymlinksInPath().pathComponents) else {
             if preservingSelection {
-                invalidateSampleFolder(folder, issue: "Ce dossier ne se trouve plus dans la source de samples sélectionnée.",
-                                       problem: "Dossier indisponible.")
+                invalidateSampleFolder(folder, issue: String(localized: "Ce dossier ne se trouve plus dans la source de samples sélectionnée."),
+                                       problem: String(localized: "Dossier indisponible."))
             }
             return nil
         }
@@ -1090,7 +1089,7 @@ final class StudioModel: ObservableObject {
             // A folder opened while this read was running is read on its own.
             _ = self.loadMissingTreeFolders(root: folder)
             self.sampleProblem = listing.issue == nil
-                ? nil : "Dossier indisponible ou inventaire incomplet. Actualise la bibliothèque."
+                ? nil : String(localized: "Dossier indisponible ou inventaire incomplet. Actualise la bibliothèque.")
         }
     }
 
@@ -1165,7 +1164,7 @@ final class StudioModel: ObservableObject {
     /// A PART that cannot be fully read is said once in the SD pane header.
     var sdSamplesIssue: String? {
         let issues = partitions.filter { mountedPartURLs.contains($0.url) }.flatMap { part in
-            part.issues.map { "PART \(part.letter) : \($0)" }
+            part.issues.map { String(localized: "PART \(part.letter) : \($0)") }
         }
         return issues.isEmpty ? nil : issues.joined(separator: "\n")
     }
@@ -1233,15 +1232,15 @@ final class StudioModel: ObservableObject {
 
     /// An empty tree is called empty only when the inventory can conclude it.
     var emptySampleTreeTitle: String {
-        if sampleListing.issue != nil { return "Dossier indisponible" }
-        return sampleBrowserIssue == nil ? "Dossier vide" : "Aucun sample visible"
+        if sampleListing.issue != nil { return String(localized: "Dossier indisponible") }
+        return sampleBrowserIssue == nil ? String(localized: "Dossier vide") : String(localized: "Aucun sample visible")
     }
 
     var emptySampleTreeDetail: String {
         if let issue = sampleListing.issue { return issue }
         return sampleBrowserIssue == nil
-            ? "Aucun sample ni sous-dossier ici."
-            : "Les fichiers visibles ne permettent pas de conclure que ce dossier est vide."
+            ? String(localized: "Aucun sample ni sous-dossier ici.")
+            : String(localized: "Les fichiers visibles ne permettent pas de conclure que ce dossier est vide.")
     }
 
     /// The computer pane's own caveat, never the SD's.
@@ -1290,7 +1289,7 @@ final class StudioModel: ObservableObject {
             } catch {
                 guard token == self.samplePreviewGeneration else { return }
                 self.samplePreviewBusy = false
-                self.sampleProblem = "Écoute impossible : \(error.localizedDescription)"
+                self.sampleProblem = String(localized: "Écoute impossible : \(error.localizedDescription)")
             }
         }
     }
@@ -1321,7 +1320,7 @@ final class StudioModel: ObservableObject {
         busy = true
         errorMessage = nil
         stop()
-        status = "Ouverture de \(url.lastPathComponent)…"
+        status = String(localized: "Ouverture de \(url.lastPathComponent)…")
         Task {
             do {
                 let (loaded, reports) = try await Task.detached(priority: .userInitiated) {
@@ -1343,14 +1342,14 @@ final class StudioModel: ObservableObject {
                 self.bank = 0
                 let trailing = loaded.sounds.values.reduce(0) { $0 + $1.trailingByteCount }
                 self.status = loaded.missing.isEmpty ? (trailing > 0 ?
-                    "Programme .PGM ouvert. \(trailing) octets hors PCM seront omis à l’enregistrement et à la copie." :
-                    "Programme .PGM ouvert. Les fichiers d’origine restent intacts ; ⌘S l’enregistre sur le Mac.") :
-                    "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’enregistrement et la copie exigent tous les samples du .PGM."
+                    String(localized: "Programme .PGM ouvert. \(trailing) octets hors PCM seront omis à l’enregistrement et à la copie.") :
+                    String(localized: "Programme .PGM ouvert. Les fichiers d’origine restent intacts ; ⌘S l’enregistre sur le Mac.")) :
+                    String(localized: "Sons indisponibles : \(loaded.missing.joined(separator: ", ")). L’enregistrement et la copie exigent tous les samples du .PGM.")
             } catch {
                 guard token == self.generation else { return }
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "Ouverture interrompue."
+                self.status = String(localized: "Ouverture interrompue.")
             }
         }
     }
@@ -1379,7 +1378,7 @@ final class StudioModel: ObservableObject {
         sound = nil
         isDirty = false
         errorMessage = nil
-        status = "Nouveau .PGM. Importe des WAV, AIFF ou SND sur les pads."
+        status = String(localized: "Nouveau .PGM. Importe des WAV, AIFF ou SND sur les pads.")
     }
 
     func selectPad(_ index: Int) {
@@ -1424,7 +1423,7 @@ final class StudioModel: ObservableObject {
         selectPad(index)
         guard let sound, let program else { return }
         do { try audio.play(sound, tune: program.tune(forNote: program.midiNote(forPad: index))) }
-        catch { errorMessage = "Écoute impossible : \(error.localizedDescription)" }
+        catch { errorMessage = String(localized: "Écoute impossible : \(error.localizedDescription)") }
     }
 
     func stop() {
@@ -1436,8 +1435,8 @@ final class StudioModel: ObservableObject {
     func importAudio() {
         guard !documentActionsDisabled else { return }
         let panel = NSOpenPanel()
-        panel.title = "Importer des samples sur les pads"
-        panel.prompt = "Importer"
+        panel.title = String(localized: "Importer des samples sur les pads")
+        panel.prompt = String(localized: "Importer")
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.audio, UTType(filenameExtension: "snd") ?? .data]
@@ -1459,7 +1458,7 @@ final class StudioModel: ObservableObject {
         busy = true
         resolvingDroppedFiles = true
         errorMessage = nil
-        status = "Lecture des fichiers déposés…"
+        status = String(localized: "Lecture des fichiers déposés…")
         dropTask = Task {
             do {
                 var urls: [URL] = []
@@ -1483,7 +1482,7 @@ final class StudioModel: ObservableObject {
                 self.resolvingDroppedFiles = false
                 self.busy = false
                 self.errorMessage = error is CancellationError ? nil : error.localizedDescription
-                self.status = "Import interrompu ; le .PGM est conservé."
+                self.status = String(localized: "Import interrompu ; le .PGM est conservé.")
             }
         }
         return true
@@ -1501,7 +1500,7 @@ final class StudioModel: ObservableObject {
         resolvingDroppedFiles = false
         busy = false
         errorMessage = nil
-        status = "Dépôt annulé ; le .PGM et ses modifications sont conservés."
+        status = String(localized: "Dépôt annulé ; le .PGM et ses modifications sont conservés.")
     }
 
     struct PreparedImport: Sendable {
@@ -1519,17 +1518,17 @@ final class StudioModel: ObservableObject {
         loadAudio: (URL, Int) throws -> MPCSound = { try AudioImporter.load($0, maximumPCMBytes: $1) }
     ) throws -> PreparedImport {
         guard (0..<64).contains(atPad) else {
-            throw StudioError.message("Le pad de départ est invalide.")
+            throw StudioError.message(String(localized: "Le pad de départ est invalide."))
         }
         guard urls.count <= 64 - atPad else {
-            throw StudioError.message("L’import contient \(urls.count) samples, mais seuls \(64 - atPad) pads restent jusqu’à D16. Choisis moins de fichiers ou un pad de départ plus tôt.")
+            throw StudioError.message(String(localized: "L’import contient \(urls.count) samples, mais seuls \(64 - atPad) pads restent jusqu’à D16. Choisis moins de fichiers ou un pad de départ plus tôt."))
         }
         let targetNotes = urls.indices.map { program.midiNote(forPad: atPad + $0) }
         guard targetNotes.allSatisfy({ (35...98).contains($0) }) else {
-            throw StudioError.message("Le programme contient une affectation de pad invalide.")
+            throw StudioError.message(String(localized: "Le programme contient une affectation de pad invalide."))
         }
         guard Set(targetNotes).count == targetNotes.count else {
-            throw StudioError.message("Deux pads de ce lot partagent la même note MIDI. Importe ces samples séparément ou modifie l’affectation des pads.")
+            throw StudioError.message(String(localized: "Deux pads de ce lot partagent la même note MIDI. Importe ces samples séparément ou modifie l’affectation des pads."))
         }
         var updated = program
         let initialReferences = program.referencedSlots
@@ -1544,7 +1543,7 @@ final class StudioModel: ObservableObject {
             var available = Set(0..<128).subtracting(referenced)
             if replacesExclusive, let old { available.insert(old) }
             guard let slot = available.min() else {
-                throw StudioError.message("Le programme utilise déjà 128 samples.")
+                throw StudioError.message(String(localized: "Le programme utilise déjà 128 samples."))
             }
             let retainedBytes = referenced.reduce(0) { sum, existing in
                 if replacesExclusive && existing == old { return sum }
@@ -1553,12 +1552,12 @@ final class StudioModel: ObservableObject {
             }
             let remaining = maximumPCMBytes - retainedBytes
             guard remaining > 0 else {
-                throw StudioError.message("L’import ferait dépasser 32 Mio de mémoire PCM.")
+                throw StudioError.message(String(localized: "L’import ferait dépasser 32 Mio de mémoire PCM."))
             }
             let sample = try loadAudio(url, remaining)
             let sampleBytes = sample.frameCount * sample.channels.count * 2
             guard sampleBytes <= remaining else {
-                throw StudioError.message("L’import ferait dépasser 32 Mio de mémoire PCM.")
+                throw StudioError.message(String(localized: "L’import ferait dépasser 32 Mio de mémoire PCM."))
             }
             pool[slot] = sample
             updated.setSound(slot: slot, name: sample.name, wordCount: sample.frameCount * sample.channels.count)
@@ -1577,7 +1576,7 @@ final class StudioModel: ObservableObject {
         stop()
         busy = true
         errorMessage = nil
-        status = "Conversion audio vers 44,1 kHz…"
+        status = String(localized: "Conversion audio vers 44,1 kHz…")
         return Task { await self.importResolvedURLs(urls, atPad: atPad, token: token) }
     }
 
@@ -1585,31 +1584,31 @@ final class StudioModel: ObservableObject {
     private func importResolvedURLs(_ urls: [URL], atPad: Int, token: Int) async {
         let startingProgram = program ?? MPCProgram.blank(name: kitName)
         let startingSounds = sounds
-        status = "Conversion audio vers 44,1 kHz…"
+        status = String(localized: "Conversion audio vers 44,1 kHz…")
         do {
             let prepared = try await Task.detached(priority: .userInitiated) {
                 try Self.prepareImport(urls, atPad: atPad, program: startingProgram, sounds: startingSounds)
             }.value
             guard token == self.generation else { return }
-            self.recordEdit("Importer des samples")
+            self.recordEdit(String(localized: "Importer des samples"))
             self.program = prepared.program
             self.sounds = prepared.sounds
             self.audioRangeReports = prepared.rangeReports
             self.busy = false
             self.isDirty = true
             self.selectPad(atPad)
-            self.status = self.exportAudioIssue ?? "\(prepared.importedCount) sample(s) importé(s)."
+            self.status = self.exportAudioIssue ?? LibraryFormat.importedSamples(prepared.importedCount)
         } catch {
             guard token == self.generation else { return }
             self.busy = false
             self.errorMessage = error.localizedDescription
-            self.status = "Import interrompu ; le .PGM est conservé."
+            self.status = String(localized: "Import interrompu ; le .PGM est conservé.")
         }
     }
 
     func setKitName(_ value: String) {
         guard !documentActionsDisabled, value != kitName else { return }
-        recordEdit("Renommer le .PGM", coalescingKey: "programName")
+        recordEdit(String(localized: "Renommer le .PGM"), coalescingKey: "programName")
         kitName = value
         program?.name = value
         isDirty = true
@@ -1618,7 +1617,7 @@ final class StudioModel: ObservableObject {
     func setSoundName(_ name: String) {
         guard !documentActionsDisabled, var sample = sound, sample.name != name, var updated = program,
               let slot = updated.slot(forNote: updated.midiNote(forPad: selectedPad)) else { return }
-        recordEdit("Renommer le sample", coalescingKey: "sampleName-\(selectedPad)")
+        recordEdit(String(localized: "Renommer le sample"), coalescingKey: "sampleName-\(selectedPad)")
         sample.name = name
         updated.setSound(slot: slot, name: name, wordCount: sample.frameCount * sample.channels.count)
         program = updated
@@ -1630,7 +1629,7 @@ final class StudioModel: ObservableObject {
         let lo = min(max(0, start), max(0, sample.frameCount - 1))
         let hi = min(sample.frameCount, max(lo + 1, end))
         guard sample.start != lo || sample.end != hi else { return }
-        recordEdit("Régler la découpe", coalescingKey: "trim-\(selectedPad)")
+        recordEdit(String(localized: "Régler la découpe"), coalescingKey: "trim-\(selectedPad)")
         sample.start = lo
         sample.end = hi
         replaceSelected(sample, updateRangeReport: false)
@@ -1641,16 +1640,16 @@ final class StudioModel: ObservableObject {
         switch kind {
         case "trim":
             guard sound.end - sound.start >= 441 else {
-                errorMessage = "La découpe doit conserver au moins 441 échantillons (10 ms)."
+                errorMessage = String(localized: "La découpe doit conserver au moins 441 échantillons (10 ms).")
                 return
             }
-            recordEdit("Découper le sample")
+            recordEdit(String(localized: "Découper le sample"))
             replaceSelected(sound.trimmed())
-        case "normalize": recordEdit("Normaliser le sample"); replaceSelected(sound.normalized())
-        case "mono": recordEdit("Convertir en mono"); replaceSelected(sound.mono())
-        case "fade": recordEdit("Appliquer le fondu"); replaceSelected(sound.faded(milliseconds: 3))
+        case "normalize": recordEdit(String(localized: "Normaliser le sample")); replaceSelected(sound.normalized())
+        case "mono": recordEdit(String(localized: "Convertir en mono")); replaceSelected(sound.mono())
+        case "fade": recordEdit(String(localized: "Appliquer le fondu")); replaceSelected(sound.faded(milliseconds: 3))
         case "reverse":
-            recordEdit("Inverser le sample")
+            recordEdit(String(localized: "Inverser le sample"))
             var copy = sound
             copy.channels = sound.channels.map { Array($0.reversed()) }
             copy.start = sound.frameCount - sound.end
@@ -1658,14 +1657,14 @@ final class StudioModel: ObservableObject {
             replaceSelected(copy)
         default: return
         }
-        status = "Sample modifié · ⌘S pour enregistrer sur le Mac."
+        status = String(localized: "Sample modifié · ⌘S pour enregistrer sur le Mac.")
     }
 
     func setPadTune(_ value: Int) {
         guard !documentActionsDisabled, var updated = program else { return }
         let tune = min(120, max(-120, value))
         guard tune != padTune else { return }
-        recordEdit("Accorder le pad", coalescingKey: "tune-\(selectedPad)")
+        recordEdit(String(localized: "Accorder le pad"), coalescingKey: "tune-\(selectedPad)")
         updated.setTune(tune, forNote: updated.midiNote(forPad: selectedPad))
         program = updated
         isDirty = true
@@ -1767,8 +1766,8 @@ final class StudioModel: ObservableObject {
     func chooseExportFolder() {
         guard !documentLocked else { return }
         let panel = NSOpenPanel()
-        panel.title = "Choisir le dossier d’export"
-        panel.prompt = "Choisir"
+        panel.title = String(localized: "Choisir le dossier d’export")
+        panel.prompt = String(localized: "Choisir")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
@@ -1790,7 +1789,7 @@ final class StudioModel: ObservableObject {
         guard !documentActionsDisabled, let program else { return nil }
         if let issue = exportAudioIssue {
             errorMessage = issue
-            status = "L’export attend ta décision sur le niveau des samples ; le .PGM est conservé."
+            status = String(localized: "L’export attend ta décision sur le niveau des samples ; le .PGM est conservé.")
             return nil
         }
         let exportProgram = program
@@ -1801,7 +1800,7 @@ final class StudioModel: ObservableObject {
         samplePreviewGeneration += 1
         samplePreviewBusy = false
         audio.stop()
-        status = "Export vers \(selectedDestinationLabel)…"
+        status = String(localized: "Export vers \(selectedDestinationLabel)…")
         return Task {
             do {
                 let output = try await Task.detached(priority: .userInitiated) {
@@ -1815,12 +1814,12 @@ final class StudioModel: ObservableObject {
                     self.kitFolders.append(destination)
                     self.persistFolderLists()
                 }
-                self.status = "Export terminé · \(self.sampleLocationLabel(for: output)) · \(output.lastPathComponent)."
+                self.status = String(localized: "Export terminé · \(self.sampleLocationLabel(for: output)) · \(output.lastPathComponent).")
                 self.refreshLocations()
             } catch {
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "L’export n’a pas abouti ; le .PGM est conservé."
+                self.status = String(localized: "L’export n’a pas abouti ; le .PGM est conservé.")
             }
         }
     }
@@ -1848,7 +1847,7 @@ final class StudioModel: ObservableObject {
         guard !documentActionsDisabled, var updated = program else { return }
         let note = updated.midiNote(forPad: selectedPad)
         guard let oldSlot = updated.slot(forNote: note) else { return }
-        recordEdit("Vider le pad")
+        recordEdit(String(localized: "Vider le pad"))
         updated.assign(slot: nil, toNote: note)
         if !updated.referencedSlots.contains(oldSlot) {
             sounds.removeValue(forKey: oldSlot)
@@ -1878,19 +1877,23 @@ final class StudioModel: ObservableObject {
 
     var canUndo: Bool { !documentActionsDisabled && history.undoTitle != nil }
     var canRedo: Bool { !documentActionsDisabled && history.redoTitle != nil }
-    var undoTitle: String { history.undoTitle.map { "Annuler · \($0)" } ?? "Annuler" }
-    var redoTitle: String { history.redoTitle.map { "Rétablir · \($0)" } ?? "Rétablir" }
+    // French "Annuler" is both Undo and Cancel; the menu item gets its own key.
+    var undoTitle: String {
+        history.undoTitle.map { String(localized: "Annuler · \($0)") }
+            ?? String(localized: "edit.undo", defaultValue: "Annuler", comment: "Edit menu item when nothing can be undone")
+    }
+    var redoTitle: String { history.redoTitle.map { String(localized: "Rétablir · \($0)") } ?? String(localized: "Rétablir") }
 
     func undo() {
         guard canUndo, let state = history.undo(documentState) else { return }
         restore(state)
-        status = "Modification annulée."
+        status = String(localized: "Modification annulée.")
     }
 
     func redo() {
         guard canRedo, let state = history.redo(documentState) else { return }
         restore(state)
-        status = "Modification rétablie."
+        status = String(localized: "Modification rétablie.")
     }
 
     private func restore(_ state: StudioDocumentState) {
@@ -1911,7 +1914,7 @@ final class StudioModel: ObservableObject {
         guard !documentActionsDisabled, source != destination, var updated = program else { return }
         do {
             try updated.transferPad(from: source, to: destination, copy: copy)
-            recordEdit(copy ? "Copier l’affectation" : "Déplacer les pads")
+            recordEdit(copy ? String(localized: "Copier l’affectation") : String(localized: "Déplacer les pads"))
             program = updated
             // Copy may replace the last reference to the destination's old sound.
             let references = updated.referencedSlots
@@ -1920,8 +1923,8 @@ final class StudioModel: ObservableObject {
             selectPad(destination)
             isDirty = true
             stop()
-            status = copy ? "Affectation copiée ; les deux pads partagent le même sample."
-                : "Pads réorganisés · ⌘Z pour annuler."
+            status = copy ? String(localized: "Affectation copiée ; les deux pads partagent le même sample.")
+                : String(localized: "Pads réorganisés · ⌘Z pour annuler.")
         } catch { errorMessage = error.localizedDescription }
     }
 
@@ -1964,7 +1967,7 @@ final class StudioModel: ObservableObject {
     private func saveProgram(completion: @escaping (Bool) -> Void) -> Task<Void, Never>? {
         guard !documentActionsDisabled, let program else { completion(false); return nil }
         if !isDirty, let localSaveURL, localStore.contains(localSaveURL) {
-            status = "Le .PGM est déjà enregistré sur le Mac."
+            status = String(localized: "Le .PGM est déjà enregistré sur le Mac.")
             completion(true)
             return nil
         }
@@ -1981,7 +1984,7 @@ final class StudioModel: ObservableObject {
         busy = true
         stop()
         errorMessage = nil
-        status = "Enregistrement sur le Mac…"
+        status = String(localized: "Enregistrement sur le Mac…")
         return Task {
             do {
                 let output = try await Task.detached(priority: .userInitiated) {
@@ -1998,13 +2001,13 @@ final class StudioModel: ObservableObject {
                 self.history.endCoalescing()
                 self.isDirty = self.revision != savedState
                 self.busy = false
-                self.status = "\(output.lastPathComponent) enregistré dans la bibliothèque sur le Mac."
+                self.status = String(localized: "\(output.lastPathComponent) enregistré dans la bibliothèque sur le Mac.")
                 self.refreshLocations()
                 completion(true)
             } catch {
                 self.busy = false
                 self.errorMessage = error.localizedDescription
-                self.status = "Enregistrement interrompu ; tes modifications restent en mémoire."
+                self.status = String(localized: "Enregistrement interrompu ; tes modifications restent en mémoire.")
                 completion(false)
             }
         }
@@ -2058,11 +2061,11 @@ final class StudioModel: ObservableObject {
         if let unsavedPresenter { unsavedPresenter(decide); return }
         if let discardPresenter { discardPresenter { decide($0 ? .discard : .cancel) }; return }
         let alert = NSAlert()
-        alert.messageText = "Enregistrer les modifications de \(kitName).PGM ?"
-        alert.informativeText = "Le .PGM et ses samples seront conservés dans la bibliothèque sur le Mac."
-        alert.addButton(withTitle: "Enregistrer")
-        alert.addButton(withTitle: "Abandonner les modifications")
-        alert.addButton(withTitle: "Annuler")
+        alert.messageText = String(localized: "Enregistrer les modifications de \(kitName).PGM ?")
+        alert.informativeText = String(localized: "Le .PGM et ses samples seront conservés dans la bibliothèque sur le Mac.")
+        alert.addButton(withTitle: String(localized: "Enregistrer"))
+        alert.addButton(withTitle: String(localized: "Abandonner les modifications"))
+        alert.addButton(withTitle: String(localized: "Annuler"))
         alert.buttons[1].hasDestructiveAction = true
         alert.buttons[2].keyEquivalent = "\u{1b}"
         let finish: (NSApplication.ModalResponse) -> Void = { response in

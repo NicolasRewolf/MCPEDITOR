@@ -22,7 +22,7 @@ struct ProgramColumn: View {
             HStack(spacing: 6) {
                 Text("\(model.filteredKits.count) .PGM")
                     .font(.system(size: 12, weight: .semibold))
-                IssueBadge(title: "Inventaire incomplet", issue: model.programListIssue)
+                IssueBadge(title: String(localized: "Inventaire incomplet"), issue: model.programListIssue)
                 if model.libraryScanning {
                     ProgressView().controlSize(.mini).accessibilityLabel("Actualisation de la bibliothèque")
                 }
@@ -68,15 +68,15 @@ struct ProgramColumn: View {
     /// Tout · Mac · A B C D… : text only, the chosen one underlined.
     private var filters: some View {
         FlowLayout(spacing: 5, lineSpacing: 4) {
-            FilterLetter(text: "Tout", selected: model.selectedLocation == nil, label: "Tous les .PGM") {
+            FilterLetter(text: String(localized: "Tout"), selected: model.selectedLocation == nil, label: String(localized: "Tous les .PGM")) {
                 model.filterPrograms(to: nil)
             }
-            FilterLetter(text: "Mac", selected: model.selectedLocation == model.macLibraryURL, label: "Bibliothèque sur le Mac") {
+            FilterLetter(text: String(localized: "Mac"), selected: model.selectedLocation == model.macLibraryURL, label: String(localized: "Bibliothèque sur le Mac")) {
                 model.filterPrograms(to: model.macLibraryURL)
             }
             ForEach(model.mountedPartsWithContent, id: \.url) { part in
                 FilterLetter(text: part.letter, selected: model.selectedLocation == part.url,
-                             warning: !part.issues.isEmpty, label: "PART \(part.letter)") {
+                             warning: !part.issues.isEmpty, label: String(localized: "PART \(part.letter)")) {
                     model.filterPrograms(to: part.url)
                 }
             }
@@ -94,7 +94,7 @@ struct ProgramColumn: View {
                     if let available = part.availableBytes {
                         PartFillBar(available: available, capacity: model.emptyPartCapacityBytes)
                     }
-                    IssueBadge(title: "PART \(part.letter) à vérifier",
+                    IssueBadge(title: String(localized: "PART \(part.letter) à vérifier"),
                                issue: part.issues.isEmpty ? nil : part.issues.joined(separator: "\n"))
                 }
                 if let metadata = part.macOSMetadata, let summary = LibraryFormat.macOSSummary(metadata) {
@@ -107,8 +107,7 @@ struct ProgramColumn: View {
             }
         } else if model.selectedLocation == nil, !model.emptyParts.isEmpty {
             let empty = model.emptyParts
-            Text("+ \(empty.count) PART vide\(empty.count > 1 ? "s" : "")"
-                 + (model.emptyPartCapacityBytes.map { " · \(ByteCountFormatter.string(fromByteCount: $0, countStyle: .file))\(empty.count > 1 ? " chacune" : "")" } ?? ""))
+            Text(emptyPartsLine(count: empty.count))
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
                 .help("PART vides : \(empty.map(\.letter).joined(separator: " ")). « Copier sur la SD… » propose la première qui peut recevoir la bank.")
@@ -122,6 +121,13 @@ struct ProgramColumn: View {
         }
     }
 
+    /// "+ 11 PART vides · 8,1 Mo chacune"; a single empty PART has no "each".
+    private func emptyPartsLine(count: Int) -> String {
+        guard let bytes = model.emptyPartCapacityBytes else { return LibraryFormat.emptyParts(count) }
+        let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return count == 1 ? String(localized: "+ 1 PART vide · \(size)") : String(localized: "+ \(count) PART vides · \(size) chacune")
+    }
+
     private var programList: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
@@ -129,10 +135,10 @@ struct ProgramColumn: View {
                     if model.filteredKits.isEmpty {
                         LibraryEmptyState(
                             symbol: "square.grid.3x3",
-                            title: model.programListIssue == nil ? "Aucun .PGM ici" : "Aucun .PGM visible ici",
+                            title: model.programListIssue == nil ? String(localized: "Aucun .PGM ici") : String(localized: "Aucun .PGM visible ici"),
                             detail: model.programListIssue == nil
-                                ? "Choisis une autre PART, ou crée un .PGM avec +."
-                                : "Actualise la bibliothèque (⌘R) pour vérifier les fichiers accessibles."
+                                ? String(localized: "Choisis une autre PART, ou crée un .PGM avec +.")
+                                : String(localized: "Actualise la bibliothèque (⌘R) pour vérifier les fichiers accessibles.")
                         )
                     }
                     let groups = model.groupedFilteredKits
@@ -142,7 +148,7 @@ struct ProgramColumn: View {
                                 programRow(kit)
                             }
                         } header: {
-                            if groups.count > 1 { KitGroupHeader(title: group.title, count: group.kits.count) }
+                            if groups.count > 1 { KitGroupHeader(title: group.title, countText: LibraryFormat.programs(group.kits.count)) }
                         }
                     }
                 }
@@ -165,7 +171,7 @@ struct ProgramColumn: View {
                 subtitle: model.kitRowSubtitle(for: kit),
                 symbol: "square.grid.3x3",
                 selected: (model.localSaveURL ?? model.programURL) == kit.url,
-                path: kit.url.path + (model.kitTitleOnMPC(for: kit).map { "\nTitre sur la MPC : \($0)" } ?? "")
+                path: kit.url.path + (model.kitTitleOnMPC(for: kit).map { String(localized: "\nTitre sur la MPC : \($0)") } ?? "")
             ) { model.openProgram(kit.url) }
             .accessibilityLabel("\(kit.title), \(model.libraryLocationLabel(for: kit))")
             .accessibilityHint("Ouvrir ce programme MPC")

@@ -8,11 +8,11 @@ public enum ProgramPadEditingError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .invalidPad(let pad):
-            return "Le pad \(pad) n’existe pas ; les pads vont de A01 à D16."
+            return String(localized: "Le pad \(pad) n’existe pas ; les pads vont de A01 à D16.")
         case .emptySource(let pad):
-            return "Le pad \(Self.label(pad)) est vide."
+            return String(localized: "Le pad \(Self.label(pad)) est vide.")
         case .sharedNote(let note):
-            return "La note MIDI \(note) est partagée par plusieurs pads. Le déplacement ou la copie est annulé pour préserver leurs réglages."
+            return String(localized: "La note MIDI \(note) est partagée par plusieurs pads. Le déplacement ou la copie est annulé pour préserver leurs réglages.")
         }
     }
 

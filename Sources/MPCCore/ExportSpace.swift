@@ -35,13 +35,13 @@ public enum ExportSpaceError: LocalizedError {
         switch self {
         case .unavailable:
             return
-                "Impossible de vérifier l’espace libre. Rebranche le disque puis actualise la bibliothèque."
-        case .invalidSize: return "La taille nécessaire à l’enregistrement ne peut pas être calculée."
+                String(localized: "Impossible de vérifier l’espace libre. Rebranche le disque puis actualise la bibliothèque.")
+        case .invalidSize: return String(localized: "La taille nécessaire à l’enregistrement ne peut pas être calculée.")
         case .insufficientSpace(let required, let available):
             let needed = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
             let free = ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
             return
-                "Espace insuffisant : \(needed) nécessaires, \(free) libres, avec l’allocation et les métadonnées macOS. Choisis une autre destination ou raccourcis les sons."
+                String(localized: "Espace insuffisant : \(needed) nécessaires, \(free) libres, avec l’allocation et les métadonnées macOS. Choisis une autre destination ou raccourcis les sons.")
         }
     }
 }

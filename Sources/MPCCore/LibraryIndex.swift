@@ -22,7 +22,7 @@ public struct LibraryKit: Identifiable, Equatable, Sendable {
     public var id: URL { url }
     public var title: String { url.deletingPathExtension().lastPathComponent }
     public var locationLabel: String {
-        let root = partitionLetter.map { "PART \($0)" } ?? rootURL.lastPathComponent
+        let root = partitionLetter.map { String(localized: "PART \($0)") } ?? rootURL.lastPathComponent
         return relativeFolder.isEmpty ? root : "\(root) · \(relativeFolder)"
     }
 }
@@ -146,7 +146,7 @@ public enum LibraryIndex {
                           maximumEntries: maximumEntries)
         let space = result.issues.isEmpty ? try? ExportSpace.volume(at: url) : nil
         var issues = result.issues
-        if space == nil && issues.isEmpty { issues.append("L’espace de cette PART ne peut pas être vérifié.") }
+        if space == nil && issues.isEmpty { issues.append(String(localized: "L’espace de cette PART ne peut pas être vérifié.")) }
         if result.fileCount == 0 && result.folderCount == 0 && issues.isEmpty,
            let issue = verifyEmptyFATInventory(url, maximumDepth: maximumDepth,
                                              maximumEntries: maximumEntries, volumeProbe: fatVolumeProbe) {
@@ -174,10 +174,10 @@ public enum LibraryIndex {
     /// fichier créé ») is replaced by why the PART is never proposed as a destination.
     static func unverifiedDestinationIssue(_ detail: String, partition url: URL) -> String {
         // Library views join several PARTs' issues: each one names its PART.
-        var issue = "PART \(partitionLetter(for: url) ?? url.lastPathComponent) non proposée comme destination : \(detail)"
+        var issue = String(localized: "PART \(partitionLetter(for: url) ?? url.lastPathComponent) non proposée comme destination : \(detail)")
         if hasUnreadableTrash(in: url) {
-            issue += " macOS y a créé une corbeille cachée (.Trashes) dont le contenu ne peut pas être lu."
-                + " Elle apparaît quand un fichier de la PART est mis à la corbeille."
+            issue += String(localized: " macOS y a créé une corbeille cachée (.Trashes) dont le contenu ne peut pas être lu.")
+                + String(localized: " Elle apparaît quand un fichier de la PART est mis à la corbeille.")
         }
         return issue
     }
@@ -202,7 +202,7 @@ public enum LibraryIndex {
         volumeProbe: @escaping (Int32) throws -> FATVolumeUsage?
     ) -> String? {
         let descriptor = url.path.withCString { open($0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
-        guard descriptor >= 0 else { return "La PART vide ne peut pas être vérifiée." }
+        guard descriptor >= 0 else { return String(localized: "La PART vide ne peut pas être vérifiée.") }
         defer { _ = close(descriptor) }
         var environment = ExportDestination.Environment()
         environment.fatUsage = { descriptor in
@@ -216,9 +216,9 @@ public enum LibraryIndex {
                                                        environment: environment, allowNonFAT: true)
             return nil
         } catch ExportDestinationError.notEmpty {
-            return "L’inventaire FAT révèle des fichiers absents du premier relevé. Actualise la bibliothèque."
+            return String(localized: "L’inventaire FAT révèle des fichiers absents du premier relevé. Actualise la bibliothèque.")
         } catch {
-            return "Vérification de la PART vide impossible. \(error.localizedDescription)"
+            return String(localized: "Vérification de la PART vide impossible. \(error.localizedDescription)")
         }
     }
 
@@ -259,19 +259,19 @@ public enum LibraryIndex {
               let values = try? root.resourceValues(forKeys: keys),
               values.isDirectory == true, values.isSymbolicLink != true else {
             return LibrarySampleSearch(samples: [], truncated: false,
-                                       issue: "Dossier indisponible : \(root.path).")
+                                       issue: String(localized: "Dossier indisponible : \(root.path)."))
         }
         var issue: String?
         guard let entries = FileManager.default.enumerator(
             at: root, includingPropertiesForKeys: Array(keys),
             options: [.skipsHiddenFiles, .skipsPackageDescendants],
             errorHandler: { failed, error in
-                issue = "Lecture impossible : \(failed.path). \(error.localizedDescription)"
+                issue = String(localized: "Lecture impossible : \(failed.path). \(error.localizedDescription)")
                 return true
             }
         ) else {
             return LibrarySampleSearch(samples: [], truncated: false,
-                                       issue: "Impossible de parcourir le dossier : \(root.path).")
+                                       issue: String(localized: "Impossible de parcourir le dossier : \(root.path)."))
         }
         let prefix = root.pathComponents.count
         var samples: [URL] = []
@@ -314,39 +314,39 @@ public enum LibraryIndex {
         root.removeAllCachedResourceValues()
         let keys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]
         guard root.isFileURL else {
-            result.issues.append("Ce dossier n’est pas un emplacement local.")
+            result.issues.append(String(localized: "Ce dossier n’est pas un emplacement local."))
             return result
         }
         do {
             let values = try root.resourceValues(forKeys: keys)
             guard values.isDirectory == true, values.isSymbolicLink != true else {
-                result.issues.append("Le dossier est indisponible ou constitue un lien symbolique : \(root.path).")
+                result.issues.append(String(localized: "Le dossier est indisponible ou constitue un lien symbolique : \(root.path)."))
                 return result
             }
         } catch {
-            result.issues.append("Dossier indisponible : \(root.path). \(error.localizedDescription)")
+            result.issues.append(String(localized: "Dossier indisponible : \(root.path). \(error.localizedDescription)"))
             return result
         }
         guard maximumDepth >= 0, maximumEntries > 0 else {
-            result.issues.append("Le parcours est incomplet : limite de lecture atteinte.")
+            result.issues.append(String(localized: "Le parcours est incomplet : limite de lecture atteinte."))
             return result
         }
 
         guard let entries = FileManager.default.enumerator(
             at: root, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles],
             errorHandler: { url, error in
-                result.issues.append("Lecture impossible : \(url.path). \(error.localizedDescription)")
+                result.issues.append(String(localized: "Lecture impossible : \(url.path). \(error.localizedDescription)"))
                 return false
             }
         ) else {
-            result.issues.append("Impossible de parcourir le dossier : \(root.path).")
+            result.issues.append(String(localized: "Impossible de parcourir le dossier : \(root.path)."))
             return result
         }
 
         var visited = 0
         while let entry = entries.nextObject() as? URL {
             guard visited < maximumEntries else {
-                result.issues.append("Le parcours est incomplet : limite de \(maximumEntries) éléments atteinte.")
+                result.issues.append(String(localized: "Le parcours est incomplet : limite de \(maximumEntries) éléments atteinte."))
                 break
             }
             visited += 1
@@ -364,7 +364,7 @@ public enum LibraryIndex {
                         entries.skipDescendants()
                     } else if entries.level > maximumDepth {
                         entries.skipDescendants()
-                        result.issues.append("Le parcours est incomplet : profondeur maximale atteinte dans \(entry.lastPathComponent).")
+                        result.issues.append(String(localized: "Le parcours est incomplet : profondeur maximale atteinte dans \(entry.lastPathComponent)."))
                     }
                     continue
                 }
@@ -385,7 +385,7 @@ public enum LibraryIndex {
             } catch {
                 entries.skipDescendants()
                 result.fileCount += 1
-                result.issues.append("Lecture impossible : \(entry.path). \(error.localizedDescription)")
+                result.issues.append(String(localized: "Lecture impossible : \(entry.path). \(error.localizedDescription)"))
             }
         }
         result.kits = Array(Dictionary(result.kits.map { ($0.url, $0) }, uniquingKeysWith: { first, _ in first }).values)

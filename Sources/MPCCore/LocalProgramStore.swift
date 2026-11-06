@@ -27,13 +27,13 @@ public struct LocalProgramStore: Sendable {
         public var errorDescription: String? {
             switch self {
             case .unavailable:
-                return "La bibliothèque locale ne peut pas être ouverte en toute sécurité."
+                return String(localized: "La bibliothèque locale ne peut pas être ouverte en toute sécurité.")
             case .changed:
-                return "La bibliothèque locale a changé pendant l’enregistrement. La version précédente reste disponible."
+                return String(localized: "La bibliothèque locale a changé pendant l’enregistrement. La version précédente reste disponible.")
             case .invalidManifest:
-                return "Un enregistrement de la bibliothèque locale est incomplet ou a été modifié. Aucun original n’a été remplacé."
+                return String(localized: "Un enregistrement de la bibliothèque locale est incomplet ou a été modifié. Aucun original n’a été remplacé.")
             case .staleProgram:
-                return "Ce .PGM local n’est plus la version courante. Rouvre-le depuis la bibliothèque avant de l’enregistrer."
+                return String(localized: "Ce .PGM local n’est plus la version courante. Rouvre-le depuis la bibliothèque avant de l’enregistrer.")
             }
         }
     }
@@ -97,7 +97,7 @@ public struct LocalProgramStore: Sendable {
                                                    partitionLetter: nil, relativeFolder: ""))
                         }
                     } catch {
-                        issues.append("Bibliothèque locale · \(name) : \(error.localizedDescription)")
+                        issues.append(String(localized: "Bibliothèque locale · \(name) : \(error.localizedDescription)"))
                     }
                 }
                 return ScanResult(kits: kits.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending },

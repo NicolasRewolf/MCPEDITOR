@@ -47,14 +47,14 @@ struct ExportDestinationSheet: View {
             if model.exportDestinationURL == nil {
                 if let capacity = model.partCapacity, !capacity.fits {
                     Text(
-                        "Aucune PART proposée : ce .PGM et ses samples demandent \(ByteCountFormatter.string(fromByteCount: capacity.requiredBytes, countStyle: .file)), une PART vide en offre \(ByteCountFormatter.string(fromByteCount: capacity.capacityBytes, countStyle: .file)). Retire ou raccourcis des samples, ou choisis un dossier sur le Mac."
+                        String(localized: "Aucune PART proposée : ce .PGM et ses samples demandent \(ByteCountFormatter.string(fromByteCount: capacity.requiredBytes, countStyle: .file)), une PART vide en offre \(ByteCountFormatter.string(fromByteCount: capacity.capacityBytes, countStyle: .file)). Retire ou raccourcis des samples, ou choisis un dossier sur le Mac.")
                     )
                     .font(.callout)
                     .foregroundStyle(.yellow)
                     .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text(
-                        "Aucune PART proposée. Branche la SD ou choisis un dossier pour cette copie."
+                        String(localized: "Aucune PART proposée. Branche la SD ou choisis un dossier pour cette copie.")
                     )
                     .font(.callout)
                     .foregroundStyle(.yellow)
@@ -71,7 +71,7 @@ struct ExportDestinationSheet: View {
                         .disabled(model.documentLocked)
                 }
             }
-            DisclosureGroup("Changer la destination", isExpanded: $changeDestination) {
+            DisclosureGroup(String(localized: "Changer la destination"), isExpanded: $changeDestination) {
                 Text("PART DE LA SD")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(StudioPalette.muted)
@@ -107,7 +107,7 @@ struct ExportDestinationSheet: View {
             VStack(alignment: .leading, spacing: 5) {
                 Label(model.selectedDestinationLabel, systemImage: "folder")
                     .font(.system(size: 13, weight: .medium))
-                Text(model.exportDestinationURL?.path ?? "Aucune destination choisie")
+                Text(model.exportDestinationURL?.path ?? String(localized: "Aucune destination choisie"))
                     .font(.caption)
                     .foregroundStyle(StudioPalette.muted)
                     .textSelection(.enabled)
@@ -128,7 +128,7 @@ struct ExportDestinationSheet: View {
                 }
             }
             Text(
-                "Un programme .PGM et ses sons .SND seront créés. Les fichiers existants sont conservés ; un nom libre est choisi si nécessaire."
+                String(localized: "Un programme .PGM et ses sons .SND seront créés. Les fichiers existants sont conservés ; un nom libre est choisi si nécessaire.")
             )
             .font(.caption)
             .foregroundStyle(StudioPalette.muted)
@@ -139,7 +139,7 @@ struct ExportDestinationSheet: View {
                     .disabled(model.documentLocked)
                 Spacer()
                 Button(
-                    "Copier ici", action: model.exportKitToDestination
+                    String(localized: "Copier ici"), action: model.exportKitToDestination
                 )
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
@@ -160,14 +160,14 @@ struct ExportDestinationSheet: View {
         let selected = model.exportDestinationURL == partition.url
         let summary =
             !partition.issues.isEmpty
-            ? "À vérifier"
+            ? String(localized: "À vérifier")
             : partition.isEmpty
-                ? "Vide (fichiers visibles)"
-                : "\(partition.kits.count) .PGM · \(partition.audioCount) sample(s)"
+                ? String(localized: "Vide (fichiers visibles)")
+                : "\(LibraryFormat.programs(partition.kits.count)) · \(LibraryFormat.samples(partition.audioCount))"
         let available =
             partition.availableBytes.map {
-                ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + " libres"
-            } ?? "Espace inconnu"
+                ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + String(localized: " libres")
+            } ?? String(localized: "Espace inconnu")
         return Button {
             model.selectExportPartition(partition)
         } label: {

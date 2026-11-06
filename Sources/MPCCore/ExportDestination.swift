@@ -13,11 +13,11 @@ public enum ExportDestinationError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .changed:
-            return "La destination a changé depuis sa sélection. Actualise la bibliothèque puis choisis-la à nouveau. Aucun fichier n’a été créé."
+            return String(localized: "La destination a changé depuis sa sélection. Actualise la bibliothèque puis choisis-la à nouveau. Aucun fichier n’a été créé.")
         case .notEmpty:
-            return "La PART proposée n’est plus vide. Actualise la bibliothèque puis choisis une autre destination. Aucun fichier n’a été créé."
+            return String(localized: "La PART proposée n’est plus vide. Actualise la bibliothèque puis choisis une autre destination. Aucun fichier n’a été créé.")
         case .unverified(let detail):
-            return "Cette destination doit être vérifiée avant l’enregistrement. \(detail) Aucun fichier n’a été créé."
+            return String(localized: "Cette destination doit être vérifiée avant l’enregistrement. \(detail) Aucun fichier n’a été créé.")
         }
     }
 }
@@ -149,7 +149,7 @@ public struct ExportDestination: Equatable, Sendable {
         }.map { offset, _ in URL(fileURLWithPath: NSString.path(withComponents: Array(selectedURL.pathComponents.prefix(offset + 1)))) }
         if let mpcAncestor {
             guard mount.filesystem == "msdos", mount.mountPoint.standardizedFileURL == mpcAncestor.standardizedFileURL else {
-                throw ExportDestinationError.unverified("Le dossier portant ce nom de PART n’est pas une partition FAT montée.")
+                throw ExportDestinationError.unverified(String(localized: "Le dossier portant ce nom de PART n’est pas une partition FAT montée."))
             }
         }
         return mount.filesystem == "msdos" &&
@@ -210,7 +210,7 @@ public struct ExportDestination: Equatable, Sendable {
         #if canImport(Darwin)
         var info = statfs()
         guard fstatfs(descriptor, &info) == 0 else {
-            throw ExportDestinationError.unverified("Le montage n’est pas accessible.")
+            throw ExportDestinationError.unverified(String(localized: "Le montage n’est pas accessible."))
         }
         func string<T>(_ tuple: inout T) -> String {
             withUnsafePointer(to: &tuple) { pointer in
@@ -232,7 +232,7 @@ public struct ExportDestination: Equatable, Sendable {
         if readUUID == 0, length == 20, bytes.dropFirst(4).contains(where: { $0 != 0 }) {
             identifier += ":" + bytes.dropFirst(4).map { String(format: "%02x", $0) }.joined()
         } else if filesystem == "msdos" {
-            throw ExportDestinationError.unverified("L’identité du volume FAT n’est pas accessible.")
+            throw ExportDestinationError.unverified(String(localized: "L’identité du volume FAT n’est pas accessible."))
         }
         return MountIdentity(filesystem: filesystem, identifier: identifier,
                              mountedFrom: string(&info.f_mntfromname),
@@ -248,7 +248,7 @@ public struct ExportDestination: Equatable, Sendable {
         #if canImport(Darwin)
         var filesystem = statfs()
         guard fstatfs(descriptor, &filesystem) == 0 else {
-            throw ExportDestinationError.unverified("Le format de la partition n’est pas accessible.")
+            throw ExportDestinationError.unverified(String(localized: "Le format de la partition n’est pas accessible."))
         }
         let name = withUnsafePointer(to: &filesystem.f_fstypename) { pointer in
             pointer.withMemoryRebound(to: CChar.self, capacity: Int(MFSNAMELEN)) { String(cString: $0) }
@@ -257,7 +257,7 @@ public struct ExportDestination: Equatable, Sendable {
         var values = statvfs()
         guard fstatvfs(descriptor, &values) == 0, values.f_frsize > 0,
               values.f_blocks >= values.f_bfree else {
-            throw ExportDestinationError.unverified("L’occupation FAT n’est pas accessible.")
+            throw ExportDestinationError.unverified(String(localized: "L’occupation FAT n’est pas accessible."))
         }
         // FSKit explicitly publishes 0=FAT12, 1=FAT16, 2=FAT32 from its BPB-derived type:
         // apple-oss-distributions/msdosfs c9f076c4, msdosVolume.m:153-174 / FATVolume.m:1178.
@@ -279,16 +279,16 @@ public struct ExportDestination: Equatable, Sendable {
                                    totalBlocks: UInt64, freeBlocks: UInt64,
                                    isFSKit: Bool, rootAllocationIsFixed: Bool) throws -> FATVolumeUsage {
         guard unit > 0, totalBlocks >= freeBlocks else {
-            throw ExportDestinationError.unverified("Le compteur FAT est incohérent.")
+            throw ExportDestinationError.unverified(String(localized: "Le compteur FAT est incohérent."))
         }
         var occupiedBlocks = totalBlocks - freeBlocks
         if isFSKit {
-            guard occupiedBlocks > 0 else { throw ExportDestinationError.unverified("Le compteur FAT est incohérent.") }
+            guard occupiedBlocks > 0 else { throw ExportDestinationError.unverified(String(localized: "Le compteur FAT est incohérent.")) }
             occupiedBlocks -= 1
         }
         let (occupied, overflow) = occupiedBlocks.multipliedReportingOverflow(by: unit)
         guard !overflow, unit <= UInt64(Int64.max), occupied <= UInt64(Int64.max) else {
-            throw ExportDestinationError.unverified("L’occupation FAT ne peut pas être calculée.")
+            throw ExportDestinationError.unverified(String(localized: "L’occupation FAT ne peut pas être calculée."))
         }
         return FATVolumeUsage(allocationUnitBytes: Int64(unit), occupiedBytes: Int64(occupied),
                               rootAllocationIsFixed: rootAllocationIsFixed)
@@ -297,10 +297,10 @@ public struct ExportDestination: Equatable, Sendable {
     /// An independent directory stream avoids sharing and advancing the write descriptor's offset.
     static func nativeNames(directoryFD: Int32) throws -> [String] {
         let copy = openat(directoryFD, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
-        guard copy >= 0 else { throw ExportDestinationError.unverified("Le dossier ne peut pas être inventorié.") }
+        guard copy >= 0 else { throw ExportDestinationError.unverified(String(localized: "Le dossier ne peut pas être inventorié.")) }
         guard let stream = fdopendir(copy) else {
             _ = close(copy)
-            throw ExportDestinationError.unverified("Le dossier ne peut pas être inventorié.")
+            throw ExportDestinationError.unverified(String(localized: "Le dossier ne peut pas être inventorié."))
         }
         defer { _ = closedir(stream) }
         var names: [String] = []
@@ -308,7 +308,7 @@ public struct ExportDestination: Equatable, Sendable {
         while true {
             errno = 0
             guard let entry = readdir(stream) else {
-                guard errno == 0 else { throw ExportDestinationError.unverified("La lecture du dossier est incomplète.") }
+                guard errno == 0 else { throw ExportDestinationError.unverified(String(localized: "La lecture du dossier est incomplète.")) }
                 break
             }
             let name = withUnsafePointer(to: &entry.pointee.d_name) { pointer in
@@ -316,7 +316,7 @@ public struct ExportDestination: Equatable, Sendable {
             }
             if name == "." || name == ".." { continue }
             guard names.count < 50_000, unique.insert(name).inserted else {
-                throw ExportDestinationError.unverified("Le dossier est incomplet ou contient des noms répétés.")
+                throw ExportDestinationError.unverified(String(localized: "Le dossier est incomplet ou contient des noms répétés."))
             }
             names.append(name)
         }
@@ -332,7 +332,7 @@ public struct ExportDestination: Equatable, Sendable {
         if usage == nil, allowNonFAT { return }
         guard let before = usage, before.allocationUnitBytes > 0,
               before.occupiedBytes >= 0, maximumDepth >= 0, maximumEntries > 0 else {
-            throw ExportDestinationError.unverified("L’occupation FAT n’est pas vérifiable.")
+            throw ExportDestinationError.unverified(String(localized: "L’occupation FAT n’est pas vérifiable."))
         }
         var root = stat()
         guard fstat(directoryFD, &root) == 0 else { throw ExportDestinationError.changed }
@@ -341,13 +341,13 @@ public struct ExportDestination: Equatable, Sendable {
         var allocatedIdentities: Set<String> = []
         func account(_ info: stat) throws {
             guard info.st_dev == root.st_dev, info.st_blocks >= 0 else {
-                throw ExportDestinationError.unverified("L’inventaire traverse un emplacement indéterminé.")
+                throw ExportDestinationError.unverified(String(localized: "L’inventaire traverse un emplacement indéterminé."))
             }
             let (bytes, overflow) = Int64(info.st_blocks).multipliedReportingOverflow(by: 512)
             let (sum, sumOverflow) = accounted.addingReportingOverflow(bytes)
-            guard !overflow, !sumOverflow else { throw ExportDestinationError.unverified("L’allocation ne peut pas être calculée.") }
+            guard !overflow, !sumOverflow else { throw ExportDestinationError.unverified(String(localized: "L’allocation ne peut pas être calculée.")) }
             if bytes > 0, !allocatedIdentities.insert("\(info.st_dev):\(info.st_ino)").inserted {
-                throw ExportDestinationError.unverified("L’inventaire contient des allocations répétées.")
+                throw ExportDestinationError.unverified(String(localized: "L’inventaire contient des allocations répétées."))
             }
             accounted = sum
         }
@@ -356,23 +356,23 @@ public struct ExportDestination: Equatable, Sendable {
             var insensitiveNames: Set<String> = []
             for name in names {
                 guard visited < maximumEntries, insensitiveNames.insert(name.uppercased()).inserted else {
-                    throw ExportDestinationError.unverified("L’inventaire est incomplet ou contient des noms ambigus.")
+                    throw ExportDestinationError.unverified(String(localized: "L’inventaire est incomplet ou contient des noms ambigus."))
                 }
                 visited += 1
                 if requireEmpty, depth == 0, !name.hasPrefix(".") { throw ExportDestinationError.notEmpty }
                 var info = stat()
                 guard name.withCString({ fstatat(directory, $0, &info, AT_SYMLINK_NOFOLLOW) }) == 0 else {
-                    throw ExportDestinationError.unverified("Une entrée de l’inventaire est indisponible.")
+                    throw ExportDestinationError.unverified(String(localized: "Une entrée de l’inventaire est indisponible."))
                 }
                 let type = info.st_mode & mode_t(S_IFMT)
                 guard type == mode_t(S_IFREG) || type == mode_t(S_IFDIR) else {
-                    throw ExportDestinationError.unverified("L’inventaire contient un lien ou un type indéterminé.")
+                    throw ExportDestinationError.unverified(String(localized: "L’inventaire contient un lien ou un type indéterminé."))
                 }
                 try account(info)
                 if type == mode_t(S_IFDIR) {
-                    guard depth < maximumDepth else { throw ExportDestinationError.unverified("L’inventaire dépasse la profondeur autorisée.") }
+                    guard depth < maximumDepth else { throw ExportDestinationError.unverified(String(localized: "L’inventaire dépasse la profondeur autorisée.")) }
                     let child = name.withCString { openat(directory, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW) }
-                    guard child >= 0 else { throw ExportDestinationError.unverified("Un dossier ne peut pas être parcouru.") }
+                    guard child >= 0 else { throw ExportDestinationError.unverified(String(localized: "Un dossier ne peut pas être parcouru.")) }
                     defer { _ = close(child) }
                     var opened = stat()
                     guard fstat(child, &opened) == 0, opened.st_dev == info.st_dev, opened.st_ino == info.st_ino else {
@@ -385,12 +385,12 @@ public struct ExportDestination: Equatable, Sendable {
         if !before.rootAllocationIsFixed { try account(root) }
         try inventory(directoryFD, depth: 0)
         guard let after = try environment.fatUsage(directoryFD), after == before else {
-            throw ExportDestinationError.unverified("L’occupation FAT a changé pendant la vérification.")
+            throw ExportDestinationError.unverified(String(localized: "L’occupation FAT a changé pendant la vérification."))
         }
         guard before.occupiedBytes == accounted else {
             let detail = before.occupiedBytes > accounted
-                ? "\(before.occupiedBytes - accounted) octets occupés ne sont pas expliqués par l’inventaire."
-                : "L’allocation annoncée ne correspond pas à l’inventaire."
+                ? String(localized: "\(before.occupiedBytes - accounted) octets occupés ne sont pas expliqués par l’inventaire.")
+                : String(localized: "L’allocation annoncée ne correspond pas à l’inventaire.")
             throw ExportDestinationError.unverified(detail)
         }
     }

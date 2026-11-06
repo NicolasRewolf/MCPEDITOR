@@ -66,7 +66,7 @@ final class ProgramSoundResolver {
                         // An unreadable/truncated header could hide a second native name.
                         // Do not turn an incomplete inventory into a unique association.
                         guard inspected.bytes.count == MPCSoundHeader.byteCount else {
-                            throw MPCFormatError.invalid("en-tête SND tronqué : \(url.lastPathComponent).")
+                            throw MPCFormatError.invalid(String(localized: "en-tête SND tronqué : \(url.lastPathComponent)."))
                         }
                         if let name = inspected.nativeName, !name.isEmpty {
                             result[name.uppercased(), default: []].append(url)
@@ -98,25 +98,25 @@ final class ProgramSoundResolver {
         var issues: [String] = []
         for slot in slots {
             let name = program.soundName(slot: slot)
-            let label = name.isEmpty ? "slot \(slot + 1)" : name
+            let label = name.isEmpty ? String(localized: "slot \(slot + 1)") : name
             guard !name.isEmpty else { issues.append(label); continue }
             let filenameMatches = folder.filenames[name.uppercased()] ?? []
             let file: URL
             if filenameMatches.count == 1 {
                 file = filenameMatches[0]
             } else if filenameMatches.count > 1 {
-                issues.append("\(label) (nom de fichier ambigu)")
+                issues.append(String(localized: "\(label) (nom de fichier ambigu)"))
                 continue
             } else {
                 do {
                     let matches = try folder.files(named: name)
                     guard matches.count == 1 else {
-                        issues.append(matches.isEmpty ? label : "\(label) (nom interne SND ambigu)")
+                        issues.append(matches.isEmpty ? label : String(localized: "\(label) (nom interne SND ambigu)"))
                         continue
                     }
                     file = matches[0]
                 } catch {
-                    issues.append("\(label) (noms internes non vérifiés : \(error.localizedDescription))")
+                    issues.append(String(localized: "\(label) (noms internes non vérifiés : \(error.localizedDescription))"))
                     continue
                 }
             }
@@ -138,24 +138,24 @@ final class ProgramSoundResolver {
             root.removeAllCachedResourceValues()
             let values = try root.resourceValues(forKeys: keys)
             guard values.isDirectory == true, values.isSymbolicLink != true else {
-                throw MPCFormatError.invalid("le dossier du .PGM est indisponible ou constitue un lien.")
+                throw MPCFormatError.invalid(String(localized: "le dossier du .PGM est indisponible ou constitue un lien."))
             }
             var enumerationError: Error?
             guard let entries = FileManager.default.enumerator(
                 at: root, includingPropertiesForKeys: Array(keys),
                 options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants],
                 errorHandler: { _, error in enumerationError = error; return false }
-            ) else { throw MPCFormatError.invalid("le dossier du .PGM ne peut pas être parcouru.") }
+            ) else { throw MPCFormatError.invalid(String(localized: "le dossier du .PGM ne peut pas être parcouru.")) }
             var files: [URL] = []
             while let entry = entries.nextObject() as? URL {
                 guard remainingEntries > 0 else {
-                    throw MPCFormatError.invalid("inventaire des associations incomplet : limite de lecture atteinte.")
+                    throw MPCFormatError.invalid(String(localized: "inventaire des associations incomplet : limite de lecture atteinte."))
                 }
                 remainingEntries -= 1
                 let values = try entry.resourceValues(forKeys: keys)
                 guard entry.pathExtension.caseInsensitiveCompare("snd") == .orderedSame else { continue }
                 guard values.isSymbolicLink != true else {
-                    throw MPCFormatError.invalid("un fichier SND est un lien : \(entry.lastPathComponent).")
+                    throw MPCFormatError.invalid(String(localized: "un fichier SND est un lien : \(entry.lastPathComponent)."))
                 }
                 if values.isRegularFile == true { files.append(entry.standardizedFileURL) }
             }
@@ -173,13 +173,13 @@ final class ProgramSoundResolver {
     }
 
     private static func openRegularFile(_ url: URL) throws -> FileHandle {
-        guard url.isFileURL else { throw MPCFormatError.invalid("un fichier local est nécessaire.") }
+        guard url.isFileURL else { throw MPCFormatError.invalid(String(localized: "un fichier local est nécessaire.")) }
         let descriptor = url.path.withCString { open($0, O_RDONLY | O_NOFOLLOW | O_NONBLOCK) }
         guard descriptor >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
         var info = stat()
         guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG else {
             _ = close(descriptor)
-            throw MPCFormatError.invalid("un fichier régulier est nécessaire.")
+            throw MPCFormatError.invalid(String(localized: "un fichier régulier est nécessaire."))
         }
         return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
     }

@@ -91,15 +91,15 @@ struct SampleColumn: View {
                         .foregroundStyle(model.autoPreviewSamples ? StudioPalette.orange : StudioPalette.muted)
                 }
                 .buttonStyle(.borderless)
-                .help(model.autoPreviewSamples ? "Écoute en parcourant avec ↑ ↓ : activée" : "Écouter en parcourant avec ↑ ↓")
+                .help(model.autoPreviewSamples ? String(localized: "Écoute en parcourant avec ↑ ↓ : activée") : String(localized: "Écouter en parcourant avec ↑ ↓"))
                 .accessibilityLabel("Écouter en parcourant")
-                .accessibilityValue(model.autoPreviewSamples ? "activée" : "désactivée")
+                .accessibilityValue(model.autoPreviewSamples ? String(localized: "activée") : String(localized: "désactivée"))
             }
             if let line = countLine {
                 HStack(spacing: 6) {
                     if model.sampleSearchInProgress { ProgressView().controlSize(.mini) }
                     Text(line)
-                    IssueBadge(title: "Inventaire incomplet", issue: model.sampleBrowserIssue)
+                    IssueBadge(title: String(localized: "Inventaire incomplet"), issue: model.sampleBrowserIssue)
                 }
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
@@ -114,27 +114,27 @@ struct SampleColumn: View {
 
     private var searchPrompt: String {
         if model.sampleScope == .folder, let folder = model.sampleFolder ?? model.selectedSampleRoot {
-            return "Rechercher dans \(folder.lastPathComponent)"
+            return String(localized: "Rechercher dans \(folder.lastPathComponent)")
         }
-        return "Rechercher dans cette vue"
+        return String(localized: "Rechercher dans cette vue")
     }
 
     private var countLine: String? {
         if model.isSampleTreeSearch {
-            if model.sampleSearchInProgress { return "Recherche…" }
+            if model.sampleSearchInProgress { return String(localized: "Recherche…") }
             let count = model.filteredSamples.count
-            return model.sampleSearchTruncated ? "\(count)+ résultats · précise ta recherche" : LibraryFormat.count(count, "résultat")
+            return model.sampleSearchTruncated ? String(localized: "\(count)+ résultats · précise ta recherche") : LibraryFormat.results(count)
         }
-        if model.sampleScope == .folder { return model.sampleBrowserIssue == nil ? nil : "Dossier à vérifier" }
-        return LibraryFormat.count(model.filteredSamples.count, "sample")
+        if model.sampleScope == .folder { return model.sampleBrowserIssue == nil ? nil : String(localized: "Dossier à vérifier") }
+        return LibraryFormat.samples(model.filteredSamples.count)
     }
 
     /// The computer's sources, side by side: the Mac collection, then each added folder.
     private var places: some View {
         FlowLayout(spacing: 5) {
             let place = model.selectedSamplePlace
-            PlaceChip(title: "Mac", symbol: "desktopcomputer", selected: place == .library,
-                      help: "Les samples des .PGM enregistrés sur le Mac. L’app les range dans son dossier :\n\(model.macLibraryURL.path)",
+            PlaceChip(title: String(localized: "Mac"), symbol: "desktopcomputer", selected: place == .library,
+                      help: String(localized: "Les samples des .PGM enregistrés sur le Mac. L’app les range dans son dossier :\n\(model.macLibraryURL.path)"),
                       action: model.showAllLibrarySamples)
             .contextMenu {
                 Button("Afficher dans le Finder") { model.revealInFinder(model.macLibraryURL) }
@@ -229,12 +229,12 @@ struct SampleColumn: View {
                     if model.filteredSamples.isEmpty && !model.sampleSearchInProgress {
                         LibraryEmptyState(
                             symbol: "waveform",
-                            title: model.isSampleTreeSearch ? "Aucun sample trouvé" : "Aucun sample dans cette vue",
+                            title: model.isSampleTreeSearch ? String(localized: "Aucun sample trouvé") : String(localized: "Aucun sample dans cette vue"),
                             detail: model.isSampleTreeSearch
-                                ? "Chaque mot cherché doit apparaître dans le nom du sample ou de ses dossiers."
+                                ? String(localized: "Chaque mot cherché doit apparaître dans le nom du sample ou de ses dossiers.")
                                 : (model.sampleScope == .library
-                                    ? "Les samples des .PGM enregistrés sur le Mac apparaissent ici. Ajoute un dossier de ton SSD avec +."
-                                    : "Choisis une autre source ou ajoute un dossier de ton SSD.")
+                                    ? String(localized: "Les samples des .PGM enregistrés sur le Mac apparaissent ici. Ajoute un dossier de ton SSD avec +.")
+                                    : String(localized: "Choisis une autre source ou ajoute un dossier de ton SSD."))
                         )
                     }
                     let groups = model.groupedFilteredSamples
@@ -245,7 +245,7 @@ struct SampleColumn: View {
                             }
                         } header: {
                             if groups.count > 1 {
-                                KitGroupHeader(title: group.title, count: group.samples.count, unit: "sample")
+                                KitGroupHeader(title: group.title, countText: LibraryFormat.samples(group.samples.count))
                             }
                         }
                     }
@@ -313,8 +313,8 @@ struct SampleColumn: View {
                             .font(.system(size: 12, weight: .semibold))
                         Spacer(minLength: 4)
                         Text(model.sdIsMounted
-                             ? "\(model.sdSampleCount) · \(model.mountedPartsWithContent.count) PART"
-                             : "SD absente")
+                             ? String(localized: "\(model.sdSampleCount) · \(model.mountedPartsWithContent.count) PART")
+                             : String(localized: "SD absente"))
                             .font(.caption)
                             .foregroundStyle(StudioPalette.muted)
                     }
@@ -322,8 +322,8 @@ struct SampleColumn: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Samples de la SD")
-                .accessibilityValue(sdCollapsed ? "replié" : "déplié")
-                IssueBadge(title: "Inventaire de la SD incomplet", issue: model.sdSamplesIssue)
+                .accessibilityValue(sdCollapsed ? String(localized: "replié") : String(localized: "déplié"))
+                IssueBadge(title: String(localized: "Inventaire de la SD incomplet"), issue: model.sdSamplesIssue)
             }
             if !sdCollapsed {
                 if !model.sdIsMounted {
@@ -347,7 +347,7 @@ struct SampleColumn: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     let rows = model.sdSampleRows
                     if rows.isEmpty {
-                        Text(model.sdSampleQuery.isEmpty ? "Aucun sample sur la SD." : "Aucun sample trouvé sur la SD.")
+                        Text(model.sdSampleQuery.isEmpty ? String(localized: "Aucun sample sur la SD.") : String(localized: "Aucun sample trouvé sur la SD."))
                             .font(.caption)
                             .foregroundStyle(StudioPalette.muted)
                             .padding(.vertical, 8)
@@ -400,9 +400,9 @@ struct SampleColumn: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(issue.map { "PART \(letter) à vérifier :\n\($0)" } ?? "PART \(letter) · \(LibraryFormat.count(count, "sample"))")
-            .accessibilityLabel("PART \(letter), \(LibraryFormat.count(count, "sample"))")
-            .accessibilityValue(expanded ? "déplié" : "replié")
+            .help(issue.map { String(localized: "PART \(letter) à vérifier :\n\($0)") } ?? String(localized: "PART \(letter) · \(LibraryFormat.samples(count))"))
+            .accessibilityLabel("PART \(letter), \(LibraryFormat.samples(count))")
+            .accessibilityValue(expanded ? String(localized: "déplié") : String(localized: "replié"))
         case .sample:
             let selected = model.selectedSDSampleURL == row.url
             HStack(spacing: 0) {

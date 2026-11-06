@@ -4,7 +4,8 @@
 > avec son historique. Il contient aussi la page de vente (`site/`) et le plan de lancement
 > ([docs/LAUNCH.md](docs/LAUNCH.md)). La recherche ROM reste dans son propre dépôt.
 
-Application native pour Apple Silicon, macOS 13 ou plus récent. Interface en français.
+Application native pour Apple Silicon, macOS 13 ou plus récent. Interface en français et en anglais,
+selon la langue choisie dans macOS (français par défaut).
 Programmes MPC3000 natifs et sons SND révision 02, avec préparation de programmes à partir de WAV/AIFF.
 Aucune gestion de séquences.
 
@@ -177,6 +178,17 @@ archives et fichiers de l’app. La vérification décompresse le ZIP courant et
 son exécutable et sa signature. En CI, ce même livrable est ensuite lancé sur un runner isolé ;
 le processus et sa fenêtre sont contrôlés séparément. Ce n’est pas une attestation indépendante.
 Les tests du cœur se lancent séparément avec `swift test`.
+Le script choisit Xcode s’il est installé, même quand `xcode-select` désigne les outils en ligne de commande :
+XCTest et le compilateur de catalogue de textes ne viennent qu’avec Xcode.
+
+Les textes affichés sont rédigés en français dans le code, la langue source ; leur version anglaise est dans
+`Localization/Localizable.xcstrings`, le catalogue standard d’Xcode. La compilation de livraison relève chaque
+texte utilisé (`-emit-localized-strings`) et `scripts/localization.py` refuse la construction si un texte manque
+au catalogue, n’a pas d’anglais, n’est plus utilisé ou n’a pas les mêmes valeurs (`%@`, `%lld`) que l’original.
+Pour un nouveau texte : écrire `Text("…")` ou `String(localized: "…")`, lancer le script, puis compléter
+l’anglais dans le catalogue (Xcode l’ouvre directement) ; `xcrun xcstringstool sync` y ajoute les nouvelles clés.
+Les nombres au pluriel passent par `LibraryFormat` : le français y choisit sa forme (0 et 1 au singulier), le
+catalogue donne les formes anglaises.
 Les tests de l'application contrôlent aussi les conversions WAV/AIFF mono/stéréo
 à 44,1/48/96 kHz, le budget des lots, les curseurs natifs et le rendu audio hors ligne.
 Ces contrôles ne remplacent pas une écoute humaine ni un chargement sur la MPC.

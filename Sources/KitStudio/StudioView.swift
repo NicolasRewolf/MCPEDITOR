@@ -229,7 +229,7 @@ struct StudioView: View {
         let target = model.selectedPad
         let canTransfer = source != target && model.padHasSound(index: source)
         let targetHasSound = model.padHasSound(index: target)
-        Button(targetHasSound ? "Échanger avec \(model.selectedLabel)" : "Déplacer vers \(model.selectedLabel)") {
+        Button(targetHasSound ? String(localized: "Échanger avec \(model.selectedLabel)") : String(localized: "Déplacer vers \(model.selectedLabel)")) {
             model.padTransfer(from: source, to: target)
         }
         .disabled(!canTransfer || model.documentActionsDisabled)
@@ -290,7 +290,7 @@ struct PartCapacityGauge: View {
     private var label: String {
         let required = ByteCountFormatter.string(fromByteCount: capacity.requiredBytes, countStyle: .file)
         let total = ByteCountFormatter.string(fromByteCount: capacity.capacityBytes, countStyle: .file)
-        return capacity.fits ? "\(required) / \(total) sur une PART" : "Ne tient pas dans une PART · \(required) / \(total)"
+        return capacity.fits ? String(localized: "\(required) / \(total) sur une PART") : String(localized: "Ne tient pas dans une PART · \(required) / \(total)")
     }
 
     var body: some View {
@@ -309,8 +309,8 @@ struct PartCapacityGauge: View {
                 .foregroundStyle(capacity.fits ? StudioPalette.muted : Color.yellow)
         }
         .help(capacity.measuredLetter.map {
-            "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la plus grande PART vide de la SD (PART \($0))."
-        } ?? "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la dernière PART vide observée. La SD n’est pas branchée.")
+            String(localized: "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la plus grande PART vide de la SD (PART \($0)).")
+        } ?? String(localized: "Espace nécessaire pour copier ce .PGM et ses samples, allocation FAT et réserve comprises, comparé à la dernière PART vide observée. La SD n’est pas branchée."))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
     }
@@ -345,9 +345,17 @@ private struct PadButton: View {
                 let pads = providers.filter { $0.hasItemConformingToTypeIdentifier(Self.padType.identifier) }
                 return pads.isEmpty ? onDropFiles(providers) : onDropPads(pads)
             }
-            .accessibilityLabel("Pad \(number), \(hasSound ? name : "vide")\(shared ? ", sample partagé" : "")\(missing ? ", sample introuvable" : "")")
+            .accessibilityLabel(spokenDescription)
             .accessibilityHint("Écouter et sélectionner. Glisser pour déplacer ; déposer sur un pad occupé pour échanger.")
             .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// "Pad 6, CLAP2, sample partagé": each part translated on its own.
+    private var spokenDescription: String {
+        var parts = [String(localized: "Pad \(number)"), hasSound ? name : String(localized: "vide")]
+        if shared { parts.append(String(localized: "sample partagé")) }
+        if missing { parts.append(String(localized: "sample introuvable")) }
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder
@@ -445,7 +453,7 @@ private struct SampleEditor: View {
                 }
                 Spacer()
                 if let sound = model.sound {
-                    Text(sound.channels.count == 1 ? "MONO" : "STÉRÉO")
+                    Text(sound.channels.count == 1 ? "MONO" : String(localized: "STÉRÉO"))
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -520,27 +528,25 @@ private struct SampleEditor: View {
 
     private func trimControls(_ sound: MPCSound) -> some View {
         VStack(spacing: 4) {
-            trimSlider(
-                title: "DÉBUT", value: sound.start, upper: max(1, sound.frameCount - 1)
+            SampleTrimSlider(
+                title: String(localized: "DÉBUT"), accessibilityName: String(localized: "Début du sample"),
+                value: sound.start, upper: max(1, sound.frameCount - 1)
             ) { model.setTrim(start: min($0, sound.end - 1), end: sound.end) }
-            trimSlider(
-                title: "FIN", value: sound.end, upper: max(1, sound.frameCount)
+            SampleTrimSlider(
+                title: String(localized: "FIN"), accessibilityName: String(localized: "Fin du sample"),
+                value: sound.end, upper: max(1, sound.frameCount)
             ) { model.setTrim(start: sound.start, end: max(sound.start + 1, $0)) }
         }
-    }
-
-    private func trimSlider(title: String, value: Int, upper: Int, onChange: @escaping (Int) -> Void) -> some View {
-        SampleTrimSlider(title: title, value: value, upper: upper, onChange: onChange)
     }
 
     /// One row under the pads' width; it wraps only in a narrow window.
     private var transformControls: some View {
         FlowLayout(spacing: 7, lineSpacing: 7) {
-            operation("Découper", symbol: "scissors", kind: "trim")
-            operation("Normaliser", symbol: "waveform", kind: "normalize")
-            operation("Mono", symbol: "speaker.wave.1", kind: "mono")
-            operation("Petits fondus", symbol: "waveform.path", kind: "fade")
-            operation("Inverser", symbol: "backward.end", kind: "reverse")
+            operation(String(localized: "Découper"), symbol: "scissors", kind: "trim")
+            operation(String(localized: "Normaliser"), symbol: "waveform", kind: "normalize")
+            operation(String(localized: "Mono"), symbol: "speaker.wave.1", kind: "mono")
+            operation(String(localized: "Petits fondus"), symbol: "waveform.path", kind: "fade")
+            operation(String(localized: "Inverser"), symbol: "backward.end", kind: "reverse")
         }
     }
 
@@ -569,6 +575,7 @@ private struct SampleEditor: View {
 /// The binding still rounds the selected position to a whole audio frame.
 struct SampleTrimSlider: View {
     let title: String
+    let accessibilityName: String
     let value: Int
     let upper: Int
     let onChange: (Int) -> Void
@@ -583,7 +590,7 @@ struct SampleTrimSlider: View {
                 get: { Double(min(upper, max(0, value))) },
                 set: { onChange(Int($0.rounded())) }
             ), in: 0...Double(upper))
-            .accessibilityLabel(title == "DÉBUT" ? "Début du sample" : "Fin du sample")
+            .accessibilityLabel(accessibilityName)
             Text(value.formatted())
                 .font(.system(size: 10, design: .monospaced))
                 .frame(width: 66, alignment: .trailing)

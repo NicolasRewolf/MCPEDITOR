@@ -11,7 +11,7 @@ struct TrimSliderTests {
     @Test func audioFrameRangeDoesNotCreateNativeTickMarks() throws {
         _ = NSApplication.shared
         let view = NSHostingView(rootView: SampleTrimSlider(
-            title: "DÉBUT", value: 0, upper: 44_100, onChange: { _ in }
+            title: "DÉBUT", accessibilityName: "Début du sample", value: 0, upper: 44_100, onChange: { _ in }
         ))
         view.frame = NSRect(x: 0, y: 0, width: 600, height: 60)
         view.layoutSubtreeIfNeeded()

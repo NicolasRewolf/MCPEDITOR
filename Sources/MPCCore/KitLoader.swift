@@ -11,7 +11,7 @@ public enum KitLoaderError: LocalizedError, Sendable {
     case memoryLimitExceeded
 
     public var errorDescription: String? {
-        "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype."
+        String(localized: "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype.")
     }
 }
 
@@ -37,7 +37,7 @@ public enum KitLoader {
                 let data = try ProgramSoundResolver.readFile(source.url, limit: MPCSound.maximumFileBytes + 1)
                 guard data.count == source.header.fileBytes,
                       data.prefix(MPCSoundHeader.byteCount) == source.header.bytes else {
-                    throw MPCFormatError.invalid("le son a changé pendant son ouverture ; réessaie.")
+                    throw MPCFormatError.invalid(String(localized: "le son a changé pendant son ouverture ; réessaie."))
                 }
                 sounds[source.slot] = try MPCSound.decode(data, name: source.name)
             } catch { missing.append("\(source.name) (\(error.localizedDescription))") }

@@ -59,7 +59,7 @@ public struct ProgramAssociationIndex: Sendable {
         for program in programs {
             guard !visited.contains(program.url) else { continue }
             guard visited.count < max(0, maximumPrograms) else {
-                issues.append("Associations incomplètes : limite de \(max(0, maximumPrograms)) .PGM atteinte.")
+                issues.append(String(localized: "Associations incomplètes : limite de \(max(0, maximumPrograms)) .PGM atteinte."))
                 break
             }
             visited.insert(program.url)
@@ -74,7 +74,7 @@ public struct ProgramAssociationIndex: Sendable {
             }
             associations.append(association)
             if !association.isComplete {
-                issues.append("\(program.title).PGM · \(program.locationLabel) : \(association.issues.joined(separator: "; "))")
+                issues.append(String(localized: "\(program.title).PGM · \(program.locationLabel) : \(association.issues.joined(separator: "; "))"))
             }
         }
         associations.sort { $0.program.url.path < $1.program.url.path }

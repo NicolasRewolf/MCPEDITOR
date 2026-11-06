@@ -57,15 +57,15 @@ public enum KitTrash {
         public var errorDescription: String? {
             switch self {
             case .notAProgram:
-                return "Seul un fichier programme .PGM ordinaire peut être mis à la corbeille."
+                return String(localized: "Seul un fichier programme .PGM ordinaire peut être mis à la corbeille.")
             case .unavailable:
-                return "Le programme ou son dossier ne peut pas être vérifié. Aucun fichier n’a été supprimé."
+                return String(localized: "Le programme ou son dossier ne peut pas être vérifié. Aucun fichier n’a été supprimé.")
             case .ambiguous:
-                return "Ce nom de programme apparaît plusieurs fois dans le dossier. L’app refuse de choisir un fichier ; aucun fichier n’a été supprimé."
+                return String(localized: "Ce nom de programme apparaît plusieurs fois dans le dossier. L’app refuse de choisir un fichier ; aucun fichier n’a été supprimé.")
             case .changed:
-                return "Le programme ou son emplacement a changé depuis la confirmation. Aucun fichier n’a été supprimé ; actualise la bibliothèque."
+                return String(localized: "Le programme ou son emplacement a changé depuis la confirmation. Aucun fichier n’a été supprimé ; actualise la bibliothèque.")
             case .trashUnavailable(let detail):
-                return "La mise à la corbeille a échoué. L’app ne force jamais l’effacement d’un programme. \(detail)"
+                return String(localized: "La mise à la corbeille a échoué. L’app ne force jamais l’effacement d’un programme. \(detail)")
             }
         }
     }
@@ -122,7 +122,7 @@ public enum KitTrash {
         try FileManager.default.trashItem(at: url, resultingItemURL: &resultingURL)
         return resultingURL as URL?
         #else
-        throw Failure.trashUnavailable("La corbeille système n’est pas disponible.")
+        throw Failure.trashUnavailable(String(localized: "La corbeille système n’est pas disponible."))
         #endif
     }
 

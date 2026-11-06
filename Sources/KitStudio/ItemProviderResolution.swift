@@ -24,7 +24,7 @@ final class ItemProviderResolution: @unchecked Sendable {
             try await withCheckedThrowingContinuation { continuation in
                 guard install(continuation) else { return }
                 let progress = load { [self] data, error in
-                    let prefix = "Impossible de lire le fichier déposé \(index + 1)."
+                    let prefix = String(localized: "Impossible de lire le fichier déposé \(index + 1).")
                     if let error {
                         finish(.failure(StudioError.message("\(prefix) \(error.localizedDescription)")))
                     } else if let data, let url = URL(dataRepresentation: data, relativeTo: nil), url.isFileURL {
