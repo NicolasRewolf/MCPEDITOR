@@ -5,40 +5,22 @@ import SwiftUI
 struct LibraryBrowser: View {
     @EnvironmentObject private var model: StudioModel
     @FocusState private var sampleListFocused: Bool
+    @State private var linksSample: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Label("BIBLIOTHÈQUE", systemImage: "square.stack")
-                    .font(.system(size: 11, weight: .semibold))
-                Spacer()
+                Picker("Bibliothèque", selection: $model.libraryMode) {
+                    Text(".PGM").tag(LibraryMode.kits)
+                    Text("Samples").tag(LibraryMode.samples)
+                    Text("PART").tag(LibraryMode.parts)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
                 if model.libraryScanning {
                     ProgressView().controlSize(.small)
                         .accessibilityLabel("Actualisation de la bibliothèque")
                 }
-                Button {
-                    model.refreshLocations()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .disabled(model.libraryScanning)
-                .help("Actualiser les PART et les .PGM")
-                .accessibilityLabel("Actualiser la bibliothèque")
-            }
-            Picker("Bibliothèque", selection: $model.libraryMode) {
-                Text(".PGM").tag(LibraryMode.kits)
-                Text("Samples").tag(LibraryMode.samples)
-                Text("PART").tag(LibraryMode.parts)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-
-            if let issue = model.libraryIssue, model.libraryContentIssue == nil {
-                Label("Certains dossiers sont à vérifier", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.yellow)
-                    .help(issue)
             }
 
             switch model.libraryMode {
@@ -53,11 +35,6 @@ struct LibraryBrowser: View {
 
     private var partitionBrowser: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Retrouver un .PGM sur la MPC")
-                .font(.callout.weight(.medium))
-            Text("Chaque PART affiche les fichiers visibles sur la SD.")
-                .font(.caption)
-                .foregroundStyle(StudioPalette.muted)
             if model.partitions.isEmpty {
                 LibraryEmptyState(symbol: "sdcard", title: "Aucune PART montée",
                                   detail: "Branche la SD pour retrouver ses .PGM et ses samples.")
@@ -167,8 +144,9 @@ struct LibraryBrowser: View {
             TextField("Rechercher un .PGM ou une PART", text: $model.kitSearch)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Rechercher un .PGM ou une PART")
-            HStack {
-                Text("\(model.filteredKits.count) .PGM\(model.libraryContentIssue == nil ? "" : " visibles")")
+            HStack(spacing: 6) {
+                Text("\(model.filteredKits.count) .PGM")
+                inventoryBadge
                 Spacer()
                 if let location = model.selectedLocation {
                     Text(location.lastPathComponent)
@@ -179,7 +157,6 @@ struct LibraryBrowser: View {
             }
             .font(.caption)
             .foregroundStyle(StudioPalette.muted)
-            inventoryWarning
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: true) {
                     LazyVStack(alignment: .leading, spacing: 5, pinnedViews: [.sectionHeaders]) {
@@ -246,21 +223,14 @@ struct LibraryBrowser: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
+    /// An inventory caveat is one icon beside the count; its explanation is the tooltip.
     @ViewBuilder
-    private var inventoryWarning: some View {
-        if let issue = model.libraryContentIssue {
-            VStack(alignment: .leading, spacing: 5) {
-                Label(model.libraryInventoryWarningTitle, systemImage: "exclamationmark.triangle")
-                    .font(.caption.weight(.semibold))
-                Text(model.libraryInventoryWarningDetail)
-                    .fixedSize(horizontal: false, vertical: true)
-                DisclosureGroup("Détails") {
-                    Text(issue)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.yellow)
+    private var inventoryBadge: some View {
+        if let issue = model.libraryContentIssue ?? model.libraryIssue {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.yellow)
+                .help("\(model.libraryInventoryWarningTitle). \(model.libraryInventoryWarningDetail)\n\n\(issue)")
+                .accessibilityLabel(model.libraryInventoryWarningTitle)
         }
     }
 
@@ -282,13 +252,14 @@ struct LibraryBrowser: View {
     private var sampleBrowser: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 7) {
-                Button(action: model.goBackInSamples) {
-                    Image(systemName: "chevron.backward")
+                if model.canGoBackInSamples {
+                    Button(action: model.goBackInSamples) {
+                        Image(systemName: "chevron.backward")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Revenir à la vue de samples précédente")
+                    .accessibilityLabel("Retour aux samples précédents")
                 }
-                .buttonStyle(.borderless)
-                .disabled(!model.canGoBackInSamples)
-                .help("Revenir à la vue de samples précédente")
-                .accessibilityLabel("Retour aux samples précédents")
                 Menu {
                     Button("Bibliothèque et SD", action: model.showAllLibrarySamples)
                     Button("Toute la SD", action: model.showAllSDSamples)
@@ -319,6 +290,8 @@ struct LibraryBrowser: View {
                         }
                         .disabled(model.documentLocked)
                     }
+                    Divider()
+                    Toggle("Écouter en parcourant avec ↑ ↓", isOn: $model.autoPreviewSamples)
                 } label: {
                     Label(
                         model.sampleScopeTitle,
@@ -329,12 +302,6 @@ struct LibraryBrowser: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .help("Choisir les samples de la bibliothèque, de la SD ou d’un dossier")
-                Button(action: model.chooseSampleFolder) {
-                    Image(systemName: "folder.badge.plus")
-                }
-                .buttonStyle(.borderless)
-                .help("Ajouter un dossier du SSD ou du Mac")
-                .accessibilityLabel("Ajouter un dossier de samples")
             }
             if model.sampleScope == .folder {
                 HStack(spacing: 8) {
@@ -353,15 +320,14 @@ struct LibraryBrowser: View {
             TextField("Rechercher dans cette vue", text: $model.sampleQuery)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Rechercher des samples dans la vue courante")
-            Text(
-                (model.sampleScope == .folder ? "\(model.filteredSampleFolders.count) dossier(s) · " : "")
-                    + "\(model.filteredSamples.count) sample(s)\(model.libraryContentIssue == nil ? "" : " visibles")"
-            )
+            HStack(spacing: 6) {
+                Text((model.sampleScope == .folder ? Self.count(model.filteredSampleFolders.count, "dossier") + " · " : "")
+                     + Self.count(model.filteredSamples.count, "sample"))
+                inventoryBadge
+            }
             .font(.caption)
             .foregroundStyle(StudioPalette.muted)
-            inventoryWarning
             sampleFileList
-            sampleAssociations
             sampleActions
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -370,7 +336,7 @@ struct LibraryBrowser: View {
     private var sampleFileList: some View {
         ScrollViewReader { proxy in
         ScrollView(.vertical, showsIndicators: true) {
-            LazyVStack(alignment: .leading, spacing: 4) {
+            LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
                 if model.filteredSampleFolders.isEmpty && model.filteredSamples.isEmpty {
                     LibraryEmptyState(
                         symbol: "waveform",
@@ -383,27 +349,24 @@ struct LibraryBrowser: View {
                 ForEach(model.filteredSampleFolders, id: \.self) { folder in
                     BrowserRow(
                         title: folder.lastPathComponent,
-                        subtitle: "Sous-dossier",
+                        subtitle: "",
                         symbol: "folder",
                         selected: false,
                         path: folder.path
                     ) { model.browseSamplesFolder(folder) }
                     .accessibilityHint("Parcourir ce sous-dossier")
                 }
-                ForEach(model.filteredSamples, id: \.self) { sample in
-                    BrowserRow(
-                        title: sample.lastPathComponent,
-                        subtitle: "\(model.sampleLocationLabel(for: sample)) · \(model.sampleAssociationSummary(for: sample))",
-                        symbol: "waveform",
-                        selected: model.selectedSampleURL == sample,
-                        path: sample.path
-                    ) {
-                        model.selectSample(sample)
-                        sampleListFocused = true
+                let groups = model.groupedFilteredSamples
+                ForEach(groups) { group in
+                    Section {
+                        ForEach(group.samples, id: \.self) { sample in
+                            sampleRow(sample)
+                        }
+                    } header: {
+                        if groups.count > 1 {
+                            KitGroupHeader(title: group.title, count: group.samples.count, unit: "samples")
+                        }
                     }
-                    .onDrag { NSItemProvider(object: sample as NSURL) }
-                    .accessibilityHint(
-                        "Sélectionner pour écouter ou affecter au pad ; flèches haut et bas pour passer au suivant ; glisser vers un pad pour importer")
                 }
             }
             .padding(.trailing, 4)
@@ -424,91 +387,38 @@ struct LibraryBrowser: View {
         }
     }
 
+    static func count(_ value: Int, _ noun: String) -> String {
+        "\(value) \(noun)\(value > 1 ? "s" : "")"
+    }
+
     @ViewBuilder
-    private var sampleAssociations: some View {
-        if let sample = model.selectedSampleURL {
-            VStack(alignment: .leading, spacing: 7) {
-                Divider()
-                Text(sample.lastPathComponent)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(2)
-                    .help(sample.path)
-                Text(model.sampleLocationLabel(for: sample))
-                    .font(.caption).foregroundStyle(StudioPalette.muted)
-                Text("Utilisé par · .PGM enregistrés")
-                    .font(.caption.weight(.semibold))
-                let programs = model.programsUsingSample(sample)
-                if programs.isEmpty {
-                    Text(model.libraryScanning ? "Lecture des liens en cours…" : "Aucun lien trouvé dans les .PGM lus.")
-                        .font(.caption)
-                        .foregroundStyle(StudioPalette.muted)
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 5) {
-                            ForEach(programs, id: \.url) { program in
-                                Button { model.openProgram(program.url) } label: {
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(program.url.lastPathComponent).fontWeight(.medium)
-                                            Text(model.libraryLocationLabel(for: program)).foregroundStyle(StudioPalette.muted)
-                                        }
-                                        Spacer(minLength: 0)
-                                        Text("Ouvrir").foregroundStyle(StudioPalette.orange)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.borderless)
-                                .help("Ouvrir \(program.url.path)")
-                                .accessibilityLabel("Ouvrir \(program.url.lastPathComponent), \(model.libraryLocationLabel(for: program))")
-                                .disabled(model.documentActionsDisabled)
-                            }
-                        }
-                        .font(.caption)
+    private func sampleRow(_ sample: URL) -> some View {
+        let selected = model.selectedSampleURL == sample
+        HStack(spacing: 0) {
+            BrowserRow(title: sample.lastPathComponent, subtitle: "", symbol: "waveform",
+                       selected: selected, path: sample.path) {
+                model.playSample(sample)
+                sampleListFocused = true
+            }
+            .onDrag { NSItemProvider(object: sample as NSURL) }
+            .accessibilityHint("Écouter ; glisser vers un pad pour l’affecter")
+            if selected {
+                Button { linksSample = sample } label: { Image(systemName: "info.circle") }
+                    .buttonStyle(.borderless)
+                    .frame(width: 28)
+                    .help("Où ce sample est utilisé")
+                    .accessibilityLabel("Où \(sample.lastPathComponent) est utilisé")
+                    .popover(isPresented: Binding(get: { linksSample == sample },
+                                                  set: { if !$0 { linksSample = nil } }),
+                             arrowEdge: .trailing) {
+                        SampleLinksPopover(sample: sample).environmentObject(model)
                     }
-                    .frame(height: min(100, CGFloat(programs.count) * 36))
-                }
-                if let notice = model.selectedSampleAssociationNotice {
-                    if model.isDirty {
-                        Text("Les modifications en cours ne sont pas encore incluses dans ces liens.")
-                            .font(.caption)
-                            .foregroundStyle(StudioPalette.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .help(notice)
-                    } else {
-                        Label("Liens vérifiés dans la bibliothèque", systemImage: "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(StudioPalette.muted)
-                            .help(notice)
-                    }
-                }
             }
         }
     }
 
     private var sampleActions: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Divider()
-            if model.selectedSampleURL == nil {
-                Text("Sélectionne un sample")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            HStack {
-                Button {
-                    if let sample = model.selectedSampleURL { model.previewSample(sample) }
-                } label: {
-                    Label(model.samplePreviewBusy ? "Préparation…" : "Écouter", systemImage: "play.fill")
-                }
-                .disabled(
-                    model.selectedSampleURL == nil || model.samplePreviewBusy || model.documentActionsDisabled
-                )
-                Button("Arrêter", action: model.stop)
-                Spacer(minLength: 0)
-            }
-            .buttonStyle(.bordered)
-            Toggle("Écouter à la sélection", isOn: $model.autoPreviewSamples)
-                .toggleStyle(.checkbox)
-                .font(.caption)
-                .help("Joue chaque sample dès qu’il est sélectionné, au clic ou avec les flèches ↑ ↓ de la liste.")
             Button {
                 if let sample = model.selectedSampleURL { model.assignSample(sample) }
             } label: {
@@ -521,14 +431,64 @@ struct LibraryBrowser: View {
                     || model.samplePreviewBusy
             )
             .help("Importer le sample sélectionné sur le pad \(model.selectedLabel) du .PGM en cours")
-            if !model.samplePreviewStatus.isEmpty {
-                Text(model.samplePreviewStatus)
+            if let problem = model.sampleBrowserProblem {
+                Text(problem)
                     .font(.caption)
-                    .foregroundStyle(StudioPalette.muted)
+                    .foregroundStyle(.yellow)
                     .lineLimit(2)
-                    .help(model.samplePreviewStatus)
+                    .help(problem)
             }
         }
+    }
+}
+
+/// Where a sample is used, asked for with its ⓘ button instead of shown permanently.
+private struct SampleLinksPopover: View {
+    @EnvironmentObject private var model: StudioModel
+    let sample: URL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(sample.lastPathComponent)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(2)
+            Text(model.sampleLocationLabel(for: sample))
+                .font(.caption).foregroundStyle(StudioPalette.muted)
+            Text("Utilisé par")
+                .font(.caption.weight(.semibold))
+            let programs = model.programsUsingSample(sample)
+            if programs.isEmpty {
+                Text(model.libraryScanning ? "Lecture des liens en cours…" : "Aucun lien trouvé dans les .PGM lus.")
+                    .font(.caption)
+                    .foregroundStyle(StudioPalette.muted)
+            } else {
+                ForEach(programs, id: \.url) { program in
+                    Button { model.openProgram(program.url) } label: {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(program.url.lastPathComponent).fontWeight(.medium)
+                                Text(model.libraryLocationLabel(for: program)).foregroundStyle(StudioPalette.muted)
+                            }
+                            Spacer(minLength: 0)
+                            Text("Ouvrir").foregroundStyle(StudioPalette.orange)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .help("Ouvrir \(program.url.path)")
+                    .disabled(model.documentActionsDisabled)
+                }
+            }
+            if let notice = model.selectedSampleAssociationNotice {
+                Text(notice)
+                    .font(.caption)
+                    .foregroundStyle(StudioPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(width: 300, alignment: .leading)
     }
 }
 
@@ -552,12 +512,9 @@ private struct EmptyPartsSummary: View {
             Text(parts.map(\.letter).joined(separator: " · "))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Sans fichier visible et vérifiées : « Copier sur la SD… » propose la première qui peut recevoir la bank.")
-                .font(.caption)
-                .foregroundStyle(StudioPalette.muted)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
+        .help("Sans fichier visible et vérifiées : « Copier sur la SD… » propose la première qui peut recevoir la bank.")
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 7))
         .accessibilityElement(children: .combine)
@@ -600,6 +557,7 @@ private struct PartFillBar: View {
 private struct KitGroupHeader: View {
     let title: String
     let count: Int
+    var unit = ".PGM"
 
     var body: some View {
         HStack {
@@ -607,7 +565,7 @@ private struct KitGroupHeader: View {
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .tracking(1)
             Spacer()
-            Text("\(count) .PGM")
+            Text("\(count) \(unit)")
                 .font(.system(size: 10, design: .monospaced))
         }
         .foregroundStyle(StudioPalette.muted)
@@ -641,10 +599,12 @@ private struct BrowserRow: View {
                         .font(.system(size: 12, weight: .medium))
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(subtitle)
-                        .font(.system(size: 10))
-                        .foregroundStyle(StudioPalette.muted)
-                        .lineLimit(2)
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 10))
+                            .foregroundStyle(StudioPalette.muted)
+                            .lineLimit(2)
+                    }
                 }
                 Spacer(minLength: 0)
             }

@@ -33,6 +33,7 @@ struct StudioProminentButtonStyle: ButtonStyle {
 
 struct StudioView: View {
     @EnvironmentObject private var model: StudioModel
+    @State private var statusVisible = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -86,8 +87,9 @@ struct StudioView: View {
             HStack(alignment: .top, spacing: 18) {
                 padPanel
                     .frame(width: 310)
+                // An empty pad needs a single invitation, not half the window.
                 SampleEditor()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: model.sound == nil ? nil : .infinity, alignment: .top)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
@@ -97,10 +99,6 @@ struct StudioView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 7) {
-                Text("MPC KIT STUDIO")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .tracking(3)
-                    .foregroundStyle(StudioPalette.orange)
                 HStack(spacing: 9) {
                     TextField("Nom du .PGM", text: Binding(
                         get: { model.kitName },
@@ -145,16 +143,15 @@ struct StudioView: View {
                 }
             }
             Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 6) {
+            // One figure that decides something: does the bank fit in a PART?
+            if let capacity = model.partCapacity {
+                PartCapacityGauge(capacity: capacity)
+                    .help("Mémoire audio sur la MPC : \(ByteCountFormatter.string(fromByteCount: Int64(model.memoryBytes), countStyle: .memory)). La jauge compare la copie sur la SD à une PART vide.")
+            } else if model.memoryBytes > 0 {
                 Text(ByteCountFormatter.string(fromByteCount: Int64(model.memoryBytes), countStyle: .memory))
-                    .font(.system(size: 18, weight: .medium, design: .monospaced))
-                Text("Mémoire audio")
-                    .font(.caption)
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(StudioPalette.muted)
-                    .help("Mémoire audio du .PGM sur la MPC. La copie occupe un peu plus d’espace sur la SD avec les fichiers .PGM et .SND.")
-                if let capacity = model.partCapacity {
-                    PartCapacityGauge(capacity: capacity)
-                }
+                    .help("Mémoire audio du .PGM sur la MPC")
             }
         }
     }
@@ -162,8 +159,6 @@ struct StudioView: View {
     private var padPanel: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                sectionTitle("BANQUE")
-                Spacer()
                 HStack(spacing: 6) {
                     ForEach(0..<4) { bank in
                         Button {
@@ -189,6 +184,15 @@ struct StudioView: View {
                         .help("Survole cette banque pendant le déplacement d’un pad pour y accéder")
                     }
                 }
+                Spacer()
+                Button(action: model.clearPad) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(StudioPalette.muted)
+                .disabled(model.program == nil || model.documentActionsDisabled)
+                .help("Vider le pad sélectionné")
+                .accessibilityLabel("Vider le pad sélectionné")
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
                 ForEach(0..<16) { position in
@@ -210,38 +214,6 @@ struct StudioView: View {
                 }
             }
             .disabled(model.program == nil || model.documentActionsDisabled)
-            HStack(spacing: 8) {
-                Label("Glisse un sample ou déplace un pad", systemImage: "hand.draw")
-                    .font(.caption)
-                    .foregroundStyle(StudioPalette.muted)
-                Spacer(minLength: 0)
-                Button(action: model.clearPad) {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(StudioPalette.muted)
-                .disabled(model.program == nil || model.documentActionsDisabled)
-                .help("Vider le pad sélectionné")
-                .accessibilityLabel("Vider le pad sélectionné")
-            }
-            Spacer(minLength: 12)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(model.assignedPadCount) pads affectés sur 64")
-                    .font(.caption)
-                    .foregroundStyle(StudioPalette.muted)
-                HStack {
-                    Button(action: model.undo) { Label("Annuler", systemImage: "arrow.uturn.backward") }
-                        .help(model.undoTitle)
-                        .accessibilityLabel(model.undoTitle)
-                        .disabled(!model.canUndo || model.documentActionsDisabled)
-                    Button(action: model.redo) { Image(systemName: "arrow.uturn.forward") }
-                        .help(model.redoTitle)
-                        .accessibilityLabel(model.redoTitle)
-                        .disabled(!model.canRedo || model.documentActionsDisabled)
-                    Spacer(minLength: 0)
-                }
-                .buttonStyle(.bordered)
-            }
         }
     }
 
@@ -267,41 +239,37 @@ struct StudioView: View {
         .disabled(!model.padHasSound(index: source) || model.documentActionsDisabled)
     }
 
+    /// Feedback, not furniture: a message shows for a few seconds, then the bar stays quiet.
     private var statusBar: some View {
         HStack(spacing: 9) {
             if model.busy {
                 ProgressView().controlSize(.small).scaleEffect(0.75)
-            } else {
-                Circle().fill(StudioPalette.orange).frame(width: 5, height: 5)
             }
-            Text(model.status)
-                .lineLimit(1)
-                .font(.caption)
-                .foregroundStyle(StudioPalette.muted)
+            if statusVisible || model.busy {
+                Text(model.status)
+                    .lineLimit(1)
+                    .font(.caption)
+                    .foregroundStyle(StudioPalette.muted)
+                    .help(model.status)
+            }
             if model.resolvingDroppedFiles {
                 Button("Annuler le dépôt", action: model.cancelDroppedFiles)
                     .buttonStyle(.borderless)
                     .accessibilityLabel("Annuler la lecture des fichiers déposés")
             }
             Spacer()
-            Image(systemName: "info.circle")
-                .font(.caption)
-                .foregroundStyle(StudioPalette.muted)
-                .help("La préécoute joue le PCM Float de travail avec son accordage. L’export le quantifie en PCM 16 bits. Le moteur audio de la MPC3000 n’est pas simulé.")
-                .accessibilityLabel("La préécoute ne simule pas le filtre et les enveloppes de la MPC3000.")
         }
         .padding(.horizontal, 18)
         .frame(height: 32)
+        .task(id: model.status) {
+            statusVisible = true
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            statusVisible = false
+        }
         .background(StudioPalette.inset)
         .overlay(alignment: .top) { Rectangle().fill(StudioPalette.border).frame(height: 1) }
     }
 
-    private func sectionTitle(_ value: String) -> some View {
-        Text(value)
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-            .tracking(1)
-            .foregroundStyle(StudioPalette.muted)
-    }
 }
 
 /// What the copy needs on the SD against one empty PART, visible while the bank is built.
@@ -440,10 +408,6 @@ private struct SampleEditor: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("ÉDITION DU SAMPLE")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .tracking(1.2)
-                        .foregroundStyle(StudioPalette.muted)
                     Text(model.selectedLabel)
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                     if model.sound != nil {
@@ -481,8 +445,8 @@ private struct SampleEditor: View {
                         .background(Color.white.opacity(0.06), in: Capsule())
                 }
             }
-            ScrollView(.vertical, showsIndicators: true) {
-                if let sound = model.sound, sound.frameCount > 0 {
+            if let sound = model.sound, sound.frameCount > 0 {
+                ScrollView(.vertical, showsIndicators: true) {
                     if let warning = model.selectedAudioRangeWarning {
                         Text("Crête \(String(format: "%.2f", warning.report.peakMagnitude)) : ce sample dépasse le niveau du PCM 16 bits. Normalise-le avant l’export pour éviter l’écrêtage.")
                             .font(.caption)
@@ -490,11 +454,11 @@ private struct SampleEditor: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     loadedEditor(sound)
-                } else {
-                    emptyEditor
                 }
+                .scrollIndicators(.visible)
+            } else {
+                emptyEditor
             }
-            .scrollIndicators(.visible)
         }
         .padding(20)
         .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 14))
@@ -565,10 +529,6 @@ private struct SampleEditor: View {
 
     private var transformControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("TRAITEMENT AUDIO")
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .tracking(1)
-                .foregroundStyle(StudioPalette.muted)
             HStack(spacing: 7) {
                 operation("Découper", symbol: "scissors", kind: "trim")
                 operation("Normaliser", symbol: "waveform", kind: "normalize")
@@ -578,10 +538,6 @@ private struct SampleEditor: View {
                 operation("Petits fondus", symbol: "waveform.path", kind: "fade")
                 operation("Inverser", symbol: "backward.end", kind: "reverse")
             }
-            Text("Les traitements restent annulables. Enregistre pour conserver tes modifications sur le Mac.")
-                .font(.caption)
-                .foregroundStyle(StudioPalette.muted)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -593,23 +549,15 @@ private struct SampleEditor: View {
     }
 
     private var emptyEditor: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "waveform")
-                .font(.system(size: 42, weight: .ultraLight))
-                .foregroundStyle(StudioPalette.orange.opacity(0.75))
-            Text("Donne un son à ce pad")
-                .font(.system(size: 17, weight: .medium, design: .rounded))
-            Text("Glisse un WAV, AIFF ou SND sur le pad,\nou importe un sample depuis ton Mac.")
-                .font(.callout)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
+        HStack(spacing: 12) {
+            Text("Pad vide")
                 .foregroundStyle(StudioPalette.muted)
+            Spacer(minLength: 0)
             Button("Importer un sample…", action: model.importAudio)
                 .buttonStyle(.bordered)
                 .disabled(model.program == nil || model.documentActionsDisabled)
+                .help("Ou glisse un WAV, AIFF ou SND sur le pad")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .frame(minHeight: 430)
     }
 }
 

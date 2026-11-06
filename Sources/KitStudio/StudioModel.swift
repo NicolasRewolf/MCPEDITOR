@@ -290,6 +290,30 @@ final class StudioModel: ObservableObject {
         }
     }
 
+    struct SampleGroup: Identifiable, Equatable {
+        let id: String
+        let samples: [URL]
+        var title: String { id }
+    }
+
+    /// The source is said once per group instead of under every sample name.
+    var groupedFilteredSamples: [SampleGroup] {
+        var order: [String] = []
+        var members: [String: [URL]] = [:]
+        for sample in filteredSamples {
+            let label = sampleLocationLabel(for: sample)
+            if members[label] == nil { order.append(label) }
+            members[label, default: []].append(sample)
+        }
+        return order.map { SampleGroup(id: $0, samples: members[$0] ?? []) }
+    }
+
+    /// Only a real problem reaches the sample panel; routine progress stays silent.
+    var sampleBrowserProblem: String? {
+        let text = samplePreviewStatus
+        return text.hasPrefix("Écoute impossible") || text.contains("indisponible") ? text : nil
+    }
+
     var sampleScopeTitle: String {
         switch sampleScope {
         case .library: return "Samples de la bibliothèque et de la SD"
@@ -949,6 +973,13 @@ final class StudioModel: ObservableObject {
         selectedSampleURL = url
         samplePreviewStatus = "Prêt à écouter · \(url.lastPathComponent)"
         if autoPreviewSamples { startPreview(url) }
+    }
+
+    /// One click on a sample selects it and plays it, replacing a preview in progress.
+    func playSample(_ url: URL) {
+        if selectedSampleURL != url { stop() }
+        selectedSampleURL = url
+        startPreview(url)
     }
 
     /// Arrow keys walk the visible samples; with auto preview, each one plays in turn.

@@ -117,3 +117,22 @@ Côté machine, le canon (checkpoint 33, analyse statique de Vailixi 3.50) décr
 Hybrid, au plus 26 partitions, et l’étiquette `MPC-PART` écrite par le mode Hybrid. La PART A de la carte mesure
 15 939 secteurs, soit le premier volume Hybrid de taille 1. Les tailles proposées par l’écran de formatage ne
 sont pas établies ; aucun reformatage n’a été fait.
+
+## Cure de minceur en 0.7.5 (25), 6 novembre 2026
+
+Nicolas : « J’ai le cerveau qui explose quand je vois la quantité d’information et d’options, ça me repousse
+à utiliser l’outil. » L’écran Samples comptait plus de 50 éléments avant même la liste. Cette passe retire
+ou range ; elle n’ajoute aucune fonction et ne change aucune règle d’écriture.
+
+- Retiré de l’écran : titre « Bibliothèque », bouton Actualiser (menu Bibliothèque, ⌘R), bouton d’ajout de
+  dossier (menu de source), bloc jaune d’inventaire (un ⚠ avec infobulle), sous-titres répétés des samples,
+  panneau « Utilisé par » (bulle ⓘ du sample choisi), boutons Écouter et Arrêter (un clic écoute, ⌘. arrête),
+  case « Écouter à la sélection » (menus), ligne d’état sous la liste (seules les vraies erreurs s’affichent),
+  « MPC KIT STUDIO », « BANQUE », « ÉDITION DU SAMPLE », « TRAITEMENT AUDIO », rappels de copie, consigne
+  de glisser, compteur de pads, boutons Annuler et Rétablir (menu Édition), icône d’information de la barre d’état.
+- Mémoire audio : affichée seule seulement quand la jauge de PART manque ; sinon dans l’infobulle de la jauge.
+- Un pad vide réduit l’éditeur à une ligne ; la barre d’état n’affiche un message que six secondes.
+- Bug supprimé avec la ligne d’état : « 0 sample(s) visibles » pouvait contredire le compteur du haut.
+
+Les cinq dispositions grises de la toile restent à arbitrer ; celles qui montrent plus de choses à la fois
+iraient contre ce retour.

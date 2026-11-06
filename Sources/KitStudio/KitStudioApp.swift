@@ -37,6 +37,18 @@ struct KitStudioApp: App {
                     .disabled(model.program == nil || model.documentActionsDisabled)
             }
             StudioUndoCommands(model: model, textEditingRevision: textEditingRevision)
+            // Commands taken off the screen stay one menu away.
+            CommandMenu("Bibliothèque") {
+                Button("Actualiser") { model.refreshLocations() }
+                    .keyboardShortcut("r")
+                    .disabled(model.libraryScanning)
+                Button("Ajouter un dossier de samples…", action: model.chooseSampleFolder)
+                    .disabled(model.documentLocked)
+                Divider()
+                Toggle("Écouter en parcourant avec ↑ ↓", isOn: $model.autoPreviewSamples)
+                Button("Arrêter l’écoute", action: model.stop)
+                    .keyboardShortcut(".", modifiers: .command)
+            }
             CommandGroup(after: .importExport) {
                 Button("Importer des samples…", action: model.importAudio)
                     .keyboardShortcut("i")

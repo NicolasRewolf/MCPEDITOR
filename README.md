@@ -20,13 +20,14 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le programme .PGM disponible
    et conserve ses modifications ; un retour tardif du fournisseur est ignoré.
 3. Dans **Samples**, la vue initiale **Bibliothèque et SD** rassemble les sons référencés par les `.PGM` disponibles et les samples visibles de toutes les PART, même sans programme.
-   Chaque ligne indique son emplacement et le nombre de `.PGM` qui le référencent. Sélectionner un son affiche
-   les noms et emplacements de ces programmes ; **Ouvrir** charge le programme choisi. Les liens concernent les
-   `.PGM` enregistrés de la bibliothèque, pas les modifications encore en mémoire.
-   Le menu permet aussi de parcourir une PART ou un dossier du SSD. La recherche filtre la vue courante.
-   La préécoute et l’affectation au pad restent disponibles, ainsi que le glisser-déposer.
-   Après un clic dans la liste, les flèches ↑ ↓ passent d’un sample à l’autre ; **Écouter à la sélection**
-   joue chacun dès qu’il est choisi. Un `.SND` est écouté entre ses marqueurs de début et de fin.
+   Les samples sont groupés par source et chaque ligne ne montre que leur nom. Un clic écoute le sample ;
+   **⌘.** arrête l’écoute. Le ⓘ du sample choisi indique les `.PGM` enregistrés qui l’utilisent ; **Ouvrir**
+   charge le programme choisi. Les liens ne tiennent pas compte des modifications encore en mémoire.
+   Le menu de source permet aussi de parcourir une PART ou un dossier du SSD. La recherche filtre la vue courante.
+   **Affecter au pad** pose le sample choisi ; le glisser-déposer reste possible. Les flèches ↑ ↓ passent
+   d’un sample à l’autre ; **Écouter en parcourant avec ↑ ↓** (menu de source ou menu **Bibliothèque**) les joue
+   en passant. Un `.SND` est écouté entre ses marqueurs de début et de fin.
+   Une réserve sur l’inventaire n’est plus qu’un ⚠ à côté du compteur, expliqué au survol.
    Dans **.PGM**, la liste est groupée : bibliothèque sur le Mac, puis PART A à Z, puis dossiers par nom.
    Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes comme plusieurs
    `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère.
@@ -40,7 +41,9 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    banque pendant le glissement permet de changer de banque. Copier une affectation via son menu partage
    le même sample : une icône 🔗 marque ces pads et l’éditeur nomme les pads concernés, car le nom,
    la découpe et les traitements s’appliquent à tous ; l’accordage reste propre à chaque pad.
-   **⌘Z / ⇧⌘Z** annule/rétablit les éditions ; les sélections ne créent pas d’historique.
+   **⌘Z / ⇧⌘Z** annule/rétablit les éditions, depuis le menu Édition ; les sélections ne créent pas d’historique.
+   Un pad vide n’occupe qu’une ligne dans l’éditeur. La barre d’état affiche chaque message quelques secondes.
+   Le menu **Bibliothèque** regroupe Actualiser (⌘R), l’ajout d’un dossier de samples et l’écoute.
    Sous la mémoire audio, une jauge compare l’espace que demande la copie (allocation FAT et réserve,
    comme la vérification de copie) à la plus grande PART vide de la SD, ou à la dernière observée si la carte
    est absente. Une bank qui dépasse est signalée avant la copie.
