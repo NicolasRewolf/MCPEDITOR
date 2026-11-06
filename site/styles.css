@@ -30,7 +30,8 @@ a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; 
 
 .page { max-width: 960px; margin: 0 auto; padding: 28px 16px 72px; }
 @media (min-width: 720px) { .page { padding: 40px 40px 112px; } }
-.col { max-width: 600px; }
+.col { max-width: 880px; }
+.col > :not(.wide) { max-width: 600px; }
 
 .top {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -61,15 +62,17 @@ h2 { font-size: 15px; font-weight: 500; margin: 72px 0 12px; }
   .spec dt { padding-right: 16px; }
 }
 
-.shot {
-  margin: 0;
-  border: 1px solid var(--rule);
-  aspect-ratio: 16 / 10;
-  display: grid; place-items: center;
-  font-size: 14px; color: var(--muted);
+/* Real captures of the app, dark like it runs on my Mac. */
+.shot { margin: 0; }
+.shot img {
+  display: block; width: 100%; height: auto; border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 28px 56px -28px rgba(0, 0, 0, 0.5);
 }
-.shot:has(img) { border: 0; aspect-ratio: auto; }
-.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { font-size: 14px; color: var(--muted); margin-top: 14px; max-width: 600px; text-wrap: pretty; }
+.hero-shot { margin: 8px 0 64px; }
+.pair { display: grid; gap: 40px; margin: 48px 0 0; }
+@media (min-width: 720px) { .pair { grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; } }
+.single { margin: 40px 0 0; }
 
 .price { font-size: 28px; line-height: 1.25; font-weight: 500; margin: 0 0 12px; }
 .button {
