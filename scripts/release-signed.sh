@@ -22,10 +22,16 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_DIR"
+
+# Same toolchain as build-app.sh: the manifest records xcodebuild, which needs Xcode.
+if [ -z "${DEVELOPER_DIR:-}" ] && ! xcrun --find xcstringstool >/dev/null 2>&1 \
+        && [ -d /Applications/Xcode.app/Contents/Developer ]; then
+    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
 DIST="$PROJECT_DIR/dist"
-APP="$DIST/MPC Kit Studio.app"
-ZIP="$DIST/MPC-Kit-Studio-Apple-Silicon.zip"
-DMG="$DIST/MPC-Kit-Studio-Apple-Silicon.dmg"
+APP="$DIST/Kit for MPC3000.app"
+ZIP="$DIST/Kit-for-MPC3000-Apple-Silicon.zip"
+DMG="$DIST/Kit-for-MPC3000-Apple-Silicon.dmg"
 
 bash scripts/build-app.sh
 
@@ -45,9 +51,9 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 rm -f "$DMG"
 DMG_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/kit-studio-dmg.XXXXXX")"
 trap 'rm -rf "$DMG_STAGE"' EXIT
-ditto "$APP" "$DMG_STAGE/MPC Kit Studio.app"
+ditto "$APP" "$DMG_STAGE/Kit for MPC3000.app"
 ln -s /Applications "$DMG_STAGE/Applications"
-hdiutil create -volname "MPC Kit Studio" -srcfolder "$DMG_STAGE" -format UDZO "$DMG"
+hdiutil create -volname "Kit for MPC3000" -srcfolder "$DMG_STAGE" -format UDZO "$DMG"
 codesign --force --timestamp --sign "$DEVELOPER_ID" "$DMG"
 xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$DMG"

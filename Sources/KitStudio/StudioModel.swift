@@ -199,6 +199,7 @@ final class StudioModel: ObservableObject {
          exportDestinationCapture: @escaping @Sendable (URL) throws -> ExportDestination = { try ExportDestination.capture(at: $0) }) {
         localStore = LocalProgramStore(rootURL: localLibraryURL ?? FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            // The app's former name: kept so that existing libraries stay where they are.
             .appendingPathComponent("MPC Kit Studio/Programs", isDirectory: true))
         self.unsavedPresenter = unsavedPresenter
         preferences = defaults

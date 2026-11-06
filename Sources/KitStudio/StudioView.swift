@@ -502,7 +502,7 @@ private struct SampleEditor: View {
                     .buttonStyle(.bordered)
                     .help("Arrêter la lecture")
                 Spacer()
-                Text(String(format: "Sélection : %.3f s", Double(max(0, sound.end - sound.start)) / 44_100))
+                Text("Sélection : \(Double(max(0, sound.end - sound.start)) / 44_100, specifier: "%.3f") s")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(StudioPalette.muted)
             }
@@ -515,7 +515,7 @@ private struct SampleEditor: View {
                     get: { model.padTune },
                     set: { model.setPadTune($0) }
                 ), in: -120...120) {
-                    Text(String(format: "%+.1f demi-tons", Double(model.padTune) / 10))
+                    Text("\(Double(model.padTune) / 10, specifier: "%+.1f") demi-tons")
                         .font(.system(size: 11, design: .monospaced))
                         .frame(width: 120, alignment: .trailing)
                 }

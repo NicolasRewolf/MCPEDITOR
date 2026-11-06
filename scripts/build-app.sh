@@ -16,7 +16,7 @@ swift build --configuration release --product KitStudio --arch arm64 \
     -Xswiftc -emit-localized-strings -Xswiftc -emit-localized-strings-path -Xswiftc "$STRINGS_DIR"
 python3 scripts/localization.py check Localization/Localizable.xcstrings "$STRINGS_DIR"
 BIN_DIR="$(swift build --configuration release --arch arm64 --show-bin-path)"
-APP="$PROJECT_DIR/dist/MPC Kit Studio.app"
+APP="$PROJECT_DIR/dist/Kit for MPC3000.app"
 rm -rf "$PROJECT_DIR/dist"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/KitStudio" "$APP/Contents/MacOS/KitStudio"
@@ -33,8 +33,8 @@ xcrun xcstringstool compile Localization/Localizable.xcstrings --output-director
 for language in fr en; do
     mkdir -p "$APP/Contents/Resources/$language.lproj"
     cat > "$APP/Contents/Resources/$language.lproj/InfoPlist.strings" <<'STRINGS'
-"CFBundleName" = "MPC Kit Studio";
-"CFBundleDisplayName" = "MPC Kit Studio";
+"CFBundleName" = "Kit for MPC3000";
+"CFBundleDisplayName" = "Kit for MPC3000";
 STRINGS
 done
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -45,12 +45,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleLocalizations</key><array><string>fr</string><string>en</string></array>
 <key>CFBundleExecutable</key><string>KitStudio</string>
 <key>CFBundleIdentifier</key><string>com.nicolasrewolf.mpckitstudio</string>
-<key>CFBundleName</key><string>MPC Kit Studio</string>
-<key>CFBundleDisplayName</key><string>MPC Kit Studio</string>
+<key>CFBundleName</key><string>Kit for MPC3000</string>
+<key>CFBundleDisplayName</key><string>Kit for MPC3000</string>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.9.0</string>
-<key>CFBundleVersion</key><string>29</string>
+<key>CFBundleShortVersionString</key><string>0.9.1</string>
+<key>CFBundleVersion</key><string>30</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
@@ -58,13 +58,13 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 codesign --force --deep --sign - --timestamp=none "$APP"
 codesign --verify --deep --strict "$APP"
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.zip"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$PROJECT_DIR/dist/Kit-for-MPC3000-Apple-Silicon.zip"
 DMG_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/kit-studio-dmg.XXXXXX")"
 trap 'rm -rf "$DMG_STAGE"' EXIT
-ditto "$APP" "$DMG_STAGE/MPC Kit Studio.app"
+ditto "$APP" "$DMG_STAGE/Kit for MPC3000.app"
 ln -s /Applications "$DMG_STAGE/Applications"
-hdiutil create -volname "MPC Kit Studio" -srcfolder "$DMG_STAGE" \
-    -format UDZO "$PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.dmg"
+hdiutil create -volname "Kit for MPC3000" -srcfolder "$DMG_STAGE" \
+    -format UDZO "$PROJECT_DIR/dist/Kit-for-MPC3000-Apple-Silicon.dmg"
 python3 scripts/release-manifest.py create "$PROJECT_DIR/dist"
 python3 scripts/release-manifest.py verify "$PROJECT_DIR/dist"
-echo "Application prête : $PROJECT_DIR/dist/MPC-Kit-Studio-Apple-Silicon.dmg"
+echo "Application prête : $PROJECT_DIR/dist/Kit-for-MPC3000-Apple-Silicon.dmg"

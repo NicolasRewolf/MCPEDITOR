@@ -1,4 +1,4 @@
-# MPC Kit Studio — prototype Mac
+# Kit for MPC3000 — app Mac
 
 > Ce dépôt contient l’app seule, extraite du projet de nouvel OS MPC3000 (Homework 4.0)
 > avec son historique. Il contient aussi la page de vente (`site/`) et le plan de lancement
@@ -11,9 +11,9 @@ Aucune gestion de séquences.
 
 ## Essayer
 
-Le workflow **MPC Kit Studio - Mac** fabrique une image disque et une archive Apple Silicon dans ses artefacts GitHub Actions.
-Décompresser l'archive de l'artefact, ouvrir **MPC-Kit-Studio-Apple-Silicon.dmg**,
-puis copier **MPC Kit Studio.app** dans Applications. Le ZIP reste disponible en alternative.
+Le workflow **Kit for MPC3000 - Mac** fabrique une image disque et une archive Apple Silicon dans ses artefacts GitHub Actions.
+Décompresser l'archive de l'artefact, ouvrir **Kit-for-MPC3000-Apple-Silicon.dmg**,
+puis copier **Kit for MPC3000.app** dans Applications. Le ZIP reste disponible en alternative.
 La signature est locale (ad hoc), sans certificat Developer ID ni notarisation Apple.
 Si macOS bloque l'application téléchargée, utiliser son option **Ouvrir quand même** dans
 Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gatekeeper.
@@ -47,7 +47,7 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    **.PGM** (à droite) : une ligne de lettres filtre la liste, **Tout · Mac · A B C D…** ; seules les PART qui
    contiennent quelque chose ont une lettre, et une ligne résume les PART vides et leur capacité. La PART choisie
    montre sa place libre, un ⚠ si elle est à vérifier, et les fichiers laissés par macOS (`._*` des copies du
-   Finder, `.Trashes`, index) ; Kit Studio n’en crée pas et ne les supprime pas. La liste est groupée : Mac,
+   Finder, `.Trashes`, index) ; Kit for MPC3000 n’en crée pas et ne les supprime pas. La liste est groupée : Mac,
    PART A à Z, puis dossiers. Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes
    comme plusieurs `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère. Le bouton dossier gère
    les dossiers de `.PGM` ajoutés ; le menu **⋯** d’un `.PGM` propose **Voir ses samples à gauche**, le Finder
@@ -87,7 +87,8 @@ Les programmes et les fichiers invisibles à macOS ne peuvent pas être retrouv�
 incomplet demeure indiqué. Les séquences `.SEQ`, `.APS` et `.ALL` ne sont pas analysées pour ces associations.
 La lecture des associations est bornée, sans décodage audio ; les limites atteintes sont signalées.
 
-La collection locale se trouve dans `~/Library/Application Support/MPC Kit Studio/Programs` ; **Finder**
+La collection locale se trouve dans `~/Library/Application Support/MPC Kit Studio/Programs` (ancien nom de
+l’app, gardé pour que les bibliothèques existantes restent en place) ; **Finder**
 révèle le `.PGM` courant. Chaque édition enregistrée prépare un ensemble natif complet avant publication
 atomique de sa version courante. Une seule version apparaît dans la bibliothèque. Les révisions précédentes
 et les écritures interrompues restent sur le Mac pour récupération ; elles consomment de l’espace et ne sont
@@ -172,7 +173,7 @@ bash scripts/build-app.sh
 ```
 
 Le script lance les tests, compile pour arm64, assemble et signe localement l'application.
-Résultat : `dist/MPC-Kit-Studio-Apple-Silicon.dmg`, `.zip` et `release-manifest.json`.
+Résultat : `dist/Kit-for-MPC3000-Apple-Silicon.dmg`, `.zip` et `release-manifest.json`.
 Le manifeste relève commit, état des sources, version/build, outils et empreintes des sources,
 archives et fichiers de l’app. La vérification décompresse le ZIP courant et contrôle sa ressource,
 son exécutable et sa signature. En CI, ce même livrable est ensuite lancé sur un runner isolé ;

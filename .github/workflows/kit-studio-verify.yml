@@ -1,4 +1,4 @@
-name: Build and verify current MPC Kit Studio archive
+name: Build and verify current Kit for MPC3000 archive
 on:
   workflow_call:
   workflow_dispatch:
@@ -23,14 +23,14 @@ jobs:
           set -euo pipefail
           UNPACKED="$(mktemp -d "$RUNNER_TEMP/kit-studio-launch.XXXXXX")"
           trap 'rm -rf "$UNPACKED"' EXIT
-          ditto -x -k dist/MPC-Kit-Studio-Apple-Silicon.zip "$UNPACKED"
-          swift scripts/verify-ci-launch.swift "$UNPACKED/MPC Kit Studio.app"
+          ditto -x -k dist/Kit-for-MPC3000-Apple-Silicon.zip "$UNPACKED"
+          swift scripts/verify-ci-launch.swift "$UNPACKED/Kit for MPC3000.app"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: MPC-Kit-Studio-Apple-Silicon
+          name: Kit-for-MPC3000-Apple-Silicon
           path: |
-            dist/MPC-Kit-Studio-Apple-Silicon.zip
-            dist/MPC-Kit-Studio-Apple-Silicon.dmg
+            dist/Kit-for-MPC3000-Apple-Silicon.zip
+            dist/Kit-for-MPC3000-Apple-Silicon.dmg
             dist/release-manifest.json
           if-no-files-found: error
           retention-days: 14

@@ -1,4 +1,4 @@
-name: MPC Kit Studio - Mac
+name: Kit for MPC3000 - Mac
 on:
   push:
     branches: [main]

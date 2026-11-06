@@ -1,4 +1,4 @@
-# Vocabulaire et flux de MPC Kit Studio
+# Vocabulaire et flux de Kit for MPC3000
 
 Clarifié avec Nicolas le 17 octobre 2026. Ce document distingue le besoin produit de l’état livré ; il ne relance pas UNDERSTAND.
 
@@ -222,3 +222,18 @@ de macOS, en français par défaut.
 
 Vérifié dans une copie de revue en anglais : barre d’outils, colonnes, menus (File, Edit, View, Library).
 La notarisation reste à faire : l’app est signée localement, sans Developer ID.
+
+## Kit for MPC3000 en 0.9.1 (30), 6 novembre 2026
+
+Nicolas renomme le produit « Kit for MPC3000 » et demande d’aligner ce nom partout. Côté app : nom affiché,
+menus et fenêtre, `Kit for MPC3000.app`, volume et archives `Kit-for-MPC3000-Apple-Silicon.dmg/.zip`,
+workflows, README et ce document. Restent inchangés, pour ne perdre aucune donnée : l’identifiant
+`com.nicolasrewolf.mpckitstudio` (réglages, dossiers mémorisés) et le dossier
+`~/Library/Application Support/MPC Kit Studio/Programs` (bibliothèque sur le Mac). Les noms internes du code
+(`KitStudio`, `MPCCore`) ne changent pas non plus.
+
+La 0.9.0 a été signée avec le Developer ID de Nicolas et notarisée par Apple (app et DMG acceptés, ticket agrafé,
+Gatekeeper : « Notarized Developer ID »). `release-signed.sh` choisit désormais Xcode comme `build-app.sh` :
+le manifeste de livraison avait échoué faute de `xcodebuild` avec les outils en ligne de commande.
+Les captures en anglais ont montré deux textes restés en français, formatés par `String(format:)` :
+« Sélection : … s » et « … demi-tons » passent maintenant par le catalogue.

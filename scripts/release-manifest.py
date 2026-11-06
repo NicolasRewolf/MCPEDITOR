@@ -15,8 +15,8 @@ import subprocess
 import sys
 import tempfile
 
-APP_NAME = "MPC Kit Studio.app"
-ARCHIVES = ("MPC-Kit-Studio-Apple-Silicon.zip", "MPC-Kit-Studio-Apple-Silicon.dmg")
+APP_NAME = "Kit for MPC3000.app"
+ARCHIVES = ("Kit-for-MPC3000-Apple-Silicon.zip", "Kit-for-MPC3000-Apple-Silicon.dmg")
 # SwiftPM copies the resource flat (older toolchains) or as a structured bundle (Xcode 27).
 RESOURCES = ("Contents/Resources/KitStudio_MPCCore.bundle/Default.pgm",
              "Contents/Resources/KitStudio_MPCCore.bundle/Contents/Resources/Default.pgm")

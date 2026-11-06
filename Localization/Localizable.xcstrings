@@ -91,6 +91,16 @@
         }
       }
     },
+    "%+.1f demi-tons" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%+.1f semitones"
+          }
+        }
+      }
+    },
     "%@\nLes fichiers restent sur le disque." : {
       "localizations" : {
         "en" : {
@@ -1409,12 +1419,12 @@
         }
       }
     },
-    "Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit Studio n’en crée pas et ne les supprime pas." : {
+    "Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit for MPC3000 n’en crée pas et ne les supprime pas." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Created by macOS while the card is mounted: Finder copies (._), index and Trash. They take up clusters of the PART. Kit Studio neither creates nor deletes them."
+            "value" : "Created by macOS while the card is mounted: Finder copies (._), index and Trash. They take up clusters of the PART. Kit for MPC3000 neither creates nor deletes them."
           }
         }
       }
@@ -2015,6 +2025,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reverse Sample"
+          }
+        }
+      }
+    },
+    "Kit for MPC3000" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kit for MPC3000"
           }
         }
       }
@@ -2725,16 +2745,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "FAT usage cannot be checked."
-          }
-        }
-      }
-    },
-    "MPC Kit Studio" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MPC Kit Studio"
           }
         }
       }
@@ -3505,6 +3515,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hover over this bank while moving a pad to reach it"
+          }
+        }
+      }
+    },
+    "Sélection : %.3f s" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection: %.3f s"
           }
         }
       }

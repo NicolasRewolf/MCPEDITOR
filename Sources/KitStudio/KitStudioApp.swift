@@ -10,7 +10,7 @@ struct KitStudioApp: App {
     @State private var textEditingRevision = 0
 
     var body: some Scene {
-        WindowGroup("MPC Kit Studio") {
+        WindowGroup("Kit for MPC3000") {
             StudioRootView(model: model, appDelegate: appDelegate)
                 .onReceive(Publishers.Merge3(
                     NotificationCenter.default.publisher(for: NSText.didChangeNotification),

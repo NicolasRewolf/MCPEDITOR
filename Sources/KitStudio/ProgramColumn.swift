@@ -102,7 +102,7 @@ struct ProgramColumn: View {
                         .font(.caption)
                         .foregroundStyle(StudioPalette.muted)
                         .lineLimit(2)
-                        .help("Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit Studio n’en crée pas et ne les supprime pas.")
+                        .help("Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit for MPC3000 n’en crée pas et ne les supprime pas.")
                 }
             }
         } else if model.selectedLocation == nil, !model.emptyParts.isEmpty {
