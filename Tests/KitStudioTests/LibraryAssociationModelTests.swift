@@ -55,6 +55,9 @@ final class LibraryAssociationModelTests: XCTestCase {
         await model.refreshLocations().value
 
         XCTAssertEqual(model.sampleScope, .library)
+        XCTAssertTrue(model.filteredSamples.isEmpty, "The Mac collection holds no SD sample; the SD has its own pane")
+        XCTAssertEqual(Set(model.visibleSDSamples), [])
+        model.showAllSDSamples()
         XCTAssertEqual(Set(model.filteredSamples), Set([kickA, kickB, orphan]))
         XCTAssertEqual(Set(model.programsUsingSample(kickA).map(\.url)), Set([soulA, funkA]))
         XCTAssertEqual(model.programsUsingSample(kickB).map(\.url), [soulB])
@@ -77,6 +80,8 @@ final class LibraryAssociationModelTests: XCTestCase {
         await model.refreshLocations().value
 
         XCTAssertTrue(model.partitions.isEmpty)
+        XCTAssertTrue(model.sdSampleRows.isEmpty, "A local backup named like a PART is not on the SD")
+        model.showSamples(in: try XCTUnwrap(model.libraryKits.first))
         XCTAssertEqual(model.filteredSamples, [kick])
         XCTAssertNil(model.libraryKits.first?.partitionLetter)
         XCTAssertEqual(model.sampleLocationLabel(for: kick), "MPC-PART--S")

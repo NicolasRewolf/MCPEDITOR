@@ -18,7 +18,7 @@ struct KitStudioApp: App {
                     NotificationCenter.default.publisher(for: NSText.didEndEditingNotification)
                 )) { _ in textEditingRevision &+= 1 }
         }
-        .defaultSize(width: 1_320, height: 860)
+        .defaultSize(width: 1_440, height: 900)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Nouveau .PGM", action: model.newKit)
@@ -68,7 +68,7 @@ struct StudioRootView: View {
     var body: some View {
         StudioView()
             .environmentObject(model)
-            .frame(minWidth: 1_100, minHeight: 760)
+            .frame(minWidth: 1_160, minHeight: 760)
             .preferredColorScheme(.dark)
             .tint(StudioPalette.orange)
             .background(WindowCloseGuard(model: model, appDelegate: appDelegate))

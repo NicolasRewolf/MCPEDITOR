@@ -37,11 +37,16 @@ struct StudioView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Take on the left, build in the middle, keep on the right: the samples
+            // touch the pads they are dragged onto.
             HStack(spacing: 0) {
-                LibraryBrowser()
-                    .frame(width: 320)
+                SampleColumn()
+                    .frame(width: 380)
                 Divider()
                 workspace
+                Divider()
+                ProgramColumn()
+                    .frame(width: 280)
             }
             statusBar
         }
@@ -82,18 +87,16 @@ struct StudioView: View {
     }
 
     private var workspace: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 12) {
             header
-            HStack(alignment: .top, spacing: 18) {
-                padPanel
-                    .frame(width: 310)
-                // An empty pad needs a single invitation, not half the window.
-                SampleEditor()
-                    .frame(maxWidth: .infinity, maxHeight: model.sound == nil ? nil : .infinity, alignment: .top)
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
+            padPanel
+                .frame(maxWidth: 600, alignment: .leading)
+            // The editor sits under the pads, as wide; an empty pad needs a single line.
+            SampleEditor()
+                .frame(maxWidth: 600, maxHeight: model.sound == nil ? nil : .infinity, alignment: .top)
         }
-        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(16)
     }
 
     private var header: some View {
@@ -157,7 +160,7 @@ struct StudioView: View {
     }
 
     private var padPanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 HStack(spacing: 6) {
                     ForEach(0..<4) { bank in
@@ -194,7 +197,7 @@ struct StudioView: View {
                 .help("Vider le pad sélectionné")
                 .accessibilityLabel("Vider le pad sélectionné")
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 ForEach(0..<16) { position in
                     let localPad = (3 - position / 4) * 4 + position % 4
                     let index = model.bank * 16 + localPad
@@ -354,7 +357,7 @@ private struct PadButton: View {
 
     private var padButton: some View {
         Button(action: onPress) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(String(format: "%02d", number))
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -379,8 +382,8 @@ private struct PadButton: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .foregroundStyle(hasSound ? Color.white : StudioPalette.muted)
             }
-            .padding(10)
-            .frame(height: 80)
+            .padding(9)
+            .frame(height: 64)
             .background(
                 LinearGradient(
                     colors: [Color.white.opacity(selected ? 0.12 : 0.08), Color.white.opacity(0.025)],
@@ -405,7 +408,7 @@ private struct SampleEditor: View {
     @EnvironmentObject private var model: StudioModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(model.selectedLabel)
@@ -460,15 +463,15 @@ private struct SampleEditor: View {
                 emptyEditor
             }
         }
-        .padding(20)
+        .padding(14)
         .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 14))
         .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(StudioPalette.border) }
     }
 
     private func loadedEditor(_ sound: MPCSound) -> some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 10) {
             WaveformView(sound: sound, onTrim: model.setTrim)
-                .frame(height: 210)
+                .frame(height: 110)
                 .background(StudioPalette.inset, in: RoundedRectangle(cornerRadius: 8))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .accessibilityLabel("Forme d’onde du sample, début \(sound.start), fin \(sound.end)")
@@ -491,7 +494,6 @@ private struct SampleEditor: View {
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(StudioPalette.muted)
             }
-            Divider()
             transformControls
             HStack {
                 Label("Accordage", systemImage: "tuningfork")
@@ -513,7 +515,7 @@ private struct SampleEditor: View {
     }
 
     private func trimControls(_ sound: MPCSound) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 4) {
             trimSlider(
                 title: "DÉBUT", value: sound.start, upper: max(1, sound.frameCount - 1)
             ) { model.setTrim(start: min($0, sound.end - 1), end: sound.end) }
@@ -527,17 +529,14 @@ private struct SampleEditor: View {
         SampleTrimSlider(title: title, value: value, upper: upper, onChange: onChange)
     }
 
+    /// One row under the pads' width; it wraps only in a narrow window.
     private var transformControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                operation("Découper", symbol: "scissors", kind: "trim")
-                operation("Normaliser", symbol: "waveform", kind: "normalize")
-                operation("Mono", symbol: "speaker.wave.1", kind: "mono")
-            }
-            HStack(spacing: 7) {
-                operation("Petits fondus", symbol: "waveform.path", kind: "fade")
-                operation("Inverser", symbol: "backward.end", kind: "reverse")
-            }
+        FlowLayout(spacing: 7, lineSpacing: 7) {
+            operation("Découper", symbol: "scissors", kind: "trim")
+            operation("Normaliser", symbol: "waveform", kind: "normalize")
+            operation("Mono", symbol: "speaker.wave.1", kind: "mono")
+            operation("Petits fondus", symbol: "waveform.path", kind: "fade")
+            operation("Inverser", symbol: "backward.end", kind: "reverse")
         }
     }
 

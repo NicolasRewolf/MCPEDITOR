@@ -2,101 +2,17 @@ import AppKit
 import MPCCore
 import SwiftUI
 
-struct LibraryBrowser: View {
-    @EnvironmentObject private var model: StudioModel
-    @FocusState private var sampleListFocused: Bool
-    @State private var linksSample: URL?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Picker("Bibliothèque", selection: $model.libraryMode) {
-                    Text(".PGM").tag(LibraryMode.kits)
-                    Text("Samples").tag(LibraryMode.samples)
-                    Text("PART").tag(LibraryMode.parts)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                if model.libraryScanning {
-                    ProgressView().controlSize(.small)
-                        .accessibilityLabel("Actualisation de la bibliothèque")
-                }
-            }
-
-            switch model.libraryMode {
-            case .kits: kitBrowser
-            case .samples: sampleBrowser
-            case .parts: partitionBrowser
-            }
-        }
-        .padding(12)
-        .background(StudioPalette.inset)
+/// Formatting shared by the sample and .PGM columns.
+enum LibraryBrowser {
+    static func count(_ value: Int, _ noun: String) -> String {
+        "\(value) \(noun)\(value > 1 ? "s" : "")"
     }
 
-    private var partitionBrowser: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if model.partitions.isEmpty {
-                LibraryEmptyState(symbol: "sdcard", title: "Aucune PART montée",
-                                  detail: "Branche la SD pour retrouver ses .PGM et ses samples.")
-            }
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    if !model.emptyParts.isEmpty {
-                        EmptyPartsSummary(parts: model.emptyParts, capacity: model.emptyPartCapacityBytes)
-                    }
-                    ForEach(model.partsWithContent, id: \.url) { partition in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Label("PART \(partition.letter)", systemImage: "sdcard")
-                                    .font(.callout.weight(.semibold))
-                                Spacer()
-                                if !partition.issues.isEmpty {
-                                    Label("À vérifier", systemImage: "exclamationmark.triangle")
-                                        .font(.caption)
-                                        .foregroundStyle(.yellow)
-                                        .help(partition.issues.joined(separator: "\n"))
-                                }
-                            }
-                            if let available = partition.availableBytes {
-                                PartFillBar(available: available, capacity: model.emptyPartCapacityBytes)
-                            }
-                            if !partition.kits.isEmpty {
-                                Text(partition.kits.map { $0.url.lastPathComponent }.joined(separator: " · "))
-                                    .font(.caption)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            } else if !partition.issues.isEmpty {
-                                Text("Aucun .PGM visible · inventaire incomplet")
-                                    .font(.caption).foregroundStyle(StudioPalette.muted)
-                            }
-                            if let metadata = partition.macOSMetadata, let summary = Self.macOSSummary(metadata) {
-                                Label(summary, systemImage: "applelogo")
-                                    .font(.caption)
-                                    .foregroundStyle(StudioPalette.muted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .help("Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit Studio n’en crée pas et ne les supprime pas.\nDossiers système : \(metadata.systemFolders.joined(separator: ", "))")
-                            }
-                            let otherFiles = max(0, partition.fileCount - partition.kits.count - partition.audioCount)
-                            if otherFiles > 0 || partition.folderCount > 0 {
-                                Text("\(otherFiles) autre(s) fichier(s) · \(partition.folderCount) dossier(s)")
-                                    .font(.caption).foregroundStyle(StudioPalette.muted)
-                                    .help("Dont \(partition.sequenceCount) séquence(s) .SEQ. Ces fichiers occupent aussi la PART.")
-                            }
-                            HStack {
-                                Button("\(partition.kits.count) .PGM") { model.showPrograms(in: partition) }
-                                    .accessibilityLabel("Voir les .PGM de PART \(partition.letter)")
-                                Button("\(partition.audioCount) samples") { model.showSamples(in: partition) }
-                                    .accessibilityLabel("Voir les samples de PART \(partition.letter)")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 7))
-                    }
-                }
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
+    /// "/Volumes/T9/…" → "T9"; a folder of the Mac's own disk has no volume to name.
+    static func volumeName(of url: URL) -> String? {
+        let components = url.standardizedFileURL.pathComponents
+        guard components.count > 2, components[1] == "Volumes" else { return nil }
+        return components[2]
     }
 
     /// `.fseventsd` exists on every mounted PART; only what costs or blocks is shown inline.
@@ -110,150 +26,74 @@ struct LibraryBrowser: View {
         guard !parts.isEmpty else { return nil }
         return "macOS : " + parts.joined(separator: " · ") + (metadata.isComplete ? "" : " · relevé incomplet")
     }
+}
 
-    private var kitBrowser: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Button("Tous les .PGM", action: model.showAllKits)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(model.selectedLocation == nil ? StudioPalette.orange : Color.primary)
-                Spacer()
-                Menu {
-                    ForEach(
-                        model.locations.filter { location in !model.partitions.contains { $0.url == location } }, id: \.self
-                    ) { folder in
-                        Button(folder.lastPathComponent) { model.selectLocation(folder) }
-                            .help(folder.path)
-                    }
-                    Divider()
-                    Button("Ajouter un dossier de .PGM…", action: model.chooseFolder)
-                    if !model.addedKitFolders.isEmpty {
-                        Menu("Retirer de la liste") {
-                            ForEach(model.addedKitFolders, id: \.self) { folder in
-                                Button(folder.lastPathComponent) { model.removeKitFolder(folder) }
-                                    .help("\(folder.path)\nLes fichiers restent sur le disque.")
-                            }
-                        }
-                        .disabled(model.documentLocked)
-                    }
-                } label: {
-                    Label("Dossiers", systemImage: "folder")
-                }
-                .help("Parcourir les dossiers de .PGM ajoutés")
-            }
-            TextField("Rechercher un .PGM ou une PART", text: $model.kitSearch)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Rechercher un .PGM ou une PART")
-            HStack(spacing: 6) {
-                Text("\(model.filteredKits.count) .PGM")
-                inventoryBadge
-                Spacer()
-                if let location = model.selectedLocation {
-                    Text(location.lastPathComponent)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .help(location.path)
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(StudioPalette.muted)
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 5, pinnedViews: [.sectionHeaders]) {
-                        if model.filteredKits.isEmpty {
-                            LibraryEmptyState(
-                                symbol: "square.grid.3x3",
-                                title: model.libraryContentIssue == nil ? "Aucun .PGM dans cette vue" : "Aucun .PGM visible dans cette vue",
-                                detail: model.libraryContentIssue == nil
-                                    ? "Choisis une autre PART, affiche tous les .PGM ou ajoute un dossier."
-                                    : "Actualise la bibliothèque pour vérifier les fichiers accessibles."
-                            )
-                        }
-                        ForEach(model.groupedFilteredKits) { group in
-                        Section {
-                        ForEach(group.kits, id: \.url) { kit in
-                            HStack(spacing: 0) {
-                                BrowserRow(
-                                    title: kit.title,
-                                    subtitle: model.kitRowSubtitle(for: kit),
-                                    symbol: "square.grid.3x3",
-                                    selected: (model.localSaveURL ?? model.programURL) == kit.url,
-                                    path: kit.url.path + (model.kitTitleOnMPC(for: kit).map { "\nTitre sur la MPC : \($0)" } ?? "")
-                                ) { model.openProgram(kit.url) }
-                                .accessibilityLabel("\(kit.title), \(model.libraryLocationLabel(for: kit))")
-                                .accessibilityHint("Ouvrir ce programme MPC")
-                                Button { model.showSamples(in: kit) } label: {
-                                    Image(systemName: "list.bullet")
-                                }
-                                .buttonStyle(.borderless)
-                                .frame(width: 28)
-                                .help("Voir les samples de \(kit.url.lastPathComponent) · \(model.libraryLocationLabel(for: kit))")
-                                .accessibilityLabel("Voir les samples de \(kit.url.lastPathComponent), \(model.libraryLocationLabel(for: kit))")
-                                Menu {
-                                    kitActions(kit)
-                                } label: { Image(systemName: "ellipsis") }
-                                .menuStyle(.borderlessButton)
-                                .menuIndicator(.hidden)
-                                .frame(width: 28)
-                                .help("Actions pour \(kit.url.lastPathComponent)")
-                                .accessibilityLabel("Actions pour \(kit.title), \(model.libraryLocationLabel(for: kit))")
-                            }
-                            .id(kit.url)
-                            .disabled(model.documentActionsDisabled)
-                            .contextMenu { kitActions(kit) }
-                        }
-                        } header: {
-                            KitGroupHeader(title: group.title, count: group.kits.count)
-                        }
-                        }
-                    }
-                    .padding(.trailing, 4)
-                }
-                .scrollIndicators(.visible)
-                .onChange(of: model.libraryKits) { _ in
-                    if let url = model.localSaveURL ?? model.programURL {
-                        proxy.scrollTo(url, anchor: .center)
-                    }
-                }
-                .onChange(of: model.localSaveURL) { url in
-                    if let url { proxy.scrollTo(url, anchor: .center) }
-                }
+// MARK: - Samples, left: what the bank is built from
+
+/// Only samples live on the left: the computer's folders above, the SD's PARTs below,
+/// right beside the pads they are dragged onto.
+struct SampleColumn: View {
+    @EnvironmentObject private var model: StudioModel
+    private enum Pane: Hashable { case computer, sd }
+    @FocusState private var focus: Pane?
+    @State private var linksSample: URL?
+    @AppStorage("layout.sdPaneHeight") private var sdHeight: Double = 260
+    @AppStorage("layout.sdPaneCollapsed") private var sdCollapsed = false
+    @State private var dragOrigin: Double?
+
+    var body: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                computerPane
+                    .padding(12)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                if !sdCollapsed { splitHandle(total: geometry.size.height) }
+                else { Divider() }
+                sdPane
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(height: sdCollapsed ? nil : clampedSDHeight(total: geometry.size.height), alignment: .top)
+                Divider()
+                assignBar.padding(12)
             }
         }
-        .frame(maxHeight: .infinity, alignment: .top)
+        .background(StudioPalette.inset)
     }
 
-    /// An inventory caveat is one icon beside the count; its explanation is the tooltip.
-    @ViewBuilder
-    private var inventoryBadge: some View {
-        let folderScope = model.libraryMode == .samples && model.sampleScope == .folder
-        if let issue = folderScope ? model.sampleFolderIssue : (model.libraryContentIssue ?? model.libraryIssue) {
-            Image(systemName: "exclamationmark.triangle")
-                .foregroundStyle(.yellow)
-                .help("\(model.libraryInventoryWarningTitle). \(model.libraryInventoryWarningDetail)\n\n\(issue)")
-                .accessibilityLabel(model.libraryInventoryWarningTitle)
+    private func clampedSDHeight(total: CGFloat) -> CGFloat {
+        min(max(120, CGFloat(sdHeight)), max(120, total - 300))
+    }
+
+    /// Drag to give the SD more or less room; the height is remembered.
+    private func splitHandle(total: CGFloat) -> some View {
+        ZStack {
+            Rectangle().fill(StudioPalette.border).frame(height: 1)
+            Capsule().fill(Color.white.opacity(0.22)).frame(width: 36, height: 3)
+        }
+        .frame(height: 10)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+        }
+        .gesture(DragGesture(minimumDistance: 1).onChanged { value in
+            let origin = dragOrigin ?? Double(clampedSDHeight(total: total))
+            dragOrigin = origin
+            sdHeight = Double(min(max(120, CGFloat(origin) - value.translation.height), max(120, total - 300)))
+        }.onEnded { _ in dragOrigin = nil })
+        .accessibilityElement()
+        .accessibilityLabel("Séparation entre les samples de l’ordinateur et ceux de la SD")
+        .accessibilityValue("\(Int(sdHeight)) points pour la SD")
+        .accessibilityAdjustableAction { direction in
+            sdHeight += direction == .increment ? 40 : -40
         }
     }
 
-    @ViewBuilder
-    private func kitActions(_ kit: LibraryKit) -> some View {
-        Button("Voir les samples") { model.showSamples(in: kit) }
-        Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([kit.url]) }
-        if model.trashRefusal(for: kit) == nil {
-            Button("Mettre le programme à la corbeille…", role: .destructive) {
-                model.requestTrashKit(kit)
-            }
-            .disabled(model.documentActionsDisabled)
-        } else {
-            Button("Corbeille indisponible sur la SD") {}
-                .disabled(true)
-        }
-    }
+    // MARK: Computer
 
-    private var sampleBrowser: some View {
+    private var computerPane: some View {
         VStack(alignment: .leading, spacing: 8) {
-            samplePlaces
-            Divider().opacity(0.6)
+            places
             if model.selectedSamplePlace == nil || model.canGoUpSamples {
                 HStack(spacing: 7) {
                     if model.canGoBackInSamples {
@@ -289,11 +129,11 @@ struct LibraryBrowser: View {
                 .accessibilityLabel("Écouter en parcourant")
                 .accessibilityValue(model.autoPreviewSamples ? "activée" : "désactivée")
             }
-            if let line = sampleCountLine {
+            if let line = countLine {
                 HStack(spacing: 6) {
                     if model.sampleSearchInProgress { ProgressView().controlSize(.mini) }
                     Text(line)
-                    inventoryBadge
+                    IssueBadge(title: "Inventaire incomplet", issue: model.sampleBrowserIssue)
                 }
                 .font(.caption)
                 .foregroundStyle(StudioPalette.muted)
@@ -301,49 +141,40 @@ struct LibraryBrowser: View {
             if model.sampleScope == .folder && !model.isSampleTreeSearch {
                 sampleTree
             } else {
-                sampleFileList
+                sampleList
             }
-            sampleActions
         }
-        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var searchPrompt: String {
-        guard model.sampleScope == .folder, let folder = model.sampleFolder ?? model.selectedSampleRoot else {
-            return "Rechercher dans cette vue"
+        if model.sampleScope == .folder, let folder = model.sampleFolder ?? model.selectedSampleRoot {
+            return "Rechercher dans \(folder.lastPathComponent)"
         }
-        return "Rechercher dans \(folder.lastPathComponent)"
+        return "Rechercher dans cette vue"
     }
 
-    /// The tree speaks only when asked: a search answer or a list that is not a tree.
-    private var sampleCountLine: String? {
+    private var countLine: String? {
         if model.isSampleTreeSearch {
             if model.sampleSearchInProgress { return "Recherche…" }
             let count = model.filteredSamples.count
-            return model.sampleSearchTruncated ? "\(count)+ résultats · précise ta recherche" : Self.count(count, "résultat")
+            return model.sampleSearchTruncated ? "\(count)+ résultats · précise ta recherche" : LibraryBrowser.count(count, "résultat")
         }
-        if model.sampleScope == .folder { return model.libraryContentIssue == nil ? nil : "Dossier à vérifier" }
-        return Self.count(model.filteredSamples.count, "sample")
+        if model.sampleScope == .folder { return model.sampleBrowserIssue == nil ? nil : "Dossier à vérifier" }
+        return LibraryBrowser.count(model.filteredSamples.count, "sample")
     }
 
-    /// Like a DAW browser: the sources stay in view, one click opens one.
-    private var samplePlaces: some View {
-        VStack(alignment: .leading, spacing: 1) {
+    /// The computer's sources, side by side: the Mac collection, then each added folder.
+    private var places: some View {
+        FlowLayout(spacing: 5) {
             let place = model.selectedSamplePlace
-            PlaceRow(title: "Bibliothèque et SD", symbol: "square.stack", detail: nil,
-                     selected: place == .library, help: "Les samples de la bibliothèque sur le Mac et de la SD",
-                     action: model.showAllLibrarySamples)
-            if !model.partitions.isEmpty {
-                PlaceRow(title: "Carte SD", symbol: "sdcard",
-                         detail: "\(model.partsWithContent.count) PART",
-                         selected: place == .sd, help: "Les samples de la SD, rangés par PART",
-                         action: model.showAllSDSamples)
-            }
+            PlaceChip(title: "Mac", symbol: "desktopcomputer", selected: place == .library,
+                      help: "Les samples des .PGM de la bibliothèque sur le Mac",
+                      action: model.showAllLibrarySamples)
             ForEach(model.sampleRoots, id: \.self) { root in
-                PlaceRow(title: root.lastPathComponent.isEmpty ? root.path : root.lastPathComponent,
-                         symbol: Self.volumeName(of: root) == nil ? "folder" : "externaldrive",
-                         detail: Self.volumeName(of: root),
-                         selected: place == .root(root.standardizedFileURL), help: root.path) {
+                let name = root.lastPathComponent.isEmpty ? root.path : root.lastPathComponent
+                PlaceChip(title: LibraryBrowser.volumeName(of: root).map { "\(name) · \($0)" } ?? name,
+                          symbol: LibraryBrowser.volumeName(of: root) == nil ? "folder" : "externaldrive",
+                          selected: place == .root(root.standardizedFileURL), help: root.path) {
                     model.selectSampleRoot(root)
                 }
                 .contextMenu {
@@ -353,23 +184,18 @@ struct LibraryBrowser: View {
                 }
             }
             Button(action: model.chooseSampleFolder) {
-                Label("Ajouter un dossier…", systemImage: "plus")
-                    .font(.system(size: 11))
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(StudioPalette.muted)
-                    .padding(.horizontal, 6)
-                    .frame(height: 24)
+                    .frame(width: 26, height: 24)
+                    .overlay(Capsule().stroke(Color.white.opacity(0.12)))
+                    .contentShape(Capsule())
             }
             .buttonStyle(.plain)
             .disabled(model.documentLocked)
             .help("Ajouter un dossier de samples, par exemple sur ton SSD")
+            .accessibilityLabel("Ajouter un dossier de samples")
         }
-    }
-
-    /// "/Volumes/T9/…" → "T9"; a folder of the Mac's own disk has no volume to name.
-    static func volumeName(of url: URL) -> String? {
-        let components = url.standardizedFileURL.pathComponents
-        guard components.count > 2, components[1] == "Volumes" else { return nil }
-        return components[2]
     }
 
     private var sampleTree: some View {
@@ -397,7 +223,7 @@ struct LibraryBrowser: View {
                             case .sample: model.playSample(row.url)
                             case .notice: break
                             }
-                            sampleListFocused = true
+                            focus = .computer
                         }
                         .id(row.id)
                         .modifier(SampleRowDrag(url: row.kind == .sample ? row.url : nil))
@@ -415,7 +241,7 @@ struct LibraryBrowser: View {
             .scrollIndicators(.visible)
             .focusable()
             .modifier(NoFocusRing())
-            .focused($sampleListFocused)
+            .focused($focus, equals: .computer)
             .onMoveCommand { direction in
                 switch direction {
                 case .up: model.moveSampleSelection(by: -1)
@@ -429,56 +255,52 @@ struct LibraryBrowser: View {
         }
     }
 
-    private var sampleFileList: some View {
+    /// Search results and the Mac or .PGM views: samples grouped by their folder.
+    private var sampleList: some View {
         ScrollViewReader { proxy in
-        ScrollView(.vertical, showsIndicators: true) {
-            LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
-                if model.filteredSamples.isEmpty && !model.sampleSearchInProgress {
-                    LibraryEmptyState(
-                        symbol: "waveform",
-                        title: model.isSampleTreeSearch ? "Aucun sample trouvé"
-                            : (model.libraryContentIssue == nil ? "Aucun sample dans cette vue" : "Aucun sample visible dans cette vue"),
-                        detail: model.isSampleTreeSearch
-                            ? "Chaque mot cherché doit apparaître dans le nom du sample ou de ses dossiers."
-                            : (model.libraryContentIssue == nil
-                                ? "Choisis une autre source ou ajoute un dossier de ton SSD."
-                                : "Actualise la bibliothèque pour vérifier les fichiers accessibles.")
-                    )
-                }
-                let groups = model.groupedFilteredSamples
-                ForEach(groups) { group in
-                    Section {
-                        ForEach(group.samples, id: \.self) { sample in
-                            sampleRow(sample)
-                        }
-                    } header: {
-                        if groups.count > 1 {
-                            KitGroupHeader(title: group.title, count: group.samples.count, unit: "sample")
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
+                    if model.filteredSamples.isEmpty && !model.sampleSearchInProgress {
+                        LibraryEmptyState(
+                            symbol: "waveform",
+                            title: model.isSampleTreeSearch ? "Aucun sample trouvé" : "Aucun sample dans cette vue",
+                            detail: model.isSampleTreeSearch
+                                ? "Chaque mot cherché doit apparaître dans le nom du sample ou de ses dossiers."
+                                : (model.sampleScope == .library
+                                    ? "Les samples des .PGM enregistrés sur le Mac apparaissent ici. Ajoute un dossier de ton SSD avec +."
+                                    : "Choisis une autre source ou ajoute un dossier de ton SSD.")
+                        )
+                    }
+                    let groups = model.groupedFilteredSamples
+                    ForEach(groups) { group in
+                        Section {
+                            ForEach(group.samples, id: \.self) { sample in
+                                sampleRow(sample)
+                            }
+                        } header: {
+                            if groups.count > 1 {
+                                KitGroupHeader(title: group.title, count: group.samples.count, unit: "sample")
+                            }
                         }
                     }
                 }
+                .padding(.trailing, 4)
             }
-            .padding(.trailing, 4)
-        }
-        .scrollIndicators(.visible)
-        .focusable()
-        .modifier(NoFocusRing())
-        .focused($sampleListFocused)
-        .onMoveCommand { direction in
-            switch direction {
-            case .up: model.moveSampleSelection(by: -1)
-            case .down: model.moveSampleSelection(by: 1)
-            default: break
+            .scrollIndicators(.visible)
+            .focusable()
+            .modifier(NoFocusRing())
+            .focused($focus, equals: .computer)
+            .onMoveCommand { direction in
+                switch direction {
+                case .up: model.moveSampleSelection(by: -1)
+                case .down: model.moveSampleSelection(by: 1)
+                default: break
+                }
+            }
+            .onChange(of: model.selectedSampleURL) { url in
+                if let url { proxy.scrollTo(url) }
             }
         }
-        .onChange(of: model.selectedSampleURL) { url in
-            if let url { proxy.scrollTo(url) }
-        }
-        }
-    }
-
-    static func count(_ value: Int, _ noun: String) -> String {
-        "\(value) \(noun)\(value > 1 ? "s" : "")"
     }
 
     @ViewBuilder
@@ -488,39 +310,165 @@ struct LibraryBrowser: View {
             BrowserRow(title: sample.lastPathComponent, subtitle: "", symbol: "waveform",
                        selected: selected, path: sample.path) {
                 model.playSample(sample)
-                sampleListFocused = true
+                focus = .computer
             }
             .onDrag { NSItemProvider(object: sample as NSURL) }
             .accessibilityHint("Écouter ; glisser vers un pad pour l’affecter")
-            if selected {
-                Button { linksSample = sample } label: { Image(systemName: "info.circle") }
-                    .buttonStyle(.borderless)
-                    .frame(width: 28)
-                    .help("Où ce sample est utilisé")
-                    .accessibilityLabel("Où \(sample.lastPathComponent) est utilisé")
-                    .popover(isPresented: Binding(get: { linksSample == sample },
-                                                  set: { if !$0 { linksSample = nil } }),
-                             arrowEdge: .trailing) {
-                        SampleLinksPopover(sample: sample).environmentObject(model)
-                    }
+            if selected { linksButton(sample) }
+        }
+        .id(sample)
+    }
+
+    private func linksButton(_ sample: URL) -> some View {
+        Button { linksSample = sample } label: { Image(systemName: "info.circle") }
+            .buttonStyle(.borderless)
+            .frame(width: 28)
+            .help("Où ce sample est utilisé")
+            .accessibilityLabel("Où \(sample.lastPathComponent) est utilisé")
+            .popover(isPresented: Binding(get: { linksSample == sample },
+                                          set: { if !$0 { linksSample = nil } }),
+                     arrowEdge: .trailing) {
+                SampleLinksPopover(sample: sample).environmentObject(model)
+            }
+    }
+
+    // MARK: SD
+
+    private var sdPane: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Button { sdCollapsed.toggle() } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: sdCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(StudioPalette.muted)
+                        .frame(width: 10)
+                    Text("Samples de la SD")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer(minLength: 4)
+                    Text(model.sdIsMounted
+                         ? "\(model.sdSampleCount) · \(model.partsWithContent.filter { model.mountedPartURLs.contains($0.url) }.count) PART"
+                         : "SD absente")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Samples de la SD")
+            .accessibilityValue(sdCollapsed ? "replié" : "déplié")
+            .overlay(alignment: .trailing) {
+                IssueBadge(title: "Inventaire de la SD incomplet", issue: model.sdSamplesIssue)
+                    .offset(x: 14)
+            }
+            if !sdCollapsed {
+                if !model.sdIsMounted {
+                    Text("Branche la SD pour piocher dans ses samples.")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                        .padding(.vertical, 6)
+                } else {
+                    TextField("Rechercher sur la SD", text: $model.sdSampleQuery)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("Rechercher dans les samples de la SD")
+                    sdList
+                }
             }
         }
     }
 
-    private var sampleActions: some View {
+    private var sdList: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    let rows = model.sdSampleRows
+                    if rows.isEmpty {
+                        Text(model.sdSampleQuery.isEmpty ? "Aucun sample sur la SD." : "Aucun sample trouvé sur la SD.")
+                            .font(.caption)
+                            .foregroundStyle(StudioPalette.muted)
+                            .padding(.vertical, 8)
+                    }
+                    ForEach(rows) { row in
+                        sdRow(row).id(row.id)
+                    }
+                }
+                .padding(.trailing, 4)
+            }
+            .scrollIndicators(.visible)
+            .focusable()
+            .modifier(NoFocusRing())
+            .focused($focus, equals: .sd)
+            .onMoveCommand { direction in
+                switch direction {
+                case .up: model.moveSDSampleSelection(by: -1)
+                case .down: model.moveSDSampleSelection(by: 1)
+                default: break
+                }
+            }
+            .onChange(of: model.selectedSDSampleURL) { url in
+                if let url { proxy.scrollTo(url.path) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sdRow(_ row: StudioModel.SDSampleRow) -> some View {
+        switch row.kind {
+        case .part(let letter, let count, let expanded, let issue):
+            Button { model.toggleSDPart(row.url) } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(StudioPalette.muted)
+                        .frame(width: 10)
+                    Image(systemName: "sdcard")
+                        .foregroundStyle(StudioPalette.muted)
+                        .frame(width: 16)
+                    Text("PART \(letter)").font(.system(size: 12, weight: .medium))
+                    if issue != nil {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(.yellow).font(.caption)
+                    }
+                    Spacer(minLength: 4)
+                    Text("\(count)").font(.system(size: 11, design: .monospaced)).foregroundStyle(StudioPalette.muted)
+                }
+                .padding(.horizontal, 6)
+                .frame(height: 24)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(issue.map { "PART \(letter) à vérifier :\n\($0)" } ?? "PART \(letter) · \(LibraryBrowser.count(count, "sample"))")
+            .accessibilityLabel("PART \(letter), \(LibraryBrowser.count(count, "sample"))")
+            .accessibilityValue(expanded ? "déplié" : "replié")
+        case .sample:
+            let selected = model.selectedSDSampleURL == row.url
+            HStack(spacing: 0) {
+                SampleTreeRowView(row: StudioModel.SampleTreeRow(id: row.id, url: row.url, depth: 1, kind: .sample),
+                                  selected: selected) {
+                    model.playSDSample(row.url)
+                    focus = .sd
+                }
+                .onDrag { NSItemProvider(object: row.url as NSURL) }
+                .contextMenu {
+                    Button("Affecter au pad \(model.selectedLabel)") { model.assignSample(row.url) }
+                        .disabled(model.program == nil || model.documentActionsDisabled)
+                    Button("Afficher dans le Finder") { model.revealInFinder(row.url) }
+                }
+                if selected { linksButton(row.url) }
+            }
+        }
+    }
+
+    // MARK: Assign
+
+    private var assignBar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button {
-                if let sample = model.selectedSampleURL { model.assignSample(sample) }
-            } label: {
+            Button(action: model.assignChosenSample) {
                 Label("Affecter au pad \(model.selectedLabel)", systemImage: "square.and.arrow.down")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(StudioProminentButtonStyle())
-            .disabled(
-                model.selectedSampleURL == nil || model.program == nil || model.documentActionsDisabled
-                    || model.samplePreviewBusy
-            )
-            .help("Importer le sample sélectionné sur le pad \(model.selectedLabel) du .PGM en cours")
+            .disabled(model.chosenSampleURL == nil || model.program == nil || model.documentActionsDisabled
+                      || model.samplePreviewBusy)
+            .help("Importer le sample choisi sur le pad \(model.selectedLabel) du .PGM en cours ; ou glisse-le sur un pad")
             if let problem = model.sampleBrowserProblem {
                 Text(problem)
                     .font(.caption)
@@ -528,6 +476,317 @@ struct LibraryBrowser: View {
                     .lineLimit(2)
                     .help(problem)
             }
+        }
+    }
+}
+
+// MARK: - .PGM, right: where the bank is kept
+
+/// The .PGM list with a one-line PART filter: letters for the PARTs that hold
+/// something, one line for the empty ones.
+struct ProgramColumn: View {
+    @EnvironmentObject private var model: StudioModel
+
+    private var mountedParts: [LibraryPartition] {
+        model.partsWithContent.filter { model.mountedPartURLs.contains($0.url) }
+    }
+
+    private var selectedPart: LibraryPartition? {
+        guard let location = model.selectedLocation else { return nil }
+        return model.partitions.first { $0.url == location }
+    }
+
+    private var selectedFolder: URL? {
+        guard let location = model.selectedLocation, location != model.macLibraryURL, selectedPart == nil else { return nil }
+        return location
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Text("\(model.filteredKits.count) .PGM")
+                    .font(.system(size: 12, weight: .semibold))
+                IssueBadge(title: "Inventaire incomplet", issue: model.programListIssue)
+                if model.libraryScanning {
+                    ProgressView().controlSize(.mini).accessibilityLabel("Actualisation de la bibliothèque")
+                }
+                Spacer()
+                folderMenu
+            }
+            filters
+            filterDetail
+            Divider().opacity(0.6)
+            programList
+        }
+        .padding(12)
+        .background(StudioPalette.inset)
+    }
+
+    private var folderMenu: some View {
+        Menu {
+            ForEach(model.addedKitFolders, id: \.self) { folder in
+                Button(folder.lastPathComponent) { model.filterPrograms(to: folder) }
+                    .help(folder.path)
+            }
+            if !model.addedKitFolders.isEmpty { Divider() }
+            Button("Ajouter un dossier de .PGM…", action: model.chooseFolder)
+            if !model.addedKitFolders.isEmpty {
+                Menu("Retirer de la liste") {
+                    ForEach(model.addedKitFolders, id: \.self) { folder in
+                        Button(folder.lastPathComponent) { model.removeKitFolder(folder) }
+                            .help("\(folder.path)\nLes fichiers restent sur le disque.")
+                    }
+                }
+                .disabled(model.documentLocked)
+            }
+        } label: {
+            Image(systemName: "folder")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Dossiers de .PGM")
+        .accessibilityLabel("Dossiers de .PGM")
+    }
+
+    /// Tout · Mac · A B C D… : text only, the chosen one underlined.
+    private var filters: some View {
+        FlowLayout(spacing: 5, lineSpacing: 4) {
+            FilterLetter(text: "Tout", selected: model.selectedLocation == nil, label: "Tous les .PGM") {
+                model.filterPrograms(to: nil)
+            }
+            FilterLetter(text: "Mac", selected: model.selectedLocation == model.macLibraryURL, label: "Bibliothèque sur le Mac") {
+                model.filterPrograms(to: model.macLibraryURL)
+            }
+            ForEach(mountedParts, id: \.url) { part in
+                FilterLetter(text: part.letter, selected: model.selectedLocation == part.url,
+                             warning: !part.issues.isEmpty, label: "PART \(part.letter)") {
+                    model.filterPrograms(to: part.url)
+                }
+            }
+            if let folder = selectedFolder {
+                FilterLetter(text: folder.lastPathComponent, selected: true, label: folder.path) {}
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var filterDetail: some View {
+        if let part = selectedPart {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    if let available = part.availableBytes {
+                        PartFillBar(available: available, capacity: model.emptyPartCapacityBytes)
+                    }
+                    IssueBadge(title: "PART \(part.letter) à vérifier",
+                               issue: part.issues.isEmpty ? nil : part.issues.joined(separator: "\n"))
+                }
+                if let metadata = part.macOSMetadata, let summary = LibraryBrowser.macOSSummary(metadata) {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                        .lineLimit(2)
+                        .help("Créés par macOS quand la carte est montée : copies du Finder (._), index et corbeille. Ils occupent des grappes de la PART. Kit Studio n’en crée pas et ne les supprime pas.")
+                }
+            }
+        } else if model.selectedLocation == nil, !model.emptyParts.isEmpty {
+            let empty = model.emptyParts
+            Text("+ \(empty.count) PART vide\(empty.count > 1 ? "s" : "")"
+                 + (model.emptyPartCapacityBytes.map { " · \(ByteCountFormatter.string(fromByteCount: $0, countStyle: .file))\(empty.count > 1 ? " chacune" : "")" } ?? ""))
+                .font(.caption)
+                .foregroundStyle(StudioPalette.muted)
+                .help("PART vides : \(empty.map(\.letter).joined(separator: " ")). « Copier sur la SD… » propose la première qui peut recevoir la bank.")
+        } else if let folder = selectedFolder {
+            Text(folder.path)
+                .font(.caption)
+                .foregroundStyle(StudioPalette.muted)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(folder.path)
+        }
+    }
+
+    private var programList: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
+                    if model.filteredKits.isEmpty {
+                        LibraryEmptyState(
+                            symbol: "square.grid.3x3",
+                            title: model.programListIssue == nil ? "Aucun .PGM ici" : "Aucun .PGM visible ici",
+                            detail: model.programListIssue == nil
+                                ? "Choisis une autre PART, ou crée un .PGM avec +."
+                                : "Actualise la bibliothèque (⌘R) pour vérifier les fichiers accessibles."
+                        )
+                    }
+                    let groups = model.groupedFilteredKits
+                    ForEach(groups) { group in
+                        Section {
+                            ForEach(group.kits, id: \.url) { kit in
+                                programRow(kit)
+                            }
+                        } header: {
+                            if groups.count > 1 { KitGroupHeader(title: group.title, count: group.kits.count) }
+                        }
+                    }
+                }
+                .padding(.trailing, 4)
+            }
+            .scrollIndicators(.visible)
+            .onChange(of: model.libraryKits) { _ in
+                if let url = model.localSaveURL ?? model.programURL { proxy.scrollTo(url, anchor: .center) }
+            }
+            .onChange(of: model.localSaveURL) { url in
+                if let url { proxy.scrollTo(url, anchor: .center) }
+            }
+        }
+    }
+
+    private func programRow(_ kit: LibraryKit) -> some View {
+        HStack(spacing: 0) {
+            BrowserRow(
+                title: kit.title,
+                subtitle: model.kitRowSubtitle(for: kit),
+                symbol: "square.grid.3x3",
+                selected: (model.localSaveURL ?? model.programURL) == kit.url,
+                path: kit.url.path + (model.kitTitleOnMPC(for: kit).map { "\nTitre sur la MPC : \($0)" } ?? "")
+            ) { model.openProgram(kit.url) }
+            .accessibilityLabel("\(kit.title), \(model.libraryLocationLabel(for: kit))")
+            .accessibilityHint("Ouvrir ce programme MPC")
+            Menu { kitActions(kit) } label: { Image(systemName: "ellipsis") }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 26)
+                .help("Actions pour \(kit.url.lastPathComponent)")
+                .accessibilityLabel("Actions pour \(kit.title), \(model.libraryLocationLabel(for: kit))")
+        }
+        .id(kit.url)
+        .disabled(model.documentActionsDisabled)
+        .contextMenu { kitActions(kit) }
+    }
+
+    @ViewBuilder
+    private func kitActions(_ kit: LibraryKit) -> some View {
+        Button("Voir ses samples à gauche") { model.showSamples(in: kit) }
+        Button("Afficher dans le Finder") { NSWorkspace.shared.activateFileViewerSelecting([kit.url]) }
+        if model.trashRefusal(for: kit) == nil {
+            Button("Mettre le programme à la corbeille…", role: .destructive) {
+                model.requestTrashKit(kit)
+            }
+            .disabled(model.documentActionsDisabled)
+        } else {
+            Button("Corbeille indisponible sur la SD") {}
+                .disabled(true)
+        }
+    }
+}
+
+// MARK: - Small shared pieces
+
+/// A caveat is one icon; its explanation is the tooltip.
+private struct IssueBadge: View {
+    let title: String
+    let issue: String?
+
+    var body: some View {
+        if let issue {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.yellow)
+                .font(.caption)
+                .help("\(title). Les fichiers visibles ne permettent pas de conclure.\n\n\(issue)")
+                .accessibilityLabel(title)
+        }
+    }
+}
+
+/// A source of samples, as a pill: the chosen one is filled.
+private struct PlaceChip: View {
+    let title: String
+    let symbol: String
+    let selected: Bool
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: symbol).font(.system(size: 10))
+                Text(title).font(.system(size: 11, weight: selected ? .semibold : .regular)).lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .foregroundStyle(selected ? Color.black : Color.white)
+            .background(selected ? StudioPalette.orange : StudioPalette.panel, in: Capsule())
+            .overlay(Capsule().stroke(selected ? Color.clear : Color.white.opacity(0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// One entry of the PART filter: a letter, underlined when chosen.
+private struct FilterLetter: View {
+    let text: String
+    let selected: Bool
+    var warning = false
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(text)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .lineLimit(1)
+                .foregroundStyle(selected ? StudioPalette.orange : Color.white.opacity(0.75))
+                .padding(.vertical, 3)
+                .overlay(alignment: .bottom) {
+                    if selected { Rectangle().fill(StudioPalette.orange).frame(height: 2) }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(warning ? "\(label) · à vérifier" : label)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// Lays its children left to right and wraps them, like words.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0, widest: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width {
+                y += line + lineSpacing
+                x = 0
+                line = 0
+            }
+            x += size.width + spacing
+            line = max(line, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: proposal.width ?? widest, height: y + line)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, line: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + size.width > bounds.maxX {
+                y += line + lineSpacing
+                x = bounds.minX
+                line = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            line = max(line, size.height)
         }
     }
 }
@@ -666,41 +925,6 @@ private struct KitGroupHeader: View {
         .background(StudioPalette.inset)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// One source of samples in the places list.
-private struct PlaceRow: View {
-    let title: String
-    let symbol: String
-    let detail: String?
-    let selected: Bool
-    let help: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: symbol)
-                    .foregroundStyle(selected ? StudioPalette.orange : StudioPalette.muted)
-                    .frame(width: 16)
-                Text(title)
-                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 4)
-                if let detail {
-                    Text(detail).font(.system(size: 10)).foregroundStyle(StudioPalette.muted).lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 6)
-            .frame(height: 26)
-            .background(selected ? Color.white.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

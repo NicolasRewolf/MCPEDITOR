@@ -17,39 +17,40 @@ La signature est locale (ad hoc), sans certificat Developer ID ni notarisation A
 Si macOS bloque l'application téléchargée, utiliser son option **Ouvrir quand même** dans
 Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gatekeeper.
 
-1. Ouvrir l’application, avec ou sans SD. **.PGM** rassemble la collection conservée sur le Mac, les `.PGM` des PART montées et des dossiers ajoutés,
-   avec leur emplacement visible sur chaque ligne. Un `.PGM` contient les affectations et les réglages ; les sons restent dans les `.SND`.
+1. Ouvrir l’application, avec ou sans SD. La fenêtre a trois colonnes : à gauche les **samples** (ceux de
+   l’ordinateur en haut, ceux de la SD en bas), au centre les **pads** puis l’éditeur, à droite les **.PGM**.
+   On pioche à gauche, on construit au milieu, on range à droite ; les samples touchent les pads où on les glisse.
+   Un `.PGM` contient les affectations et les réglages ; les sons restent dans les `.SND`.
 2. Créer un nouveau programme .PGM, puis glisser des WAV, AIFF ou SND sur les pads. Une sélection multiple
    remplit les pads suivants dans l’ordre de la sélection, jusqu’à D16.
    Si la lecture d’un dépôt reste bloquée, **Annuler le dépôt** rend immédiatement le programme .PGM disponible
    et conserve ses modifications ; un retour tardif du fournisseur est ignoré.
-3. Dans **Samples**, la vue initiale **Bibliothèque et SD** rassemble les sons référencés par les `.PGM` disponibles et les samples visibles de toutes les PART, même sans programme.
-   Les samples sont groupés par source et chaque ligne ne montre que leur nom. Un clic écoute le sample ;
-   **⌘.** arrête l’écoute. Le ⓘ du sample choisi indique les `.PGM` enregistrés qui l’utilisent ; **Ouvrir**
-   charge le programme choisi. Les liens ne tiennent pas compte des modifications encore en mémoire.
-   En haut, la liste des **lieux** reste visible : Bibliothèque et SD, Carte SD, puis chaque dossier ajouté
-   (par exemple `Soul` sur le SSD `T9`), et **Ajouter un dossier…**. Un dossier s’affiche en arborescence,
-   comme le navigateur d’un logiciel de musique : un clic sur un sous-dossier le déplie sur place, un second le
-   replie ; chaque dossier n’est lu qu’à son ouverture, un niveau à la fois, et les dossiers ouverts le restent
-   quand on revient à ce lieu ou qu’on actualise. Un sample se glisse sur un pad depuis n’importe quelle
-   profondeur ; le clic droit propose **Affecter au pad** et **Afficher dans le Finder** (aussi sur un lieu,
-   avec **Retirer de la liste**). Dans un dossier, la recherche parcourt tout le dossier, sous-dossiers fermés
-   compris : chaque mot doit figurer dans le nom du sample ou de ses dossiers (« sloppy loops »). Elle ne part
-   qu’après la frappe, ne suit aucun lien symbolique, ignore les fichiers cachés et s’arrête à 500 résultats,
-   12 niveaux ou 100 000 éléments, ce qu’elle signale. Les résultats sont groupés par sous-dossier.
-   Ailleurs, la recherche filtre la vue courante.
-   **Affecter au pad** pose le sample choisi ; le glisser-déposer reste possible. Les flèches ↑ ↓ passent
-   d’un sample visible à l’autre ; le casque à côté de la recherche (ou le menu **Bibliothèque**) active
-   **Écouter en parcourant avec ↑ ↓**. Un `.SND` est écouté entre ses marqueurs de début et de fin.
-   Une réserve sur l’inventaire n’est plus qu’un ⚠ à côté du compteur, expliqué au survol.
-   Dans **.PGM**, la liste est groupée : bibliothèque sur le Mac, puis PART A à Z, puis dossiers par nom.
-   Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes comme plusieurs
-   `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère.
-   L’onglet **PART** regroupe les PART vides en une seule carte (lettres et capacité), puis détaille
-   les autres avec leur place libre et une barre de remplissage. Il signale les fichiers laissés par macOS
-   (`._*` des copies du Finder, `.Trashes`, index) et la place qu’ils occupent. Kit Studio n’en crée pas
-   et ne les supprime pas. Le lieu **Carte SD** indique le nombre de PART qui ont un contenu.
-   Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
+3. **Samples de l’ordinateur** (en haut à gauche) : les lieux sont des pastilles, **Mac** (les sons des `.PGM`
+   enregistrés sur le Mac), chaque dossier ajouté avec son volume (« Samples · T9 »), et **+** pour en ajouter un.
+   L’app rouvre le dernier lieu choisi. Un dossier s’affiche en arborescence, comme le navigateur d’un logiciel
+   de musique : un clic sur un sous-dossier le déplie sur place, un second le replie ; chaque dossier n’est lu
+   qu’à son ouverture, un niveau à la fois, et les dossiers ouverts le restent, même après avoir quitté l’app.
+   Le clic droit propose **Affecter au pad** et **Afficher dans le Finder** (sur un lieu : **Retirer de la liste**).
+   La recherche parcourt tout le dossier, sous-dossiers fermés compris : chaque mot doit figurer dans le nom du
+   sample ou de ses dossiers (« sloppy loops »). Elle ne part qu’après la frappe, ne suit aucun lien symbolique,
+   ignore les fichiers cachés et s’arrête à 500 résultats, 12 niveaux ou 100 000 éléments, ce qu’elle signale.
+   **Samples de la SD** (en bas à gauche) : les PART montées qui contiennent des samples, fermées ; un clic en
+   ouvre une sur place. Sa propre recherche ouvre les PART qui correspondent. La séparation entre les deux volets
+   se règle en la glissant, et le titre du volet SD le replie ; hauteur et état sont mémorisés.
+   Un clic écoute un sample, dans l’un ou l’autre volet ; **⌘.** arrête l’écoute. Un seul sample est choisi à la
+   fois : **Affecter au pad**, en bas de la colonne, pose celui-là ; le glisser sur un pad reste le geste direct.
+   Les flèches ↑ ↓ passent d’un sample visible à l’autre dans le volet actif ; le casque à côté de la recherche
+   (ou le menu **Bibliothèque**) active **Écouter en parcourant avec ↑ ↓**. Un `.SND` est écouté entre ses
+   marqueurs de début et de fin. Le ⓘ du sample choisi indique les `.PGM` enregistrés qui l’utilisent.
+   Les liens ne tiennent pas compte des modifications encore en mémoire.
+   **.PGM** (à droite) : une ligne de lettres filtre la liste, **Tout · Mac · A B C D…** ; seules les PART qui
+   contiennent quelque chose ont une lettre, et une ligne résume les PART vides et leur capacité. La PART choisie
+   montre sa place libre, un ⚠ si elle est à vérifier, et les fichiers laissés par macOS (`._*` des copies du
+   Finder, `.Trashes`, index) ; Kit Studio n’en crée pas et ne les supprime pas. La liste est groupée : Mac,
+   PART A à Z, puis dossiers. Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes
+   comme plusieurs `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère. Le bouton dossier gère
+   les dossiers de `.PGM` ajoutés ; le menu **⋯** d’un `.PGM` propose **Voir ses samples à gauche**, le Finder
+   et la corbeille. Une réserve sur l’inventaire n’est qu’un ⚠, expliqué au survol.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Déplacer un pad vers un autre déplace son affectation ; deux pads occupés sont échangés. Survoler une
    banque pendant le glissement permet de changer de banque. Copier une affectation via son menu partage
@@ -97,7 +98,7 @@ Un enregistrement échoué laisse les modifications en mémoire et empêche la f
 
 Chaque copie de transport crée des fichiers nouveaux, avec un nom ASCII libre de huit caractères en cas de
 collision. L’annulation du dialogue ne renomme pas le programme. Les dossiers ajoutés sont mémorisés localement ;
-**Retirer de la liste**, dans le menu Dossiers ou par clic droit sur un lieu de samples, les oublie sans toucher aux fichiers.
+**Retirer de la liste**, dans le menu du bouton dossier des `.PGM` ou par clic droit sur un lieu de samples, les oublie sans toucher aux fichiers.
 Chaque dossier est aussi mémorisé par un bookmark : un volume remonté sous un autre nom (« T9 » puis « T9 1 »)
 reste retrouvé tant que le dossier garde son chemin dans ce volume. Un dossier déplacé ou renommé devient
 indisponible, comme avant. Une ancienne entrée sans bookmark est réparée si un seul volume voisin

@@ -160,3 +160,27 @@ mais son contenu change :
 
 Rien n’est écrit sur le SSD ni sur la SD par ce navigateur : il liste, lit l’audio pour l’écoute et ouvre
 le Finder. Les cinq dispositions habillées à la DA de l’app sont sur la toile, page « Habillées ».
+
+## Trois colonnes en 0.8.0 (27), 6 novembre 2026
+
+Nicolas a dessiné sa disposition puis choisi la planche 7 de la toile : « à gauche il faut qu’il y ait
+vraiment que la gestion des samples et sur la droite la gestion des .PGM, je pense que la sélection des part
+doit être très minimaliste. J’aime pas du tout la section de gauche avec ces 3 onglets. » Puis : « Il faut
+que les samples soient à côté des pads pour glisser. »
+
+- Les onglets .PGM / Samples / PART disparaissent. Gauche : samples de l’ordinateur (lieux en pastilles, arbre,
+  recherche) au-dessus des samples de la SD (PART fermées qui s’ouvrent sur place, recherche propre), séparés par
+  une poignée réglable et mémorisée ; « Affecter au pad » en bas. Centre : nom, jauge, pads, puis l’éditeur dessous.
+  Droite : liste des .PGM filtrée par une ligne de lettres (Tout · Mac · PART qui ont un contenu), une ligne pour
+  les PART vides, la place libre et les fichiers macOS de la PART choisie.
+- Le lieu « Bibliothèque » ne montre plus que la collection du Mac : la SD a son volet. Un seul sample est choisi
+  à la fois entre les deux volets ; une actualisation ou un démontage retire un sample SD qui n’est plus listé.
+- Filtrer les .PGM ne change plus les samples affichés ; ajouter un dossier de .PGM ne l’ouvre plus à gauche.
+- Le dernier lieu de samples et les dossiers ouverts sont mémorisés d’un lancement à l’autre.
+- Pads de 64 points, forme d’onde de 110 points et traitements sur une ligne : l’éditeur tient sous les pads
+  dans une fenêtre de 860 points de haut.
+- Les racines de la bibliothèque Mac sont comparées par chemin : une même racine écrite avec ou sans « / » final
+  faisait manquer le groupe « Bibliothèque sur le Mac » dans les tests.
+
+Les états de modèle des anciens onglets (portées SD et PART du navigateur, `libraryMode`) restent pour les
+tests existants mais ne sont plus atteints par l’interface ; ils sont à retirer dans une passe de nettoyage.
