@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44">
+  <style>circle{fill:#1c1c1b}.on{fill:#df5420}@media (prefers-color-scheme:dark){circle{fill:#e8e6e0}.on{fill:#f06a36}}</style>
+  <g>
+    <circle cx="5" cy="5" r="4"/><circle cx="16.33" cy="5" r="4"/><circle cx="27.67" cy="5" r="4"/><circle cx="39" cy="5" r="4"/>
+    <circle cx="5" cy="16.33" r="4"/><circle cx="16.33" cy="16.33" r="4"/><circle cx="27.67" cy="16.33" r="4"/><circle cx="39" cy="16.33" r="4"/>
+    <circle cx="5" cy="27.67" r="4"/><circle class="on" cx="16.33" cy="27.67" r="4"/><circle cx="27.67" cy="27.67" r="4"/><circle cx="39" cy="27.67" r="4"/>
+    <circle cx="5" cy="39" r="4"/><circle cx="16.33" cy="39" r="4"/><circle cx="27.67" cy="39" r="4"/><circle cx="39" cy="39" r="4"/>
+  </g>
+</svg>

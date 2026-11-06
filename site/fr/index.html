@@ -4,255 +4,102 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kit Studio pour MPC 3000</title>
-<meta name="description" content="Une app Mac pour préparer des banks de samples MPC 3000 et les copier sur la carte SD. Faite par un passionné, pas par un développeur. Paiement unique.">
-<link rel="icon" href="../favicon.png">
+<meta name="description" content="Une petite app Mac pour préparer des banks de samples pour l’Akai MPC 3000 et les copier sur sa carte SD. Faite par un possesseur de MPC 3000. 29 €, payés une fois.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.png" type="image/png">
 <link rel="alternate" hreflang="en" href="https://kitmpc3000.rewolf.studio/">
 <link rel="alternate" hreflang="fr" href="https://kitmpc3000.rewolf.studio/fr/">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!--
-  Brouillon de page de vente. Les éléments marqués class="todo" sont à remplir
-  ou à rendre vrais avant la mise en ligne : voir docs/LAUNCH.md, « Avant d'ouvrir la vente ».
-  Le lien d'achat se règle dans CHECKOUT_URL, dans ../main.js. Version anglaise : ../index.html.
--->
 <link rel="stylesheet" href="../styles.css">
+<!--
+  Les éléments de classe "todo" sont à remplir ou à rendre vrais avant d'ouvrir la vente :
+  voir docs/LAUNCH.md. Le lien d'achat est CHECKOUT_URL dans ../main.js. Anglais : ../index.html.
+-->
 </head>
 <body>
-
-<div class="wrap">
+<div class="page">
   <header class="top">
-    <a class="brand" href="#">
-      <img src="../favicon.png" alt="" width="32" height="32">
-      <b>Kit Studio</b><span>pour MPC 3000</span>
-    </a>
-    <div class="top-actions">
-      <a class="lang" href="../" hreflang="en" lang="en">English</a>
-      <a class="btn small js-buy" href="#prix">Acheter · 29 €</a>
-    </div>
+    <span>Kit Studio</span>
+    <a href="../" hreflang="en" lang="en">English</a>
   </header>
 
-  <main>
-    <div class="hero">
-      <div>
-        <p class="kicker">App Mac · fait par un fan, pas par un dev</p>
-        <h1>J’ai une MPC&nbsp;3000. J’en avais marre de galérer avec mes samples. Alors j’ai fabriqué l’outil.</h1>
-        <p class="lede">Kit Studio transforme tes WAV et AIFF en programmes <span class="mono">.PGM</span> et en sons <span class="mono">.SND</span>, vérifie que ta bank tient dans une PART, puis la copie sur ta carte SD sans rien écraser. C’est tout. Pour moi, c’est déjà beaucoup.</p>
-        <div class="buy-row">
-          <a class="btn js-buy" href="#prix">Acheter · 29 €, une fois</a>
-          <span class="specs mono">macOS 13+ · Mac Apple Silicon · interface en français</span>
-        </div>
-        <p class="sale-note js-sale-note" aria-live="polite"></p>
-      </div>
+  <main class="col">
+    <svg class="mark" viewBox="0 0 44 44" aria-hidden="true">
+      <circle cx="5" cy="5" r="4"/><circle cx="16.33" cy="5" r="4"/><circle cx="27.67" cy="5" r="4"/><circle cx="39" cy="5" r="4"/>
+      <circle cx="5" cy="16.33" r="4"/><circle cx="16.33" cy="16.33" r="4"/><circle cx="27.67" cy="16.33" r="4"/><circle cx="39" cy="16.33" r="4"/>
+      <circle cx="5" cy="27.67" r="4"/><circle class="on" cx="16.33" cy="27.67" r="4"/><circle cx="27.67" cy="27.67" r="4"/><circle cx="39" cy="27.67" r="4"/>
+      <circle cx="5" cy="39" r="4"/><circle cx="16.33" cy="39" r="4"/><circle cx="27.67" cy="39" r="4"/><circle cx="39" cy="39" r="4"/>
+    </svg>
 
-      <div>
-        <div class="machine" aria-hidden="true">
-<div class="lcd">PGM  KIT         BANK A
-PADS 36   SAMPLES 23
-PART E    libre 8,1 Mo
-BANK <span class="bar">██████████░░░░░░░</span>
-     3,8 Mo  ça tient ✓</div>
-          <div class="pads">
-            <i></i><i></i><i></i><i></i>
-            <i></i><i></i><i></i><i></i>
-            <i></i><i class="hot"></i><i></i><i></i>
-            <i></i><i></i><i></i><i></i>
-          </div>
-        </div>
-        <p class="caption">Illustration, pas une capture d’écran. Les chiffres viennent de ma vraie carte.</p>
-      </div>
-    </div>
+    <h1>Kit Studio</h1>
+    <p class="sub">Des banks de samples pour la MPC&nbsp;3000, préparées sur le Mac.</p>
 
-    <section id="honnete">
-      <div class="section-head">
-        <span class="num">01 / Avant d’acheter</span>
-        <h2>Lis ça d’abord. Je préfère que tu n’achètes pas plutôt que tu sois déçu.</h2>
-      </div>
-      <div class="section-body">
-        <div class="notice">
-          <div class="notice-row">
-            <h3>Je ne suis pas développeur.</h3>
-            <p>Kit Studio est fait en <strong>vibecoding</strong> : je décris ce que je veux, une IA (Claude) écrit le code, et moi je teste avec ma machine et mes samples. Plus de 250 tests automatiques tournent à chaque version. Ça aide. Ça ne remplace pas vingt ans de métier.</p>
-          </div>
-          <div class="notice-row">
-            <h3>C’est uniquement pour la MPC 3000 avec carte SD.</h3>
-            <p>Précisément ma config : <strong>MPC 3000 sous l’OS Vailixi 3.50, avec un adaptateur SCSI vers SD</strong> <span class="todo">modèle à préciser</span>, et une carte formatée par la MPC en <strong>partitions Hybrid</strong> (les PART A à Z que le Mac sait lire). Pas de MPC 2000, 60, Live, One ou X. Pas de disquette, pas de Zip.</p>
-          </div>
-          <div class="notice-row">
-            <h3>Il n’y a pas de SAV.</h3>
-            <p>Pas de hotline, pas d’adresse de support, pas de délai de réponse. Quand je tombe sur un bug qui me gêne, je le corrige, et la mise à jour est pour toi aussi. C’est la seule promesse.</p>
-          </div>
-          <div class="notice-row">
-            <h3>Je ne peux pas faire plaisir à tout le monde.</h3>
-            <p>L’outil fait ce dont j’ai besoin pour bâtir mes banks. Si tu veux une fonction en plus, il y a de bonnes chances qu’elle n’arrive jamais. Je le dis maintenant pour ne pas te le faire croire plus tard.</p>
-          </div>
-          <div class="notice-row">
-            <h3>Tu paies une fois. C’est tout.</h3>
-            <p>Pas d’abonnement, pas de compte, pas de pub. L’app ne se connecte <strong>jamais</strong> à internet : rien ne sort de ton Mac.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <p>Ma MPC 3000 lit une carte SD à la place d’un disque dur. Mettre des samples dessus a toujours été la partie lente : convertir les fichiers, garder chaque nom à huit caractères, vérifier que la bank tient dans une partition, puis copier les bons fichiers au bon endroit. Kit Studio fait cette partie à ma place.</p>
+    <p>Je ne suis pas développeur. J’ai décidé de ce que l’app devait faire, une IA (Claude) a écrit le code, et j’ai essayé chaque version avec ma carte et mes samples. Je la vends aux quelques personnes qui ont la même config, pour ce qu’elle est.</p>
 
-    <section id="fonctions">
-      <div class="section-head">
-        <span class="num">02 / Ce que ça fait</span>
-        <h2>Préparer une bank sur le Mac, la poser sur la SD, la charger sur la MPC.</h2>
-      </div>
-      <div class="section-body">
-        <div class="features">
-          <div class="feature">
-            <h3>Glisse tes sons sur les pads</h3>
-            <p>WAV, AIFF ou SND, sur les 64 pads de A01 à D16. Plusieurs fichiers à la fois remplissent les pads suivants dans l’ordre. Conversion en SND 16 bits, 44,1 kHz.</p>
-          </div>
-          <div class="feature">
-            <h3>Fouille ton disque de samples</h3>
-            <p>Tes dossiers en arborescence, comme dans un logiciel de musique. Un clic écoute, <span class="key">↑</span> <span class="key">↓</span> passent au suivant, la recherche fouille les sous-dossiers.</p>
-          </div>
-          <div class="feature">
-            <h3>Nomme, découpe, accorde</h3>
-            <p>Le nom de 8 caractères qui sera vraiment écrit sur la SD s’affiche sous celui que tu tapes. Pas de surprise sur la MPC.</p>
-          </div>
-          <div class="feature">
-            <h3>Sache si ça tient avant de copier</h3>
-            <p>Une jauge compare ta bank à la place d’une PART vide. Sur ma carte, une PART fait environ 8 Mo : c’est la vraie limite, et elle part vite.</p>
-          </div>
-          <div class="feature">
-            <h3>Copie sur une PART libre</h3>
-            <p><span class="key">⇧⌘S</span> propose une PART vide avec assez de place. Le message de fin te dit quelle PART et quel <span class="mono">.PGM</span> charger sur la MPC.</p>
-          </div>
-          <div class="feature">
-            <h3>Garde tes .PGM sur le Mac</h3>
-            <p><span class="key">⌘S</span> range le programme et tous ses sons dans ta bibliothèque, même sans la carte. Tu vois aussi ce qu’il y a sur la SD, PART par PART.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <h2>Ce qu’elle fait</h2>
+    <ul class="list">
+      <li>Tu glisses des fichiers WAV, AIFF ou SND sur les 64 pads, de A01 à D16. Ils sont convertis au format SND de la MPC.</li>
+      <li>Tu parcours tes dossiers de samples en arborescence et tu écoutes d’un clic.</li>
+      <li>Tu nommes, découpes et accordes chaque sample, et tu vois le nom de huit caractères qui sera écrit sur la carte.</li>
+      <li>Avant la copie, elle t’indique si la bank tient dans une partition.</li>
+      <li>Elle copie le programme et ses sons sur une partition vide. Rien de ce qui est déjà sur la carte n’est écrasé ni supprimé.</li>
+      <li>Tes programmes restent dans une bibliothèque sur le Mac, avec ou sans la carte.</li>
+    </ul>
 
-    <section id="limites">
-      <div class="section-head">
-        <span class="num">03 / Ce que ça ne fait pas</span>
-        <h2>Ce n’est pas une MPC dans ton Mac.</h2>
-      </div>
-      <div class="section-body">
-        <ul class="nope">
-          <li>Pas de séquences (.SEQ, .ALL)</li>
-          <li>Pas de jeu ni de MIDI : la préécoute sert à choisir</li>
-          <li>Pas de filtres ni d’enveloppes MPC à l’écoute</li>
-          <li>Pas de SND compressés</li>
-          <li>Ne formate pas et ne nettoie pas ta carte</li>
-          <li>Ne supprime rien sur la SD</li>
-          <li>Pas de Windows, pas de Mac Intel</li>
-          <li>Pas d’anglais, pour l’instant</li>
-        </ul>
-      </div>
-    </section>
+    <h2>Détails</h2>
+    <dl class="spec">
+      <dt>Fonctionne avec</dt>
+      <dd>Une MPC 3000 sous l’OS Vailixi 3.50, un adaptateur SCSI vers SD <span class="todo">modèle</span>, et une carte formatée par la MPC en partitions Hybrid, que le Mac monte sous les noms <span class="nowrap">MPC-PART--A</span> à Z.</dd>
+      <dt>Pas avec</dt>
+      <dd>Les autres MPC, les disquettes ou les lecteurs Zip. L’OS Akai d’origine n’est pas testé.</dd>
+      <dt>Mac</dt>
+      <dd>macOS 13 ou plus récent, puce Apple (M1 et suivantes).</dd>
+      <dt>Langue</dt>
+      <dd>Français. Une version anglaise de cette page existe ; l’app n’est pas traduite.</dd>
+      <dt>Internet</dt>
+      <dd>L’app ne s’y connecte jamais.</dd>
+      <dt>Assistance</dt>
+      <dd>Aucune. Des corrections quand je tombe sur un bug.</dd>
+      <dt>Prix</dt>
+      <dd>29 €, payés une fois.</dd>
+    </dl>
 
-    <section id="comment">
-      <div class="section-head">
-        <span class="num">04 / En vrai</span>
-        <h2>Quatre étapes, de tes samples à la MPC.</h2>
-      </div>
-      <div class="section-body">
-        <ol class="steps">
-          <li><h3>Compose</h3><p>Nouveau .PGM, puis tu glisses tes samples sur les pads.</p></li>
-          <li><h3>Enregistre</h3><p><span class="key">⌘S</span> garde la bank sur ton Mac.</p></li>
-          <li><h3>Copie</h3><p><span class="key">⇧⌘S</span> la pose sur une PART vide de la SD.</p></li>
-          <li><h3>Charge</h3><p>Tu éjectes, tu remets la carte dans la MPC, tu charges le .PGM indiqué.</p></li>
-        </ol>
-        <figure class="shot" style="margin-top: 24px;">
-          <span><span class="todo">capture d’écran réelle à ajouter : site/screenshot.png</span></span>
-        </figure>
-      </div>
-    </section>
+    <h2>Avant d’acheter</h2>
+    <p>Il n’y a pas d’assistance. Quand un bug me gêne, je le corrige, et la mise à jour est aussi pour toi. Je n’ajouterai pas de fonctions sur demande : l’app fait ce dont j’ai besoin, et je veux qu’elle reste petite.</p>
+    <p>Elle n’ouvre pas les séquences, elle ne joue pas comme une MPC, et la préécoute ne reproduit ni les filtres ni les enveloppes de la MPC. Fais une copie de ta carte avant de t’en servir. J’en garde une de la mienne.</p>
 
-    <section id="sd">
-      <div class="section-head">
-        <span class="num">05 / Ta carte</span>
-        <h2>Ta carte SD est sacrée. L’app la traite comme ça.</h2>
-      </div>
-      <div class="section-body">
-        <ul class="safe">
-          <li>Elle écrit seulement des fichiers neufs, jamais par-dessus un nom existant.</li>
-          <li>Elle ne supprime rien sur la SD, même quand tu le lui demandes.</li>
-          <li>Elle revérifie la PART juste avant d’écrire. Une PART douteuse n’est jamais proposée.</li>
-          <li>Tes sons d’origine ne sont jamais modifiés, sur le Mac comme sur la carte.</li>
-        </ul>
-        <p class="warn">Fais quand même une copie de ta carte avant. Je ne peux rien te garantir, et moi aussi je fais des copies.</p>
-      </div>
-    </section>
+    <!-- A real screenshot goes here once taken (site/screenshot.png):
+    <figure class="shot" style="margin-top: 48px;"><img src="screenshot.png" alt=""></figure> -->
 
-    <section id="prix">
-      <div class="section-head">
-        <span class="num">06 / Prix</span>
-        <h2>Un prix, une fois.</h2>
-      </div>
-      <div class="section-body">
-        <div class="price-card">
-          <div>
-            <div class="amount">29&nbsp;€<small>TTC</small></div>
-            <p class="specs mono" style="margin: 12px 0 20px;">paiement unique · licence perso</p>
-            <a class="btn js-buy" href="#prix">Acheter Kit Studio</a>
-            <p class="sale-note js-sale-note" aria-live="polite"></p>
-          </div>
-          <div>
-            <ul>
-              <li>L’app Mac, signée et notarisée par Apple : elle s’ouvre sans alerte.</li>
-              <li>Les mises à jour de la version 1, tant que je les fais.</li>
-              <li>Remboursé sous 14 jours si ça ne marche pas avec ta config. Un mail suffit, sans débat.</li>
-              <li>Paiement géré par <span class="todo">prestataire à choisir</span>, qui t’envoie la facture et le lien de téléchargement.</li>
-            </ul>
-            <p style="color: var(--ink-soft); margin: 16px 0 0;">Ce que paie ton achat : le compte développeur Apple (99 € par an, sinon macOS bloque l’app) et un peu des soirées passées dessus.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <h2 id="acheter">Acheter</h2>
+    <p class="price">29 €</p>
+    <p>Tu reçois l’app Mac, signée et notarisée par Apple, et les mises à jour de la version 1. Si elle ne fonctionne pas avec ta config, écris-moi dans les 14 jours et je te rembourse.</p>
+    <p><a class="button js-buy" href="#acheter">Acheter Kit Studio</a></p>
+    <p class="small sale-note js-sale-note" aria-live="polite"></p>
+    <p class="small">Le paiement, la facture et le téléchargement passent par <span class="todo">prestataire de paiement</span>.</p>
 
-    <section id="faq">
-      <div class="section-head">
-        <span class="num">07 / Questions</span>
-        <h2>Les questions qu’on me pose.</h2>
-      </div>
-      <div class="section-body">
-        <details>
-          <summary>Ça marche avec l’OS Akai d’origine (3.10, 3.11, 3.12) ?</summary>
-          <p>Je ne l’ai pas testé. Ma machine tourne sous Vailixi 3.50, et ce sont ses partitions Hybrid qui rendent la carte lisible par le Mac. Kit Studio sait écrire un .PGM et ses .SND dans n’importe quel dossier, mais je n’ai essayé aucun autre chemin jusqu’à la MPC.</p>
-        </details>
-        <details>
-          <summary>Quel adaptateur SD faut-il ?</summary>
-          <p>J’utilise <span class="todo">modèle à préciser</span>. Kit Studio ne parle pas à l’adaptateur : il lit les PART que macOS monte, nommées MPC-PART--A à MPC-PART--Z. Si ton Mac les voit sous ces noms, Kit Studio aussi.</p>
-        </details>
-        <details>
-          <summary>Mac Intel ? Windows ?</summary>
-          <p>Non. Uniquement les Mac Apple Silicon (M1 et suivants), macOS 13 ou plus récent.</p>
-        </details>
-        <details>
-          <summary>Et si ça abîme ma carte ?</summary>
-          <p>L’app ne supprime ni n’écrase rien sur la SD, et refuse d’écrire sur une PART qu’elle ne peut pas vérifier. Mais un logiciel fait par un non-développeur reste un logiciel : fais une copie de ta carte avant de t’en servir.</p>
-        </details>
-        <details>
-          <summary>Je peux le passer à un pote ?</summary>
-          <p>Il n’y a pas de protection anti-copie : je ne vais pas te fliquer. Si ton pote l’utilise, dis-lui de l’acheter. C’est ce qui paie le compte Apple qui permet à l’app de s’ouvrir.</p>
-        </details>
-        <details>
-          <summary>Il y aura des mises à jour ?</summary>
-          <p>Tant que j’utilise ma MPC, oui. Pas de calendrier, pas de feuille de route promise. L’app ne vérifie rien toute seule : une nouvelle version se retélécharge depuis ton mail d’achat.</p>
-        </details>
-        <details>
-          <summary>Je peux t’écrire ?</summary>
-          <p>Oui, à <span class="todo">adresse de contact</span>, pour un remboursement ou pour me raconter ce que tu fais avec. Je réponds quand je peux, et parfois pas.</p>
-        </details>
-      </div>
-    </section>
+    <h2>Questions</h2>
+    <dl class="faq">
+      <dt>Ça marche avec l’OS Akai d’origine ?</dt>
+      <dd>Je ne sais pas, je n’ai pas essayé. Sur ma machine, ce sont les partitions Hybrid de Vailixi 3.50 qui permettent au Mac de lire la carte.</dd>
+      <dt>Quel adaptateur utilises-tu ?</dt>
+      <dd><span class="todo">modèle</span>. Kit Studio ne parle pas à l’adaptateur. Il lit seulement les partitions que macOS monte.</dd>
+      <dt>L’app sera traduite ?</dt>
+      <dd>Peut-être, si on me le demande. Je ne promets pas de date.</dd>
+      <dt>Je peux la partager ?</dt>
+      <dd>Il n’y a pas de protection anti-copie. Si un ami finit par s’en servir, ça me ferait plaisir qu’il achète la sienne.</dd>
+      <dt>Comment se font les mises à jour ?</dt>
+      <dd>Tu télécharges la nouvelle version depuis ton mail d’achat. L’app ne vérifie rien toute seule.</dd>
+      <dt>Comment te joindre ?</dt>
+      <dd><span class="todo">adresse de contact</span>. Je lis tout, je ne réponds pas toujours.</dd>
+    </dl>
   </main>
 
   <footer>
-    <p>Kit Studio est un projet perso de Nicolas (REWOLF). <span class="todo">mentions légales : nom, SIRET, adresse ou domiciliation, hébergeur</span></p>
-    <p>MPC et MPC 3000 sont des marques d’inMusic Brands (Akai Professional). Kit Studio n’est ni affilié, ni approuvé, ni soutenu par Akai Professional ou inMusic. Vailixi 3.50 est un OS tiers pour la MPC 3000, sans lien avec ce projet.</p>
-    <p><button class="theme-toggle" type="button" id="theme">Clair / sombre</button></p>
+    <p>Fait par Nicolas (REWOLF), en France. <span class="todo">mentions légales</span></p>
+    <p>MPC et MPC 3000 sont des marques d’inMusic Brands (Akai Professional). Kit Studio n’est ni affilié à Akai Professional ou inMusic, ni approuvé par eux. Vailixi 3.50 est un OS tiers pour la MPC 3000, sans lien avec ce projet.</p>
   </footer>
 </div>
-
 <script src="../main.js"></script>
 </body>
 </html>
