@@ -54,7 +54,7 @@ La page ne doit rien dire de faux le jour où elle est en ligne. Voici ce qui n'
 | Remboursement | **Oui, 14 jours, sans débat** | Rassure sans créer de SAV : un mail, un clic chez le prestataire. |
 | Protection anti-copie | **Aucune** | L'app ne se connecte jamais à internet : une vérification de licence casserait cette promesse et créerait du support. |
 | Dépôt GitHub | **Privé tant que rien n'est décidé** | Un dépôt public laisse quiconque compiler l'app. Ouvrir le code reste possible plus tard ; le refermer ne l'est pas vraiment. |
-| Langue | **Français au lancement**, anglais ensuite si ça prend | La plupart des propriétaires de MPC 3000 sont anglophones : l'anglais élargit le marché, mais coûte une traduction de l'app. |
+| Langue | Fait : **français et anglais** depuis la 0.9.0 (l'app suit la langue du Mac, français par défaut) | La plupart des propriétaires de MPC3000 sont anglophones. Les captures du site restent en français. |
 | Mac Intel | **Non** | Une version universelle se compile facilement, mais elle n'a jamais été testée sur Intel. |
 
 ### Nom et marque
