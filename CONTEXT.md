@@ -255,3 +255,17 @@ Les captures anglaises de la 0.9.1 ont aussi montré deux défauts d’affichage
   `LibraryFormat.decimal` sert à la durée et aux crêtes ; l’erreur d’export de MPCCore suit la même règle.
 - « 36 pad(s) affecté(s) » devient « 36 pads affectés » (« 36 pads assigned »), et l’alerte d’écrêtage a
   une phrase au singulier (« Un sample dépasse… ») et une au pluriel. Il ne reste aucun « (s) » à l’écran.
+
+## macOS 27 minimum en 0.9.3 (32), 6 novembre 2026
+
+**Seul macOS 27 est testé.** La copie sur la SD dépend du pilote FAT de macOS. Sous macOS 27 (FSKit), le
+renommage exclusif manque. Sur le runner macOS 15 de GitHub, une image FAT12 neuve montre 1 536 octets
+occupés que l’inventaire n’explique pas, et la vérification d’occupation refuse la destination. Le comportement
+des vraies cartes de macOS 13 à 26 reste inconnu. `LSMinimumSystemVersion` passe donc de 13.0 à 27.0 : macOS
+refuse d’ouvrir l’app sur un système plus ancien, au lieu de la laisser échouer sur la SD. `Package.swift` garde
+`.macOS(.v13)` pour la compilation, et le code ne change pas.
+
+**Essai réel de la 0.9.2.** Nicolas a vidé lui-même la PART E laissée par l’échec de 13 h 38. À 16 h 54, il y a
+copié HOUSE avec la 0.9.2 installée. HOUSE.PGM et ses 8 SND sont publiés, sans `.TMP`, identiques octet pour
+octet à la bibliothèque sur le Mac (vérifié en lecture seule). macOS a ajouté un fichier `._` par fichier copié,
+pour l’attribut `com.apple.provenance`.

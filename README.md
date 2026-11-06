@@ -4,8 +4,8 @@
 > avec son historique. Il contient aussi la page de vente (`site/`) et le plan de lancement
 > ([docs/LAUNCH.md](docs/LAUNCH.md)). La recherche ROM reste dans son propre dépôt.
 
-Application native pour Apple Silicon, macOS 13 ou plus récent. Interface en français et en anglais,
-selon la langue choisie dans macOS (français par défaut).
+Application native pour Apple Silicon, macOS 27 ou plus récent, seule version testée.
+Interface en français et en anglais, selon la langue choisie dans macOS (français par défaut).
 Programmes MPC3000 natifs et sons SND révision 02, avec préparation de programmes à partir de WAV/AIFF.
 Aucune gestion de séquences.
 
