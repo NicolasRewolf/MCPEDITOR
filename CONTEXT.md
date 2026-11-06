@@ -268,4 +268,5 @@ refuse d’ouvrir l’app sur un système plus ancien, au lieu de la laisser éc
 **Essai réel de la 0.9.2.** Nicolas a vidé lui-même la PART E laissée par l’échec de 13 h 38. À 16 h 54, il y a
 copié HOUSE avec la 0.9.2 installée. HOUSE.PGM et ses 8 SND sont publiés, sans `.TMP`, identiques octet pour
 octet à la bibliothèque sur le Mac (vérifié en lecture seule). macOS a ajouté un fichier `._` par fichier copié,
-pour l’attribut `com.apple.provenance`.
+pour l’attribut `com.apple.provenance`. Nicolas a ensuite chargé HOUSE depuis la PART E sur sa MPC3000
+(Vailixi 3.50) : « Part E fonctionne nickel ».
