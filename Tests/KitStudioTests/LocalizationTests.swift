@@ -14,7 +14,16 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(LibraryFormat.importedSamples(3), "3 samples importés.")
         XCTAssertEqual(LibraryFormat.emptyParts(1), "+ 1 PART vide")
         XCTAssertEqual(LibraryFormat.emptyParts(11), "+ 11 PART vides")
+        XCTAssertEqual(LibraryFormat.assignedPads(0), "0 pad affecté")
+        XCTAssertEqual(LibraryFormat.assignedPads(36), "36 pads affectés")
         XCTAssertEqual(LibraryFormat.programs(25), "25 .PGM")
+    }
+
+    /// Durations and peaks once used String(format:), a dot even next to "Sélection : 1,099 s".
+    func testDecimalsFollowTheRegion() {
+        XCTAssertEqual(LibraryFormat.decimal(1.1, digits: 3, locale: Locale(identifier: "fr_FR")), "1,100")
+        XCTAssertEqual(LibraryFormat.decimal(1.1, digits: 3, locale: Locale(identifier: "en_US")), "1.100")
+        XCTAssertEqual(LibraryFormat.decimal(1.0049, digits: 2, locale: Locale(identifier: "en_US")), "1.00")
     }
 
     @MainActor

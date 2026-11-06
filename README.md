@@ -156,7 +156,9 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
 - Plafond du prototype : 32 Mio de PCM par programme .PGM ; vérifier la RAM réellement installée dans la MPC.
 - Seuls les sons référencés sont exportés ; l'inventaire inutilisé est vidé.
   Les SND sont écrits avant le programme. Celui-ci est préparé sous une extension `.TMP`,
-  synchronisé, puis publié en `.PGM` sans remplacement d’un nom existant.
+  synchronisé, puis publié en `.PGM` sans remplacement d’un nom existant. Sur la SD (FAT), macOS ne
+  propose pas de renommage exclusif : l’app vérifie que le nom est libre juste avant de renommer, puis
+  revérifie chaque fichier publié.
   En cas d’échec, les noms créés restent sur place et sont signalés : aucun nettoyage
   automatique ne risque de supprimer un fichier repris par un autre écrivain.
   L’ensemble formé par le .PGM et ses sons n’est pas une transaction atomique en cas de coupure d’alimentation.

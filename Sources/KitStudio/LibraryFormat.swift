@@ -1,7 +1,7 @@
 import Foundation
 import MPCCore
 
-/// Formatting shared by the sample and .PGM columns.
+/// Text formatting shared by the views: counted nouns and decimals.
 enum LibraryFormat {
     // Counted nouns. French, the source, is singular for 0 and 1 and is chosen here, so the text
     // is right even without the catalog (tests, swift run); the catalog gives other languages
@@ -22,7 +22,16 @@ enum LibraryFormat {
         count <= 1 ? String(localized: "+ \(count) PART vide") : String(localized: "+ \(count) PART vides")
     }
 
+    static func assignedPads(_ count: Int) -> String {
+        count <= 1 ? String(localized: "\(count) pad affecté") : String(localized: "\(count) pads affectés")
+    }
+
     static func programs(_ count: Int) -> String { String(localized: "\(count) .PGM") }
+
+    /// Decimals follow the reader's region, like the sizes from ByteCountFormatter: "1,100" in France.
+    static func decimal(_ value: Double, digits: Int, locale: Locale = .autoupdatingCurrent) -> String {
+        value.formatted(.number.precision(.fractionLength(digits)).locale(locale))
+    }
 
     /// "/Volumes/T9/…" → "T9"; a folder of the Mac's own disk has no volume to name.
     static func volumeName(of url: URL) -> String? {

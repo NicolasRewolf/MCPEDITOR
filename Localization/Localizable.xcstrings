@@ -311,12 +311,34 @@
         }
       }
     },
-    "%lld pad(s) affecté(s)" : {
+    "%lld pad affecté" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld pad assigned"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld pads assigned"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld pads affectés" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld pad(s) assigned"
+            "value" : "%lld pads assigned"
           }
         }
       }
@@ -407,22 +429,22 @@
         }
       }
     },
-    "%lld sample(s) dépassent le niveau maximal du PCM 16 bits (crête %@). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld sample(s) exceed the 16-bit PCM maximum (peak %@). Exporting would clip them. Normalize those samples on purpose, or replace them. Preview uses the working Float audio."
-          }
-        }
-      }
-    },
     "%lld samples" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld samples"
+          }
+        }
+      }
+    },
+    "%lld samples dépassent le niveau maximal du PCM 16 bits (crête %@). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld samples exceed the 16-bit PCM maximum (peak %@). Exporting would clip them. Normalize those samples on purpose, or replace them. Preview uses the working Float audio."
           }
         }
       }
@@ -3605,6 +3627,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A .PGM program and its .SND sounds will be created. Existing files are kept; a free name is chosen if needed."
+          }
+        }
+      }
+    },
+    "Un sample dépasse le niveau maximal du PCM 16 bits (crête %@). L’export l’écrêterait. Normalise-le volontairement, ou remplace-le. La préécoute utilise le Float de travail." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One sample exceeds the 16-bit PCM maximum (peak %@). Exporting would clip it. Normalize it on purpose, or replace it. Preview uses the working Float audio."
           }
         }
       }

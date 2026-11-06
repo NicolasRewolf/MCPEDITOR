@@ -29,7 +29,7 @@ public enum KitExportError: LocalizedError, Sendable {
         case .invalidSound(let slot):
             return String(localized: "Données audio invalides pour l’emplacement MPC \(slot + 1).")
         case .invalidPCM16Range(let slot, let peak, let outOfRange, let nonFinite):
-            return String(localized: "Le son de l’emplacement MPC \(slot + 1) dépasse la plage PCM16 : crête \(String(format: "%.3f", peak)), \(outOfRange) valeurs hors plage et \(nonFinite) valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement.")
+            return String(localized: "Le son de l’emplacement MPC \(slot + 1) dépasse la plage PCM16 : crête \(peak.formatted(.number.precision(.fractionLength(3)))), \(outOfRange) valeurs hors plage et \(nonFinite) valeurs non finies. Réduis son gain ou normalise-le avant l’enregistrement.")
         case .memoryLimitExceeded:
             return String(localized: "Les samples de ce .PGM dépassent la limite de 32 Mio de données audio du prototype.")
         case .namesExhausted:
@@ -317,11 +317,22 @@ public struct KitExport {
         }
     }
 
-    private static func publishExclusively(directoryFD: Int32, temporary: String, final: String) -> Int32 {
+    /// RENAME_EXCL never replaces a name. macOS's FAT driver, which mounts the MPC's SD, does not
+    /// offer it (ENOTSUP): there the name is checked free just before a plain rename, and the
+    /// caller verifies every published file again afterwards.
+    static func publishExclusively(directoryFD: Int32, temporary: String, final: String) -> Int32 {
         #if canImport(Darwin)
         return temporary.withCString { source in
             final.withCString { target in
-                renameatx_np(directoryFD, source, directoryFD, target, UInt32(RENAME_EXCL))
+                let result = renameatx_np(directoryFD, source, directoryFD, target, UInt32(RENAME_EXCL))
+                guard result != 0, errno == ENOTSUP else { return result }
+                var existing = stat()
+                if fstatat(directoryFD, target, &existing, AT_SYMLINK_NOFOLLOW) == 0 {
+                    errno = EEXIST
+                    return -1
+                }
+                guard errno == ENOENT else { return -1 }
+                return renameat(directoryFD, source, directoryFD, target)
             }
         }
         #else

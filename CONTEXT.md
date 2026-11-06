@@ -237,3 +237,21 @@ Gatekeeper : « Notarized Developer ID »). `release-signed.sh` choisit désorma
 le manifeste de livraison avait échoué faute de `xcodebuild` avec les outils en ligne de commande.
 Les captures en anglais ont montré deux textes restés en français, formatés par `String(format:)` :
 « Sélection : … s » et « … demi-tons » passent maintenant par le catalogue.
+
+## Copie sur la SD, décimales et pluriels en 0.9.2 (31), 6 novembre 2026
+
+**La copie sur une vraie SD échouait toujours.** Sous macOS 27, le pilote FAT (FSKit) refuse le renommage
+exclusif `RENAME_EXCL` (« Opération non gérée ») : les SND étaient écrits, mais `KIT.TMP` n’était jamais publié
+en `KIT.PGM`. Une copie de KIT sur la PART E de la SD réelle, faite dans la copie de revue le 6 novembre à 13 h 38,
+y a laissé 23 SND, `KIT.TMP` et leurs fichiers `._`. L’app ne les a pas effacés, comme prévu ; ils attendent
+la décision de Nicolas. Quand le renommage exclusif n’existe pas, l’app vérifie maintenant que le nom est libre
+juste avant un renommage simple, puis revérifie les fichiers publiés. `KitExportFATTests` copie sur une image
+FAT12 créée pour le test : programme publié, aucun `.TMP`, premier programme intact, nom pris jamais remplacé.
+
+Les captures anglaises de la 0.9.1 ont aussi montré deux défauts d’affichage.
+
+- Les décimales suivent la région de macOS partout. Avant, `String(format:)` écrivait la durée et les crêtes
+  avec un point, alors que la sélection et l’accordage écrivaient « 1,099 s » et « +0,0 demi-tons » en France.
+  `LibraryFormat.decimal` sert à la durée et aux crêtes ; l’erreur d’export de MPCCore suit la même règle.
+- « 36 pad(s) affecté(s) » devient « 36 pads affectés » (« 36 pads assigned »), et l’alerte d’écrêtage a
+  une phrase au singulier (« Un sample dépasse… ») et une au pluriel. Il ne reste aucun « (s) » à l’écran.

@@ -163,8 +163,11 @@ final class StudioModel: ObservableObject {
     var exportAudioIssue: String? {
         let warnings = exportAudioWarnings
         guard !warnings.isEmpty else { return nil }
-        let peak = warnings.map(\.report.peakMagnitude).max() ?? 0
-        return String(localized: "\(warnings.count) sample(s) dépassent le niveau maximal du PCM 16 bits (crête \(String(format: "%.2f", peak))). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail.")
+        let peak = LibraryFormat.decimal(Double(warnings.map(\.report.peakMagnitude).max() ?? 0), digits: 2)
+        guard warnings.count > 1 else {
+            return String(localized: "Un sample dépasse le niveau maximal du PCM 16 bits (crête \(peak)). L’export l’écrêterait. Normalise-le volontairement, ou remplace-le. La préécoute utilise le Float de travail.")
+        }
+        return String(localized: "\(warnings.count) samples dépassent le niveau maximal du PCM 16 bits (crête \(peak)). L’export écrêterait leur son. Normalise volontairement les samples concernés, ou remplace-les. La préécoute utilise le Float de travail.")
     }
 
     /// The user explicitly chooses the gain change; imports and exports never

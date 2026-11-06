@@ -39,7 +39,7 @@ struct ExportDestinationSheet: View {
                 VStack(alignment: .trailing, spacing: 5) {
                     Text(model.exportSizeLabel)
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    Text("\(model.assignedPadCount) pad(s) affecté(s)")
+                    Text(LibraryFormat.assignedPads(model.assignedPadCount))
                         .font(.caption)
                         .foregroundStyle(StudioPalette.muted)
                 }

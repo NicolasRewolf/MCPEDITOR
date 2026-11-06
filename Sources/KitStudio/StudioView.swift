@@ -463,7 +463,7 @@ private struct SampleEditor: View {
             if let sound = model.sound, sound.frameCount > 0 {
                 ScrollView(.vertical, showsIndicators: true) {
                     if let warning = model.selectedAudioRangeWarning {
-                        Text("Crête \(String(format: "%.2f", warning.report.peakMagnitude)) : ce sample dépasse le niveau du PCM 16 bits. Normalise-le avant l’export pour éviter l’écrêtage.")
+                        Text("Crête \(LibraryFormat.decimal(Double(warning.report.peakMagnitude), digits: 2)) : ce sample dépasse le niveau du PCM 16 bits. Normalise-le avant l’export pour éviter l’écrêtage.")
                             .font(.caption)
                             .foregroundStyle(.yellow)
                             .fixedSize(horizontal: false, vertical: true)
@@ -488,7 +488,7 @@ private struct SampleEditor: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .accessibilityLabel("Forme d’onde du sample, début \(sound.start), fin \(sound.end)")
             HStack {
-                Label(String(format: "%.3f s", Double(sound.frameCount) / 44_100), systemImage: "waveform")
+                Label(LibraryFormat.decimal(Double(sound.frameCount) / 44_100, digits: 3) + " s", systemImage: "waveform")
                 Spacer()
                 Text("\(sound.frameCount.formatted()) échantillons")
             }
