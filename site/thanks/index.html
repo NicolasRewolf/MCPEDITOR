@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Thank you · Kit for MPC3000</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.png" type="image/png">
+<link rel="stylesheet" href="../styles.css">
+<!--
+  Stripe redirects here after a payment (Payment Link plink_1UYluHPc3KBNseSeyFyUCCtD).
+  One page for both languages: French is shown when the browser prefers it.
+  The download link is sent by email for now; once a notarized release exists,
+  put its link here instead and update the sales pages.
+-->
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <a href="../">Kit for MPC3000</a>
+    <a href="#" class="js-lang" hidden></a>
+  </header>
+
+  <main class="col">
+    <svg class="mark" viewBox="0 0 44 44" aria-hidden="true">
+      <circle cx="5" cy="5" r="4"/><circle cx="16.33" cy="5" r="4"/><circle cx="27.67" cy="5" r="4"/><circle cx="39" cy="5" r="4"/>
+      <circle cx="5" cy="16.33" r="4"/><circle cx="16.33" cy="16.33" r="4"/><circle cx="27.67" cy="16.33" r="4"/><circle cx="39" cy="16.33" r="4"/>
+      <circle cx="5" cy="27.67" r="4"/><circle class="on" cx="16.33" cy="27.67" r="4"/><circle cx="27.67" cy="27.67" r="4"/><circle cx="39" cy="27.67" r="4"/>
+      <circle cx="5" cy="39" r="4"/><circle cx="16.33" cy="39" r="4"/><circle cx="27.67" cy="39" r="4"/><circle cx="39" cy="39" r="4"/>
+    </svg>
+
+    <section lang="en" data-lang="en">
+      <h1>Thank you.</h1>
+      <p class="sub">Your payment went through.</p>
+      <p>Link, Stripe’s checkout, sends you the receipt and the invoice by email.</p>
+      <p>I send you the download link for Kit for MPC3000 myself, by email, at the address you paid with. It usually takes less than a day. Keep that email: new versions will reach you the same way.</p>
+      <p>If nothing has arrived after 48 hours, check your spam folder, then write to me at <span class="todo">contact address</span>.</p>
+      <p class="small">Before you use it, make a copy of your SD card.</p>
+    </section>
+
+    <section lang="fr" data-lang="fr">
+      <h1>Merci.</h1>
+      <p class="sub">Ton paiement est bien passé.</p>
+      <p>Link, le système de paiement de Stripe, t’envoie le reçu et la facture par mail.</p>
+      <p>Je t’envoie moi-même le lien de téléchargement de Kit for MPC3000, par mail, à l’adresse utilisée pour payer. En général, c’est fait dans la journée. Garde ce mail : les nouvelles versions arriveront de la même façon.</p>
+      <p>Si rien n’est arrivé au bout de 48 heures, regarde dans tes spams, puis écris-moi à <span class="todo">adresse de contact</span>.</p>
+      <p class="small">Avant de t’en servir, fais une copie de ta carte SD.</p>
+    </section>
+  </main>
+</div>
+<script>
+  // Show one language: French if the browser prefers it, English otherwise. Without JS both stay visible.
+  (function () {
+    const sections = document.querySelectorAll("[data-lang]");
+    const link = document.querySelector(".js-lang");
+    function show(lang) {
+      sections.forEach((s) => { s.hidden = s.dataset.lang !== lang; });
+      document.documentElement.lang = lang;
+      link.textContent = lang === "fr" ? "English" : "Français";
+      link.hidden = false;
+    }
+    let current = (navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en";
+    show(current);
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      current = current === "fr" ? "en" : "fr";
+      show(current);
+    });
+  })();
+</script>
+</body>
+</html>

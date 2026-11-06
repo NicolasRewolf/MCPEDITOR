@@ -1,4 +1,20 @@
-# Vendre Kit Studio : plan de lancement
+# Vendre Kit for MPC3000 : plan de lancement
+
+## État au 6 novembre 2026, fin de journée
+
+| Sujet | Décidé et en place |
+|---|---|
+| Nom | **Kit for MPC3000**, partout : site, Stripe, mentions légales, app. La machine s'écrit « MPC3000 ». Le site et Stripe sont alignés ; l'app (titre, DMG) est confiée à la session de revue. |
+| Page | https://kitmpc3000.rewolf.studio (anglais) et `/fr/`, hébergée sur Vercel (projet `kitmpc3000`, dossier `site/`). |
+| Paiement | Stripe en **mode réel** avec **Managed Payments** : Stripe (via Link) vend à ta place et gère la TVA, les reçus, les factures et les litiges, pour 3,5 % de plus par vente. Produit `prod_VZvjTdxJ5PeHgn`, 29 € TTC ; lien `https://buy.stripe.com/bJe00le8mgyA8Ob0rCfAc00` (`plink_1UYluHPc3KBNseSeyFyUCCtD`), qui renvoie vers `/thanks/` après paiement. |
+| TVA | Assujetti. Le prix affiché est TTC (4,83 € de TVA sur 29 €), calculé par Managed Payments. |
+| Livraison | **Par mail, à la main**, en général dans la journée : la page `/thanks/` le dit. Tu vois l'adresse de l'acheteur dans Stripe → Transactions. Remplacer par un lien direct dès qu'un DMG notarisé est publié. |
+| Apple | Programme développeur actif, certificat « Developer ID Application: Nicolas Doucet (94497Y576D) » installé. Il manque le profil `kitstudio-notary`. |
+
+Ce qu'il reste à rendre vrai avant la première livraison : le DMG notarisé, l'essai sur la MPC,
+le `Default.pgm` venu de ta machine, l'adresse de contact et les mentions légales sur les pages.
+Vercel en offre gratuite interdit l'usage commercial : passer en Pro ou déplacer la page.
+
 
 Pré-étude du 6 novembre 2026. Rien n'est acheté, aucun compte n'est ouvert, rien n'est publié.
 Les prix et règles cités ont été relevés le 6 novembre 2026 ; les revérifier au moment de s'inscrire.
@@ -22,19 +38,19 @@ La page ne doit rien dire de faux le jour où elle est en ligne. Voici ce qui n'
    le sauver sur la SD et en faire le nouveau `Default.pgm`. Il ne doit alors rien à personne.
 3. **Signer et notariser l'app** (section Apple). Sans ça, macOS bloque l'app téléchargée et la page
    ment quand elle dit « elle s'ouvre sans alerte ».
-4. **Choisir le nom affiché** (section Nom) et le changer dans l'app, la page et le DMG.
+4. **Nom : Kit for MPC3000** (décidé). Page et Stripe faits ; reste l'app et le DMG, puis refaire les captures.
 5. **Ajouter une vraie capture d'écran** (`site/screenshot.png`), prise avec ta vraie carte.
 6. **Remplir les zones jaunes** : modèle de l'adaptateur SCSI→SD, adresse de contact, mentions légales,
    prestataire de paiement.
-7. **Ouvrir le compte de paiement**, créer le produit, déposer le DMG, coller le lien dans `CHECKOUT_URL`.
+7. **Paiement** : fait (Stripe, Managed Payments, lien branché). Reste à livrer le DMG à chaque acheteur.
 
 ## Décisions à prendre
 
 | Sujet | Recommandation | Pourquoi |
 |---|---|---|
-| Nom | **Kit Studio**, sous-titré « pour MPC 3000 » | Voir ci-dessous : « MPC » est une marque et « MPC Editor » existe déjà. |
+| Nom | ~~Kit Studio~~ → décidé : **Kit for MPC3000** | « for MPC3000 » dit avec quoi l'app fonctionne ; la page garde la mention de non-affiliation. « MPC Editor » existe déjà. |
 | Prix | **29 € TTC**, une fois | Assez bas pour un outil sans SAV, assez haut pour couvrir Apple dès 5 ventes par an. |
-| Paiement | **Un « merchant of record »** (Lemon Squeezy ou Paddle) plutôt que Stripe en direct | Il vend à ta place : TVA, factures, litiges. Voir Paiement. |
+| Paiement | Décidé : **Stripe Managed Payments** (merchant of record de Stripe) | Il vend à ta place : TVA, factures, litiges. Voir Paiement. |
 | Remboursement | **Oui, 14 jours, sans débat** | Rassure sans créer de SAV : un mail, un clic chez le prestataire. |
 | Protection anti-copie | **Aucune** | L'app ne se connecte jamais à internet : une vérification de licence casserait cette promesse et créerait du support. |
 | Dépôt GitHub | **Privé tant que rien n'est décidé** | Un dépôt public laisse quiconque compiler l'app. Ouvrir le code reste possible plus tard ; le refermer ne l'est pas vraiment. |

@@ -1,6 +1,6 @@
-// Payment link from the provider (Lemon Squeezy, Paddle or Stripe), shared by both languages.
-// Empty = sales not open yet.
-const CHECKOUT_URL = "";
+// Stripe Payment Link (live, Managed Payments), shared by both languages.
+// After payment Stripe redirects to /thanks/. Empty = sales not open yet.
+const CHECKOUT_URL = "https://buy.stripe.com/bJe00le8mgyA8Ob0rCfAc00";
 
 document.querySelectorAll(".js-buy").forEach((button) => {
   if (CHECKOUT_URL) {
