@@ -1,8 +1,8 @@
 #!/bin/bash
 # Signed and notarized delivery, for selling outside the Mac App Store.
 #
-# Not run yet: it needs an Apple Developer Program membership. Steps it expects,
-# done once by hand (see docs/LAUNCH.md, « Apple ») :
+# Used since 0.9.0 with Nicolas's Developer ID. Steps it expects, done once by hand
+# (see docs/LAUNCH.md, « Apple ») :
 #   1. A "Developer ID Application" certificate installed in the login keychain.
 #      Check: security find-identity -v -p codesigning
 #   2. A notarytool profile stored in the keychain:

@@ -27,6 +27,16 @@ def command(*args, cwd=None):
     return subprocess.check_output(args, cwd=cwd, text=True).strip()
 
 
+def signature(app):
+    """The app's actual signature: codesign's first authority, and whether a ticket is stapled."""
+    details = subprocess.run(["codesign", "-dvv", str(app)], capture_output=True, text=True, check=True).stderr
+    authority = next((line.split("=", 1)[1] for line in details.splitlines() if line.startswith("Authority=")), None)
+    if authority is None:
+        return "ad hoc; no Developer ID or notarization"
+    stapled = subprocess.run(["xcrun", "stapler", "validate", str(app)], capture_output=True).returncode == 0
+    return authority + ("; notarized, ticket stapled" if stapled else "; not notarized")
+
+
 def digest(path):
     h = hashlib.sha256()
     with path.open("rb") as stream:
@@ -68,7 +78,7 @@ def create(dist):
         "build": info["CFBundleVersion"],
         "minimumMacOS": info["LSMinimumSystemVersion"],
         "architecture": command("lipo", "-archs", str(app / "Contents/MacOS/KitStudio")),
-        "signature": "ad hoc; no Developer ID or notarization",
+        "signature": signature(app),
         "tools": {"swift": command("swift", "--version"),
                   "xcode": command("xcodebuild", "-version"),
                   "sdk": command("xcrun", "--sdk", "macosx", "--show-sdk-version"),
