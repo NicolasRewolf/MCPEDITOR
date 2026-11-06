@@ -3,8 +3,11 @@
 Pré-étude du 6 novembre 2026. Rien n'est acheté, aucun compte n'est ouvert, rien n'est publié.
 Les prix et règles cités ont été relevés le 6 novembre 2026 ; les revérifier au moment de s'inscrire.
 
-La page de vente est dans [`site/index.html`](../site/index.html). Les zones surlignées en jaune
-(classe `todo`) sont à remplir. Le bouton d'achat reste inactif tant que `CHECKOUT_URL` est vide.
+La page de vente est en ligne sur https://kitmpc3000.rewolf.studio : en anglais à la racine
+([`site/index.html`](../site/index.html)), en français sous `/fr/` ([`site/fr/index.html`](../site/fr/index.html)).
+Les deux partagent `site/styles.css` et `site/main.js` ; un changement de texte se fait dans les deux.
+Les zones surlignées en jaune (classe `todo`) sont à remplir. Le bouton d'achat reste inactif tant que
+`CHECKOUT_URL`, dans `site/main.js`, est vide.
 
 ## Avant d'ouvrir la vente
 

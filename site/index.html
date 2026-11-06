@@ -1,303 +1,22 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kit Studio pour MPC 3000</title>
-<meta name="description" content="Une app Mac pour préparer des banks de samples MPC 3000 et les copier sur la carte SD. Faite par un passionné, pas par un développeur. Paiement unique.">
+<title>Kit Studio for MPC 3000</title>
+<meta name="description" content="A Mac app to build MPC 3000 sample banks and copy them to the SD card. Made by a fan, not a developer. One-time payment.">
 <link rel="icon" href="favicon.png">
+<link rel="alternate" hreflang="en" href="https://kitmpc3000.rewolf.studio/">
+<link rel="alternate" hreflang="fr" href="https://kitmpc3000.rewolf.studio/fr/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!--
-  Brouillon de page de vente. Les éléments marqués class="todo" sont à remplir
-  ou à rendre vrais avant la mise en ligne : voir docs/LAUNCH.md, « Avant d'ouvrir la vente ».
-  Le lien d'achat se règle dans CHECKOUT_URL, en bas de page.
+  Sales page draft. Items marked class="todo" must be filled in or made true
+  before launch: see docs/LAUNCH.md, « Avant d'ouvrir la vente ».
+  The buy link is set in CHECKOUT_URL, in main.js. French version: fr/index.html.
 -->
-<style>
-:root {
-  --chassis: #e8e3d7;
-  --panel: #dcd5c6;
-  --paper: #f3efe6;
-  --ink: #232321;
-  --ink-soft: #5b5850;
-  --rule: #c9c1b0;
-  --pad: #34332f;
-  --pad-edge: #1f1e1b;
-  --red: #d9432a;
-  --red-ink: #ffffff;
-  --lcd: #a7b796;
-  --lcd-ink: #1f2a19;
-  --todo-bg: #fff2a8;
-  --todo-ink: #5a4a00;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --chassis: #1b1b19;
-    --panel: #252522;
-    --paper: #212120;
-    --ink: #ece7dc;
-    --ink-soft: #a9a497;
-    --rule: #3a3934;
-    --pad: #3b3a35;
-    --pad-edge: #111110;
-    --red: #ef5a3f;
-    --lcd: #8fa37c;
-    --lcd-ink: #141c10;
-    --todo-bg: #4a3f00;
-    --todo-ink: #ffe680;
-  }
-}
-:root[data-theme="dark"] {
-  --chassis: #1b1b19;
-  --panel: #252522;
-  --paper: #212120;
-  --ink: #ece7dc;
-  --ink-soft: #a9a497;
-  --rule: #3a3934;
-  --pad: #3b3a35;
-  --pad-edge: #111110;
-  --red: #ef5a3f;
-  --lcd: #8fa37c;
-  --lcd-ink: #141c10;
-  --todo-bg: #4a3f00;
-  --todo-ink: #ffe680;
-}
-
-* { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--chassis);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: 17px;
-  line-height: 1.55;
-  text-rendering: optimizeLegibility;
-}
-a { color: inherit; text-underline-offset: 3px; }
-.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
-@media (min-width: 720px) { .wrap { padding: 0 32px; } }
-
-.todo {
-  background: var(--todo-bg);
-  color: var(--todo-ink);
-  padding: 0 4px;
-  border-radius: 3px;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.85em;
-}
-
-/* Barre du haut */
-.top {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--rule);
-}
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.brand img { width: 32px; height: 32px; }
-.brand b { font-weight: 700; font-stretch: 85%; font-size: 18px; letter-spacing: 0.01em; }
-.brand span { color: var(--ink-soft); font-size: 14px; }
-
-.btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--red); color: var(--red-ink);
-  border: 0; border-radius: 8px;
-  padding: 12px 18px;
-  font: 600 16px/1 "Archivo", system-ui, sans-serif;
-  text-decoration: none; cursor: pointer;
-  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.22);
-}
-.btn:hover { filter: brightness(1.06); }
-.btn:active { transform: translateY(1px); box-shadow: inset 0 -1px 0 rgba(0,0,0,0.22); }
-.btn.small { padding: 9px 14px; font-size: 14px; }
-.btn[aria-disabled="true"] { background: var(--pad); cursor: default; filter: none; }
-
-/* Hero */
-.hero {
-  display: grid; gap: 40px;
-  padding: 56px 0 64px;
-  align-items: center;
-}
-.hero > * { min-width: 0; }
-@media (min-width: 900px) { .hero { grid-template-columns: 1.15fr 1fr; padding: 88px 0 96px; } }
-.kicker {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--ink-soft); margin: 0 0 16px;
-}
-h1 {
-  font-weight: 800; font-stretch: 78%;
-  font-size: clamp(36px, 5.4vw, 58px); line-height: 1;
-  letter-spacing: -0.01em;
-  margin: 0 0 24px;
-  text-wrap: balance;
-}
-.lede { font-size: 19px; max-width: 34em; margin: 0 0 32px; text-wrap: pretty; }
-.buy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; }
-.specs { font-size: 13px; color: var(--ink-soft); }
-.sale-note { font-size: 14px; color: var(--ink-soft); margin: 12px 0 0; min-height: 1em; }
-
-/* La machine (illustration) */
-.machine {
-  background: var(--panel);
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 18px 40px -24px rgba(0,0,0,0.45);
-}
-.lcd {
-  background: var(--lcd); color: var(--lcd-ink);
-  border-radius: 6px;
-  padding: 14px 16px;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 13px; line-height: 1.7;
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
-  margin-bottom: 20px;
-  white-space: pre;
-  overflow: hidden;
-}
-@media (max-width: 480px) { .lcd { font-size: 11.5px; padding: 12px; } .machine { padding: 16px; } }
-.lcd .bar { letter-spacing: -1px; }
-.pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.pads i {
-  aspect-ratio: 1; border-radius: 7px;
-  background: var(--pad);
-  box-shadow: inset 0 -4px 0 var(--pad-edge), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-.pads i.hot { background: var(--red); box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3); }
-.caption { font-size: 12px; color: var(--ink-soft); margin: 12px 2px 0; }
-
-/* Sections */
-section { padding: 64px 0; border-top: 1px solid var(--rule); }
-.section-head { display: grid; gap: 8px; margin-bottom: 32px; }
-@media (min-width: 900px) { .section-head { grid-template-columns: 220px 1fr; gap: 32px; } }
-.num {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 13px; color: var(--ink-soft); padding-top: 10px;
-}
-h2 {
-  font-weight: 800; font-stretch: 80%;
-  font-size: clamp(30px, 4.4vw, 42px); line-height: 1.02;
-  margin: 0; text-wrap: balance;
-}
-.section-body { display: grid; gap: 0; }
-@media (min-width: 900px) { .section-body { margin-left: 252px; } }
-
-/* La notice honnête */
-.notice {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-radius: 12px;
-  overflow: hidden;
-}
-.notice-row {
-  display: grid; gap: 4px 24px;
-  padding: 22px 24px;
-  border-top: 1px solid var(--rule);
-}
-.notice-row:first-child { border-top: 0; }
-@media (min-width: 720px) { .notice-row { grid-template-columns: 240px 1fr; } }
-.notice-row h3 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; }
-.notice-row p { margin: 0; color: var(--ink-soft); text-wrap: pretty; }
-.notice-row p strong { color: var(--ink); font-weight: 600; }
-
-/* Ce que ça fait */
-.features { display: grid; gap: 28px 40px; }
-@media (min-width: 720px) { .features { grid-template-columns: 1fr 1fr; } }
-.feature h3 { margin: 0 0 6px; font-size: 19px; font-weight: 700; }
-.feature p { margin: 0; color: var(--ink-soft); text-wrap: pretty; }
-.key {
-  display: inline-block; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.82em;
-  border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px;
-  padding: 0 5px; background: var(--paper); color: var(--ink);
-}
-
-/* Ne fait pas */
-.nope { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
-@media (min-width: 720px) { .nope { grid-template-columns: 1fr 1fr; column-gap: 40px; } }
-.nope li {
-  display: grid; grid-template-columns: 28px 1fr; align-items: baseline;
-  padding: 12px 0; border-bottom: 1px solid var(--rule);
-}
-.nope li::before { content: "✕"; color: var(--red); font-weight: 700; }
-
-/* Étapes */
-.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; counter-reset: step; }
-@media (min-width: 900px) { .steps { grid-template-columns: repeat(4, 1fr); } }
-.steps li {
-  counter-increment: step;
-  background: var(--paper); border: 1px solid var(--rule); border-radius: 12px;
-  padding: 20px;
-}
-.steps li::before {
-  content: counter(step, decimal-leading-zero);
-  display: block; font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 13px; color: var(--red); margin-bottom: 10px;
-}
-.steps h3 { margin: 0 0 6px; font-size: 18px; }
-.steps p { margin: 0; color: var(--ink-soft); font-size: 15px; }
-
-/* Capture */
-.shot {
-  margin: 0;
-  border: 1px dashed var(--rule); border-radius: 12px;
-  display: grid; place-items: center;
-  background: var(--paper);
-  color: var(--ink-soft); font-size: 14px; text-align: center; padding: 48px 16px;
-}
-.shot:has(img) { padding: 0; border: 0; background: none; }
-.shot img { display: block; width: 100%; height: auto; border-radius: 12px; box-shadow: 0 18px 40px -24px rgba(0,0,0,0.45); }
-
-/* Sécurité SD */
-.safe { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 0; }
-.safe li { padding: 14px 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 28px 1fr; }
-.safe li::before { content: "✓"; color: var(--ink); font-weight: 700; }
-.warn {
-  border-left: 3px solid var(--red); padding: 4px 0 4px 16px; margin: 0;
-  font-weight: 600;
-}
-
-/* Prix */
-.price-card {
-  background: var(--paper); border: 1px solid var(--rule); border-radius: 16px;
-  padding: 32px 24px; display: grid; gap: 24px;
-}
-@media (min-width: 720px) { .price-card { grid-template-columns: 1fr 1.2fr; padding: 40px; align-items: start; } }
-.amount { font-weight: 800; font-stretch: 75%; font-size: 88px; line-height: 0.9; letter-spacing: -0.02em; }
-.amount small { font-size: 20px; font-weight: 600; font-stretch: 100%; letter-spacing: 0; color: var(--ink-soft); margin-left: 6px; }
-.price-card ul { margin: 0; padding-left: 20px; }
-.price-card li { margin: 6px 0; }
-
-/* FAQ */
-details { border-bottom: 1px solid var(--rule); }
-details:first-of-type { border-top: 1px solid var(--rule); }
-summary {
-  cursor: pointer; list-style: none;
-  padding: 18px 32px 18px 0; position: relative;
-  font-weight: 600; font-size: 18px;
-}
-summary::-webkit-details-marker { display: none; }
-summary::after {
-  content: "+"; position: absolute; right: 4px; top: 16px;
-  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 20px; color: var(--ink-soft);
-}
-details[open] summary::after { content: "–"; }
-details p { margin: 0 0 18px; color: var(--ink-soft); max-width: 44em; text-wrap: pretty; }
-
-footer { border-top: 1px solid var(--rule); padding: 40px 0 56px; font-size: 14px; color: var(--ink-soft); }
-footer p { margin: 0 0 10px; max-width: 52em; }
-.theme-toggle {
-  background: none; border: 1px solid var(--rule); color: var(--ink-soft);
-  border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer;
-}
-
-:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
-@media (prefers-reduced-motion: no-preference) {
-  .pads i.hot { animation: hit 2.4s ease-in-out infinite; }
-  @keyframes hit { 0%, 70%, 100% { filter: none; } 78% { filter: brightness(1.25); } }
-}
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -305,20 +24,23 @@ footer p { margin: 0 0 10px; max-width: 52em; }
   <header class="top">
     <a class="brand" href="#">
       <img src="favicon.png" alt="" width="32" height="32">
-      <b>Kit Studio</b><span>pour MPC 3000</span>
+      <b>Kit Studio</b><span>for MPC 3000</span>
     </a>
-    <a class="btn small js-buy" href="#prix">Acheter · 29 €</a>
+    <div class="top-actions">
+      <a class="lang" href="fr/" hreflang="fr" lang="fr">Français</a>
+      <a class="btn small js-buy" href="#price">Buy · €29</a>
+    </div>
   </header>
 
   <main>
     <div class="hero">
       <div>
-        <p class="kicker">App Mac · fait par un fan, pas par un dev</p>
-        <h1>J’ai une MPC&nbsp;3000. J’en avais marre de galérer avec mes samples. Alors j’ai fabriqué l’outil.</h1>
-        <p class="lede">Kit Studio transforme tes WAV et AIFF en programmes <span class="mono">.PGM</span> et en sons <span class="mono">.SND</span>, vérifie que ta bank tient dans une PART, puis la copie sur ta carte SD sans rien écraser. C’est tout. Pour moi, c’est déjà beaucoup.</p>
+        <p class="kicker">Mac app · made by a fan, not a developer</p>
+        <h1>I own an MPC&nbsp;3000. I&nbsp;was tired of fighting with my samples. So I built the tool.</h1>
+        <p class="lede">Kit Studio turns your WAV and AIFF files into <span class="mono">.PGM</span> programs and <span class="mono">.SND</span> sounds, checks that your bank fits in a PART, then copies it to your SD card without overwriting anything. That’s it. For me, that’s already a lot.</p>
         <div class="buy-row">
-          <a class="btn js-buy" href="#prix">Acheter · 29 €, une fois</a>
-          <span class="specs mono">macOS 13+ · Mac Apple Silicon · interface en français</span>
+          <a class="btn js-buy" href="#price">Buy · €29, once</a>
+          <span class="specs mono">macOS 13+ · Apple Silicon Mac · interface in French</span>
         </div>
         <p class="sale-note js-sale-note" aria-live="polite"></p>
       </div>
@@ -327,9 +49,9 @@ footer p { margin: 0 0 10px; max-width: 52em; }
         <div class="machine" aria-hidden="true">
 <div class="lcd">PGM  KIT         BANK A
 PADS 36   SAMPLES 23
-PART E    libre 8,1 Mo
+PART E    free  8.1 MB
 BANK <span class="bar">██████████░░░░░░░</span>
-     3,8 Mo  ça tient ✓</div>
+     3.8 MB  it fits ✓</div>
           <div class="pads">
             <i></i><i></i><i></i><i></i>
             <i></i><i></i><i></i><i></i>
@@ -337,150 +59,154 @@ BANK <span class="bar">██████████░░░░░░░</span
             <i></i><i></i><i></i><i></i>
           </div>
         </div>
-        <p class="caption">Illustration, pas une capture d’écran. Les chiffres viennent de ma vraie carte.</p>
+        <p class="caption">Illustration, not a screenshot. The numbers come from my real card.</p>
       </div>
     </div>
 
-    <section id="honnete">
+    <section id="honest">
       <div class="section-head">
-        <span class="num">01 / Avant d’acheter</span>
-        <h2>Lis ça d’abord. Je préfère que tu n’achètes pas plutôt que tu sois déçu.</h2>
+        <span class="num">01 / Before you buy</span>
+        <h2>Read this first. I’d rather you not buy it than be disappointed.</h2>
       </div>
       <div class="section-body">
         <div class="notice">
           <div class="notice-row">
-            <h3>Je ne suis pas développeur.</h3>
-            <p>Kit Studio est fait en <strong>vibecoding</strong> : je décris ce que je veux, une IA (Claude) écrit le code, et moi je teste avec ma machine et mes samples. Plus de 250 tests automatiques tournent à chaque version. Ça aide. Ça ne remplace pas vingt ans de métier.</p>
+            <h3>I’m not a developer.</h3>
+            <p>Kit Studio is <strong>vibecoded</strong>: I describe what I want, an AI (Claude) writes the code, and I test it with my machine and my samples. Over 250 automated tests run on every version. That helps. It doesn’t replace twenty years of craft.</p>
           </div>
           <div class="notice-row">
-            <h3>C’est uniquement pour la MPC 3000 avec carte SD.</h3>
-            <p>Précisément ma config : <strong>MPC 3000 sous l’OS Vailixi 3.50, avec un adaptateur SCSI vers SD</strong> <span class="todo">modèle à préciser</span>, et une carte formatée par la MPC en <strong>partitions Hybrid</strong> (les PART A à Z que le Mac sait lire). Pas de MPC 2000, 60, Live, One ou X. Pas de disquette, pas de Zip.</p>
+            <h3>It’s only for the MPC 3000 with an SD card.</h3>
+            <p>Exactly my setup: <strong>an MPC 3000 running the Vailixi 3.50 OS, with a SCSI-to-SD adapter</strong> <span class="todo">model to confirm</span>, and a card formatted by the MPC in <strong>Hybrid partitions</strong> (the PARTs A to Z your Mac can read). No MPC 2000, 60, Live, One or X. No floppy, no Zip.</p>
           </div>
           <div class="notice-row">
-            <h3>Il n’y a pas de SAV.</h3>
-            <p>Pas de hotline, pas d’adresse de support, pas de délai de réponse. Quand je tombe sur un bug qui me gêne, je le corrige, et la mise à jour est pour toi aussi. C’est la seule promesse.</p>
+            <h3>The app speaks French.</h3>
+            <p>The interface is in <strong>French only</strong>, for now. It’s mostly pads, sample names and a handful of buttons, but if you need English menus, wait.</p>
           </div>
           <div class="notice-row">
-            <h3>Je ne peux pas faire plaisir à tout le monde.</h3>
-            <p>L’outil fait ce dont j’ai besoin pour bâtir mes banks. Si tu veux une fonction en plus, il y a de bonnes chances qu’elle n’arrive jamais. Je le dis maintenant pour ne pas te le faire croire plus tard.</p>
+            <h3>There’s no support.</h3>
+            <p>No hotline, no support address, no response time. When I hit a bug that bothers me, I fix it, and the update is yours too. That’s the only promise.</p>
           </div>
           <div class="notice-row">
-            <h3>Tu paies une fois. C’est tout.</h3>
-            <p>Pas d’abonnement, pas de compte, pas de pub. L’app ne se connecte <strong>jamais</strong> à internet : rien ne sort de ton Mac.</p>
+            <h3>I can’t please everyone.</h3>
+            <p>The tool does what I need to build my banks. If you want an extra feature, chances are it will never come. I’m telling you now so I don’t let you believe otherwise later.</p>
+          </div>
+          <div class="notice-row">
+            <h3>You pay once. That’s it.</h3>
+            <p>No subscription, no account, no ads. The app <strong>never</strong> connects to the internet: nothing leaves your Mac.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="fonctions">
+    <section id="features">
       <div class="section-head">
-        <span class="num">02 / Ce que ça fait</span>
-        <h2>Préparer une bank sur le Mac, la poser sur la SD, la charger sur la MPC.</h2>
+        <span class="num">02 / What it does</span>
+        <h2>Build a bank on the Mac, put it on the SD, load it on the MPC.</h2>
       </div>
       <div class="section-body">
         <div class="features">
           <div class="feature">
-            <h3>Glisse tes sons sur les pads</h3>
-            <p>WAV, AIFF ou SND, sur les 64 pads de A01 à D16. Plusieurs fichiers à la fois remplissent les pads suivants dans l’ordre. Conversion en SND 16 bits, 44,1 kHz.</p>
+            <h3>Drop your sounds on the pads</h3>
+            <p>WAV, AIFF or SND, on the 64 pads from A01 to D16. Several files at once fill the following pads in order. Converted to 16-bit, 44.1 kHz SND.</p>
           </div>
           <div class="feature">
-            <h3>Fouille ton disque de samples</h3>
-            <p>Tes dossiers en arborescence, comme dans un logiciel de musique. Un clic écoute, <span class="key">↑</span> <span class="key">↓</span> passent au suivant, la recherche fouille les sous-dossiers.</p>
+            <h3>Dig through your sample drive</h3>
+            <p>Your folders as a tree, like in a music app. A click plays, <span class="key">↑</span> <span class="key">↓</span> move to the next one, and search digs into subfolders.</p>
           </div>
           <div class="feature">
-            <h3>Nomme, découpe, accorde</h3>
-            <p>Le nom de 8 caractères qui sera vraiment écrit sur la SD s’affiche sous celui que tu tapes. Pas de surprise sur la MPC.</p>
+            <h3>Name, trim, tune</h3>
+            <p>The 8-character name that will actually be written to the SD shows under the one you type. No surprises on the MPC.</p>
           </div>
           <div class="feature">
-            <h3>Sache si ça tient avant de copier</h3>
-            <p>Une jauge compare ta bank à la place d’une PART vide. Sur ma carte, une PART fait environ 8 Mo : c’est la vraie limite, et elle part vite.</p>
+            <h3>Know it fits before you copy</h3>
+            <p>A gauge compares your bank with the space of an empty PART. On my card, a PART holds about 8 MB: that’s the real limit, and it fills up fast.</p>
           </div>
           <div class="feature">
-            <h3>Copie sur une PART libre</h3>
-            <p><span class="key">⇧⌘S</span> propose une PART vide avec assez de place. Le message de fin te dit quelle PART et quel <span class="mono">.PGM</span> charger sur la MPC.</p>
+            <h3>Copy to a free PART</h3>
+            <p><span class="key">⇧⌘S</span> suggests an empty PART with enough room. The final message tells you which PART and which <span class="mono">.PGM</span> to load on the MPC.</p>
           </div>
           <div class="feature">
-            <h3>Garde tes .PGM sur le Mac</h3>
-            <p><span class="key">⌘S</span> range le programme et tous ses sons dans ta bibliothèque, même sans la carte. Tu vois aussi ce qu’il y a sur la SD, PART par PART.</p>
+            <h3>Keep your .PGMs on the Mac</h3>
+            <p><span class="key">⌘S</span> stores the program and all its sounds in your library, even without the card. You also see what’s on the SD, PART by PART.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="limites">
+    <section id="limits">
       <div class="section-head">
-        <span class="num">03 / Ce que ça ne fait pas</span>
-        <h2>Ce n’est pas une MPC dans ton Mac.</h2>
+        <span class="num">03 / What it doesn’t do</span>
+        <h2>It’s not an MPC inside your Mac.</h2>
       </div>
       <div class="section-body">
         <ul class="nope">
-          <li>Pas de séquences (.SEQ, .ALL)</li>
-          <li>Pas de jeu ni de MIDI : la préécoute sert à choisir</li>
-          <li>Pas de filtres ni d’enveloppes MPC à l’écoute</li>
-          <li>Pas de SND compressés</li>
-          <li>Ne formate pas et ne nettoie pas ta carte</li>
-          <li>Ne supprime rien sur la SD</li>
-          <li>Pas de Windows, pas de Mac Intel</li>
-          <li>Pas d’anglais, pour l’instant</li>
+          <li>No sequences (.SEQ, .ALL)</li>
+          <li>No playing or MIDI: preview is for choosing</li>
+          <li>No MPC filters or envelopes in preview</li>
+          <li>No compressed SND</li>
+          <li>Doesn’t format or clean your card</li>
+          <li>Never deletes anything on the SD</li>
+          <li>No Windows, no Intel Mac</li>
+          <li>No English interface, for now</li>
         </ul>
       </div>
     </section>
 
-    <section id="comment">
+    <section id="how">
       <div class="section-head">
-        <span class="num">04 / En vrai</span>
-        <h2>Quatre étapes, de tes samples à la MPC.</h2>
+        <span class="num">04 / In practice</span>
+        <h2>Four steps, from your samples to the MPC.</h2>
       </div>
       <div class="section-body">
         <ol class="steps">
-          <li><h3>Compose</h3><p>Nouveau .PGM, puis tu glisses tes samples sur les pads.</p></li>
-          <li><h3>Enregistre</h3><p><span class="key">⌘S</span> garde la bank sur ton Mac.</p></li>
-          <li><h3>Copie</h3><p><span class="key">⇧⌘S</span> la pose sur une PART vide de la SD.</p></li>
-          <li><h3>Charge</h3><p>Tu éjectes, tu remets la carte dans la MPC, tu charges le .PGM indiqué.</p></li>
+          <li><h3>Build</h3><p>New .PGM, then drag your samples onto the pads.</p></li>
+          <li><h3>Save</h3><p><span class="key">⌘S</span> keeps the bank on your Mac.</p></li>
+          <li><h3>Copy</h3><p><span class="key">⇧⌘S</span> puts it on an empty PART of the SD.</p></li>
+          <li><h3>Load</h3><p>Eject, put the card back in the MPC, load the .PGM it names.</p></li>
         </ol>
         <figure class="shot" style="margin-top: 24px;">
-          <span><span class="todo">capture d’écran réelle à ajouter : site/screenshot.png</span></span>
+          <span><span class="todo">real screenshot to add: site/screenshot.png</span></span>
         </figure>
       </div>
     </section>
 
     <section id="sd">
       <div class="section-head">
-        <span class="num">05 / Ta carte</span>
-        <h2>Ta carte SD est sacrée. L’app la traite comme ça.</h2>
+        <span class="num">05 / Your card</span>
+        <h2>Your SD card is sacred. The app treats it that way.</h2>
       </div>
       <div class="section-body">
         <ul class="safe">
-          <li>Elle écrit seulement des fichiers neufs, jamais par-dessus un nom existant.</li>
-          <li>Elle ne supprime rien sur la SD, même quand tu le lui demandes.</li>
-          <li>Elle revérifie la PART juste avant d’écrire. Une PART douteuse n’est jamais proposée.</li>
-          <li>Tes sons d’origine ne sont jamais modifiés, sur le Mac comme sur la carte.</li>
+          <li>It only writes new files, never over an existing name.</li>
+          <li>It deletes nothing on the SD, even when you ask it to.</li>
+          <li>It checks the PART again right before writing. A doubtful PART is never offered.</li>
+          <li>Your original sounds are never modified, on the Mac or on the card.</li>
         </ul>
-        <p class="warn">Fais quand même une copie de ta carte avant. Je ne peux rien te garantir, et moi aussi je fais des copies.</p>
+        <p class="warn">Back up your card anyway. I can’t guarantee anything, and I make backups too.</p>
       </div>
     </section>
 
-    <section id="prix">
+    <section id="price">
       <div class="section-head">
-        <span class="num">06 / Prix</span>
-        <h2>Un prix, une fois.</h2>
+        <span class="num">06 / Price</span>
+        <h2>One price, once.</h2>
       </div>
       <div class="section-body">
         <div class="price-card">
           <div>
-            <div class="amount">29&nbsp;€<small>TTC</small></div>
-            <p class="specs mono" style="margin: 12px 0 20px;">paiement unique · licence perso</p>
-            <a class="btn js-buy" href="#prix">Acheter Kit Studio</a>
+            <div class="amount">€29<small>incl. VAT</small></div>
+            <p class="specs mono" style="margin: 12px 0 20px;">one-time payment · personal license</p>
+            <a class="btn js-buy" href="#price">Buy Kit Studio</a>
             <p class="sale-note js-sale-note" aria-live="polite"></p>
           </div>
           <div>
             <ul>
-              <li>L’app Mac, signée et notarisée par Apple : elle s’ouvre sans alerte.</li>
-              <li>Les mises à jour de la version 1, tant que je les fais.</li>
-              <li>Remboursé sous 14 jours si ça ne marche pas avec ta config. Un mail suffit, sans débat.</li>
-              <li>Paiement géré par <span class="todo">prestataire à choisir</span>, qui t’envoie la facture et le lien de téléchargement.</li>
+              <li>The Mac app, signed and notarized by Apple: it opens without warnings.</li>
+              <li>Version 1 updates, as long as I make them.</li>
+              <li>Refunded within 14 days if it doesn’t work with your setup. One email, no debate.</li>
+              <li>Payment handled by <span class="todo">provider to choose</span>, which sends you the invoice and the download link.</li>
             </ul>
-            <p style="color: var(--ink-soft); margin: 16px 0 0;">Ce que paie ton achat : le compte développeur Apple (99 € par an, sinon macOS bloque l’app), le nom de domaine, et un peu des soirées passées dessus.</p>
+            <p style="color: var(--ink-soft); margin: 16px 0 0;">What your purchase pays for: the Apple developer account ($99 a year, otherwise macOS blocks the app) and a few of the evenings spent on it.</p>
           </div>
         </div>
       </div>
@@ -489,78 +215,52 @@ BANK <span class="bar">██████████░░░░░░░</span
     <section id="faq">
       <div class="section-head">
         <span class="num">07 / Questions</span>
-        <h2>Les questions qu’on me pose.</h2>
+        <h2>The questions people ask me.</h2>
       </div>
       <div class="section-body">
         <details>
-          <summary>Ça marche avec l’OS Akai d’origine (3.10, 3.11, 3.12) ?</summary>
-          <p>Je ne l’ai pas testé. Ma machine tourne sous Vailixi 3.50, et ce sont ses partitions Hybrid qui rendent la carte lisible par le Mac. Kit Studio sait écrire un .PGM et ses .SND dans n’importe quel dossier, mais je n’ai essayé aucun autre chemin jusqu’à la MPC.</p>
+          <summary>Does it work with the original Akai OS (3.10, 3.11, 3.12)?</summary>
+          <p>I haven’t tested it. My machine runs Vailixi 3.50, and its Hybrid partitions are what make the card readable on a Mac. Kit Studio can write a .PGM and its .SND files to any folder, but I haven’t tried any other way to get them to the MPC.</p>
         </details>
         <details>
-          <summary>Quel adaptateur SD faut-il ?</summary>
-          <p>J’utilise <span class="todo">modèle à préciser</span>. Kit Studio ne parle pas à l’adaptateur : il lit les PART que macOS monte, nommées MPC-PART--A à MPC-PART--Z. Si ton Mac les voit sous ces noms, Kit Studio aussi.</p>
+          <summary>Which SD adapter do I need?</summary>
+          <p>I use <span class="todo">model to confirm</span>. Kit Studio doesn’t talk to the adapter: it reads the PARTs macOS mounts, named MPC-PART--A to MPC-PART--Z. If your Mac sees them under those names, so does Kit Studio.</p>
         </details>
         <details>
-          <summary>Mac Intel ? Windows ?</summary>
-          <p>Non. Uniquement les Mac Apple Silicon (M1 et suivants), macOS 13 ou plus récent.</p>
+          <summary>Is the app in English?</summary>
+          <p>Not yet. The interface is in French. If enough people ask, I’ll translate it, but I’m not promising a date.</p>
         </details>
         <details>
-          <summary>Et si ça abîme ma carte ?</summary>
-          <p>L’app ne supprime ni n’écrase rien sur la SD, et refuse d’écrire sur une PART qu’elle ne peut pas vérifier. Mais un logiciel fait par un non-développeur reste un logiciel : fais une copie de ta carte avant de t’en servir.</p>
+          <summary>Intel Mac? Windows?</summary>
+          <p>No. Apple Silicon Macs only (M1 and later), macOS 13 or newer.</p>
         </details>
         <details>
-          <summary>Je peux le passer à un pote ?</summary>
-          <p>Il n’y a pas de protection anti-copie : je ne vais pas te fliquer. Si ton pote l’utilise, dis-lui de l’acheter. C’est ce qui paie le compte Apple qui permet à l’app de s’ouvrir.</p>
+          <summary>What if it damages my card?</summary>
+          <p>The app never deletes or overwrites anything on the SD, and refuses to write to a PART it can’t verify. But software made by a non-developer is still software: back up your card before using it.</p>
         </details>
         <details>
-          <summary>Il y aura des mises à jour ?</summary>
-          <p>Tant que j’utilise ma MPC, oui. Pas de calendrier, pas de feuille de route promise. L’app ne vérifie rien toute seule : une nouvelle version se retélécharge depuis ton mail d’achat.</p>
+          <summary>Can I give it to a friend?</summary>
+          <p>There’s no copy protection: I’m not going to police you. If your friend uses it, tell them to buy it. That’s what pays for the Apple account that lets the app open.</p>
         </details>
         <details>
-          <summary>Je peux t’écrire ?</summary>
-          <p>Oui, à <span class="todo">adresse de contact</span>, pour un remboursement ou pour me raconter ce que tu fais avec. Je réponds quand je peux, et parfois pas.</p>
+          <summary>Will there be updates?</summary>
+          <p>As long as I use my MPC, yes. No schedule, no promised roadmap. The app checks nothing on its own: you download a new version again from your purchase email.</p>
+        </details>
+        <details>
+          <summary>Can I write to you?</summary>
+          <p>Yes, at <span class="todo">contact address</span>, for a refund or to tell me what you make with it. I answer when I can, and sometimes I don’t.</p>
         </details>
       </div>
     </section>
   </main>
 
   <footer>
-    <p>Kit Studio est un projet perso de Nicolas (REWOLF). <span class="todo">mentions légales : nom, SIRET, adresse ou domiciliation, hébergeur</span></p>
-    <p>MPC et MPC 3000 sont des marques d’inMusic Brands (Akai Professional). Kit Studio n’est ni affilié, ni approuvé, ni soutenu par Akai Professional ou inMusic. Vailixi 3.50 est un OS tiers pour la MPC 3000, sans lien avec ce projet.</p>
-    <p><button class="theme-toggle" type="button" id="theme">Clair / sombre</button></p>
+    <p>Kit Studio is a personal project by Nicolas (REWOLF). <span class="todo">legal notice: name, SIRET, address or registered office, host</span></p>
+    <p>MPC and MPC 3000 are trademarks of inMusic Brands (Akai Professional). Kit Studio is not affiliated with, endorsed or sponsored by Akai Professional or inMusic. Vailixi 3.50 is a third-party OS for the MPC 3000, unrelated to this project.</p>
+    <p><button class="theme-toggle" type="button" id="theme">Light / dark</button></p>
   </footer>
 </div>
 
-<script>
-  // Lien de paiement du prestataire (Lemon Squeezy, Paddle ou Stripe). Vide = vente pas encore ouverte.
-  const CHECKOUT_URL = "";
-
-  document.querySelectorAll(".js-buy").forEach((button) => {
-    if (CHECKOUT_URL) {
-      button.href = CHECKOUT_URL;
-      return;
-    }
-    button.addEventListener("click", (event) => {
-      if (button.closest(".price-card")) event.preventDefault();
-      document.querySelectorAll(".js-sale-note").forEach((note) => {
-        note.textContent = "La vente n’est pas encore ouverte.";
-      });
-    });
-  });
-
-  const root = document.documentElement;
-  const toggle = document.getElementById("theme");
-  try {
-    const saved = localStorage.getItem("theme");
-    if (saved) root.dataset.theme = saved;
-  } catch (e) {}
-  toggle.addEventListener("click", () => {
-    const dark = root.dataset.theme
-      ? root.dataset.theme === "dark"
-      : matchMedia("(prefers-color-scheme: dark)").matches;
-    root.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
-  });
-</script>
+<script src="main.js"></script>
 </body>
 </html>
