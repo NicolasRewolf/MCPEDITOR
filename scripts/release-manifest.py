@@ -47,8 +47,10 @@ def create(dist):
     app = dist / APP_NAME
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     repo = pathlib.Path(command("git", "rev-parse", "--show-toplevel", cwd=dist.parent))
-    scope = ("mac/KitStudio", ".github/workflows/kit-studio.yml",
-             ".github/workflows/kit-studio-verify.yml")
+    # The app's own sources; the sales site and launch notes do not make a build dirty.
+    scope = ("Package.swift", "Sources", "Tests", "Assets", "Notices", "scripts",
+             "README.md", "CONTEXT.md", ".gitignore",
+             ".github/workflows/kit-studio.yml", ".github/workflows/kit-studio-verify.yml")
     files = command("git", "ls-files", "--cached", "--others", "--exclude-standard", "--", *scope,
                     cwd=repo).splitlines()
     report = {

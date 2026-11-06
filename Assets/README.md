@@ -1,6 +1,6 @@
 # Icône MPC Kit Studio
 
-`AppIcon.png` est la source de l’icône de l’application ; `AppIcon.icns` est le fichier livré dans le bundle macOS. Régénération des tailles standard et Retina : `bash scripts/build-icon.sh`, depuis `mac/KitStudio`.
+`AppIcon.png` est la source de l’icône de l’application ; `AppIcon.icns` est le fichier livré dans le bundle macOS. Régénération des tailles standard et Retina : `bash scripts/build-icon.sh`, depuis la racine du dépôt.
 
 Créée le 19 octobre 2026 avec l’outil intégré de génération d’images, puis affinée avec le même outil. Aucun logo Akai ni texte n’est incorporé. Les redimensionnements pour le paquet ICNS utilisent les outils macOS `sips` et `iconutil`.
 

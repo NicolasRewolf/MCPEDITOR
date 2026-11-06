@@ -1,5 +1,9 @@
 # MPC Kit Studio — prototype Mac
 
+> Ce dépôt contient l’app seule, extraite du projet de nouvel OS MPC3000 (Homework 4.0)
+> avec son historique. Il contient aussi la page de vente (`site/`) et le plan de lancement
+> ([docs/LAUNCH.md](docs/LAUNCH.md)). La recherche ROM reste dans son propre dépôt.
+
 Application native pour Apple Silicon, macOS 13 ou plus récent. Interface en français.
 Programmes MPC3000 natifs et sons SND révision 02, avec préparation de programmes à partir de WAV/AIFF.
 Aucune gestion de séquences.
@@ -162,7 +166,6 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
 Installer les outils développeur Apple (Xcode ou ses outils en ligne de commande), puis :
 
 ```sh
-cd mac/KitStudio
 bash scripts/build-app.sh
 ```
 
@@ -191,12 +194,10 @@ Une préparation impossible affiche « Taille indisponible » et empêche la rec
 automatique d’une PART. L’export contrôle ensuite les valeurs PCM et les tailles encodées,
 puis l’espace réel et l’identité de la destination avant toute création de fichier.
 
-- [PGM/SND](../../knowledge/program_sound_files.yaml), [paramètres](../../knowledge/programs.yaml),
-  [répertoires](../../knowledge/storage_directory.yaml).
-- Modèle : `ressources/incoming/01_izzyreal_mpc/test-resources/RealMpc3000/Pgm/PROGRAM.pgm`,
+- Formats PGM/SND, paramètres et répertoires : relevés dans le dépôt de recherche
+  Homework 4.0 (privé), dont cette app a été extraite le 6 novembre 2026.
+- Modèle : `test-resources/RealMpc3000/Pgm/PROGRAM.pgm` du dépôt izzyreal/mpc,
   SHA Git `7f9a42740821e6f8b7286b978d2481a8217df20b`.
-- [Provenance du corpus](../../knowledge/source_corroboration.yaml).
 La [notice du modèle et la licence présente dans son dépôt source](Notices/PROVENANCE.md)
 sont incluses dans les ressources de l’application. Les droits de redistribution de cette capture
-restent à clarifier avant une diffusion plus large.
-Le travail de l'application ne relance pas la recherche ROM UNDERSTAND.
+restent à clarifier avant la vente : voir [le plan de lancement](docs/LAUNCH.md).

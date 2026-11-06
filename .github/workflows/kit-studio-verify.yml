@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Test and package the current revision
-        run: bash mac/KitStudio/scripts/build-app.sh
+        run: bash scripts/build-app.sh
       - name: Verify this job's exact archives, commit, resources and signature
         run: >-
-          python3 mac/KitStudio/scripts/release-manifest.py verify mac/KitStudio/dist
+          python3 scripts/release-manifest.py verify dist
           --expect-commit "$GITHUB_SHA" --require-clean
       - name: Verify the extracted archive launches with a visible window
         shell: bash
@@ -22,14 +22,14 @@ jobs:
           set -euo pipefail
           UNPACKED="$(mktemp -d "$RUNNER_TEMP/kit-studio-launch.XXXXXX")"
           trap 'rm -rf "$UNPACKED"' EXIT
-          ditto -x -k mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.zip "$UNPACKED"
-          swift mac/KitStudio/scripts/verify-ci-launch.swift "$UNPACKED/MPC Kit Studio.app"
+          ditto -x -k dist/MPC-Kit-Studio-Apple-Silicon.zip "$UNPACKED"
+          swift scripts/verify-ci-launch.swift "$UNPACKED/MPC Kit Studio.app"
       - uses: actions/upload-artifact@v4
         with:
           name: MPC-Kit-Studio-Apple-Silicon
           path: |
-            mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.zip
-            mac/KitStudio/dist/MPC-Kit-Studio-Apple-Silicon.dmg
-            mac/KitStudio/dist/release-manifest.json
+            dist/MPC-Kit-Studio-Apple-Silicon.zip
+            dist/MPC-Kit-Studio-Apple-Silicon.dmg
+            dist/release-manifest.json
           if-no-files-found: error
           retention-days: 14

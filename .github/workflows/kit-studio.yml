@@ -1,16 +1,8 @@
 name: MPC Kit Studio - Mac
 on:
   push:
-    branches: [main, feature/mpc-kit-studio]
-    paths:
-      - 'mac/KitStudio/**'
-      - '.github/workflows/kit-studio.yml'
-      - '.github/workflows/kit-studio-verify.yml'
+    branches: [main]
   pull_request:
-    paths:
-      - 'mac/KitStudio/**'
-      - '.github/workflows/kit-studio.yml'
-      - '.github/workflows/kit-studio-verify.yml'
   workflow_dispatch:
 permissions:
   contents: read
