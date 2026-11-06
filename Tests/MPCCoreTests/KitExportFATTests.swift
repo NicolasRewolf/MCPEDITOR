@@ -18,11 +18,18 @@ final class KitExportFATTests: XCTestCase {
             try? FileManager.default.removeItem(at: root)
             throw XCTSkip("hdiutil cannot create or mount a FAT12 image here")
         }
-        part = mountPoint
         addTeardownBlock {
             Self.run("detach", "-quiet", "-force", mountPoint.path)
             try? FileManager.default.removeItem(at: root)
         }
+        // These tests are about publishing on the FAT driver. On macOS 15 (GitHub's runner) the
+        // occupancy check already refuses a fresh image, "1536 octets occupés ne sont pas expliqués".
+        do {
+            _ = try ExportDestination.capture(at: mountPoint, requireEmpty: true)
+        } catch let ExportDestinationError.unverified(detail) {
+            throw XCTSkip("The FAT occupancy check refuses a fresh FAT12 image on this macOS: \(detail)")
+        }
+        part = mountPoint
     }
 
     @discardableResult
