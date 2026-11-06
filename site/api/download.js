@@ -1,22 +1,22 @@
-// Paid download for Kit for MPC3000.
+// Download for Kit for MPC3000 buyers.
 //
-// Stripe sends buyers to /thanks/?session_id={CHECKOUT_SESSION_ID}. This function asks Stripe
-// whether that Checkout Session was paid through the Kit for MPC3000 Payment Link, then
-// streams the DMG from a private Vercel Blob store. Nothing else is stored or logged.
+// After paying, Stripe redirects to /thanks/?key=<code>. The code is set only in the Stripe
+// Payment Link's redirect (plink_1UYluHPc3KBNseSeyFyUCCtD), so only buyers are sent to it.
+// This file holds just its SHA-256, never the code itself: the repository is public.
+// With a valid code, the DMG streams from the private Vercel Blob store kitmpc3000-releases.
 //
-//   GET /api/download?session_id=cs_...           the DMG, or a short plain-text refusal
-//   GET /api/download?session_id=cs_...&check=1   {"paid": bool, "ready": bool} for /thanks/
+//   GET /api/download?key=<code>           the DMG, or a short plain-text refusal
+//   GET /api/download?key=<code>&check=1   {"paid": bool, "ready": bool} for /thanks/
 //
-// Needs two environment variables on the Vercel project:
-//   STRIPE_SECRET_KEY      a restricted Stripe key with read access to Checkout Sessions
-//   BLOB_READ_WRITE_TOKEN  added by Vercel when the private Blob store is connected
-// The same session link keeps working, so a buyer gets later versions from the same page.
+// The same link keeps working, so buyers get later versions from it. If it ever leaks, make
+// a new code, put its SHA-256 below and the code in the Stripe redirect: docs/LAUNCH.md.
+// Needs BLOB_READ_WRITE_TOKEN on the Vercel project (added when the Blob store was connected).
+import { createHash, timingSafeEqual } from "node:crypto";
 import { get } from "@vercel/blob";
 
-const PAYMENT_LINK = "plink_1UYluHPc3KBNseSeyFyUCCtD";
+const KEY_SHA256 = "0176102893e47a7a5d38010baed7aa44de5e0ce85a8665323115d296a50f317c";
 const RELEASE_PATHNAME = "releases/Kit-for-MPC3000-Apple-Silicon.dmg";
 const DOWNLOAD_NAME = "Kit-for-MPC3000-Apple-Silicon.dmg";
-const SESSION_ID = /^cs_(live|test)_[A-Za-z0-9]{10,250}$/;
 
 function reply(status, body, json = false) {
   return new Response(json ? JSON.stringify(body) : body + "\n", {
@@ -29,35 +29,18 @@ function reply(status, body, json = false) {
   });
 }
 
-async function paidSession(id) {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return { error: [503, "Downloads are not set up yet. Le téléchargement n’est pas encore en place."] };
-  const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(id)}`, {
-    headers: { Authorization: `Bearer ${key}` },
-  });
-  if (response.status === 404) return { paid: false };
-  if (!response.ok) return { error: [502, "Stripe didn’t answer. Try again in a minute. Stripe n’a pas répondu, réessaie dans une minute."] };
-  const session = await response.json();
-  return { paid: session.payment_link === PAYMENT_LINK && session.payment_status === "paid" };
+function validKey(key) {
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(key)) return false;
+  const given = createHash("sha256").update(key).digest();
+  return timingSafeEqual(given, Buffer.from(KEY_SHA256, "hex"));
 }
 
 export async function GET(request) {
   const params = new URL(request.url).searchParams;
-  const id = params.get("session_id") || "";
   const check = params.has("check");
-  if (!SESSION_ID.test(id)) {
-    return check ? reply(400, { paid: false, ready: false }, true)
-                 : reply(400, "This link has no valid payment reference. Ce lien ne contient pas de référence de paiement valide.");
-  }
-
-  const session = await paidSession(id);
-  if (session.error) {
-    return check ? reply(session.error[0], { paid: false, ready: false, error: true }, true)
-                 : reply(...session.error);
-  }
-  if (!session.paid) {
+  if (!validKey(params.get("key") || "")) {
     return check ? reply(403, { paid: false, ready: false }, true)
-                 : reply(403, "No completed payment for Kit for MPC3000 matches this link. Aucun paiement de Kit for MPC3000 ne correspond à ce lien.");
+                 : reply(403, "This isn’t a valid download link. Ce lien de téléchargement n’est pas valide.");
   }
 
   // Pass the store's token explicitly: the runtime also has an OIDC token without a store id,
@@ -70,7 +53,7 @@ export async function GET(request) {
     return reply(200, { paid: true, ready }, true);
   }
   if (!ready) {
-    return reply(503, "Payment confirmed. The file isn’t online yet: the link comes by email. Paiement confirmé. Le fichier n’est pas encore en ligne : le lien arrive par mail.");
+    return reply(503, "The file isn’t online right now: write to nicolas@rewolf.studio. Le fichier n’est pas en ligne pour l’instant : écris à nicolas@rewolf.studio.");
   }
   return new Response(blob.stream, {
     status: 200,

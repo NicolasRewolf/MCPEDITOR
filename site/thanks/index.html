@@ -10,8 +10,8 @@
 <link rel="stylesheet" href="../styles.css">
 <!--
   Stripe redirects here after a payment (Payment Link plink_1UYluHPc3KBNseSeyFyUCCtD)
-  with ?session_id=cs_... The script asks /api/download whether that session is paid and
-  whether the DMG is online, then shows the download button. Otherwise the email text stays.
+  with ?key=<download code>. The script asks /api/download whether the code is valid and
+  the DMG is online, then shows the download button. Otherwise the email text stays.
   One page for both languages: French is shown when the browser prefers it.
 -->
 </head>
@@ -44,7 +44,7 @@
         <p>I send you the download link for Kit for MPC3000 myself, by email, at the address you paid with. It usually takes less than a day. Keep that email: new versions will reach you the same way.</p>
         <p>If nothing has arrived after 48 hours, check your spam folder, then write to me at <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
       </div>
-      <p class="js-unconfirmed" hidden>I can’t confirm a payment for this page yet. If you’ve just paid, wait a minute and reload it.</p>
+      <p class="js-unconfirmed" hidden>This page has no valid download link. Use the page you reached right after paying, or write to me at <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
       <p class="small">Before you use it, make a copy of your SD card.</p>
     </section>
 
@@ -62,7 +62,7 @@
         <p>Je t’envoie moi-même le lien de téléchargement de Kit for MPC3000, par mail, à l’adresse utilisée pour payer. En général, c’est fait dans la journée. Garde ce mail : les nouvelles versions arriveront de la même façon.</p>
         <p>Si rien n’est arrivé au bout de 48 heures, regarde dans tes spams, puis écris-moi à <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
       </div>
-      <p class="js-unconfirmed" hidden>Je ne trouve pas encore de paiement pour cette page. Si tu viens de payer, attends une minute et recharge-la.</p>
+      <p class="js-unconfirmed" hidden>Cette page ne contient pas de lien de téléchargement valide. Utilise la page atteinte juste après le paiement, ou écris-moi à <a href="mailto:nicolas@rewolf.studio">nicolas@rewolf.studio</a>.</p>
       <p class="small">Avant de t’en servir, fais une copie de ta carte SD.</p>
     </section>
   </main>
@@ -87,9 +87,9 @@
     });
 
     // The download, once Stripe confirms the payment and the file is online.
-    const session = new URLSearchParams(location.search).get("session_id");
-    if (!session) return;
-    const url = "../api/download?session_id=" + encodeURIComponent(session);
+    const key = new URLSearchParams(location.search).get("key");
+    if (!key) return;
+    const url = "../api/download?key=" + encodeURIComponent(key);
     fetch(url + "&check=1", { cache: "no-store" })
       .then((response) => response.json())
       .then((state) => {
