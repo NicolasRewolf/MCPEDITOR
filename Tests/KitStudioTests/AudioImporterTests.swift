@@ -30,7 +30,7 @@ private final class AudioFixture {
 
     func audio(_ format: AudioCase, frames: Int? = nil, floatingPoint: Bool = false,
                sample: (Int, Int) -> Float = { frame, channel in
-                   Float(0.5 * sin(2 * .pi * Double(channel == 0 ? 440 : 997) * Double(frame) / 44_100))
+                   Float(testTone(frame: frame, channel: channel))
                }) throws -> URL {
         let count = frames ?? Int(format.sampleRate / 10)
         let url = directory.appendingPathComponent("SAMPLE.\(format.fileExtension)")
@@ -59,12 +59,20 @@ private final class AudioFixture {
     }
 }
 
+/// 440 Hz on the left, 997 Hz on the right. Explicit types keep the expression quick to
+/// type-check on every toolchain (GitHub's compiler gave up on the inline formula).
+func testTone(frame: Int, channel: Int, sampleRate: Double = 44_100) -> Double {
+    let frequency: Double = channel == 0 ? 440 : 997
+    let phase: Double = 2 * Double.pi * frequency * Double(frame) / sampleRate
+    return 0.5 * sin(phase)
+}
+
 struct AudioImporterTests {
     @Test("WAV/AIFF resampling preserves duration and channel content", arguments: AudioCase.all)
     func convertsKnownSignals(_ format: AudioCase) throws {
         let fixture = try AudioFixture()
         let url = try fixture.audio(format) { frame, channel in
-            Float(0.5 * sin(2 * .pi * Double(channel == 0 ? 440 : 997) * Double(frame) / format.sampleRate))
+            Float(testTone(frame: frame, channel: channel, sampleRate: format.sampleRate))
         }
         let sound = try AudioImporter.load(url)
         #expect(sound.channels.count == format.channels)
@@ -76,9 +84,10 @@ struct AudioImporterTests {
             let samples = sound.channels[channel]
             try #require(samples.count > 128)
             let count = samples.count - 128
-            let error = (64..<(samples.count - 64)).reduce(0.0) { total, frame in
-                let expected = 0.5 * sin(2 * .pi * Double(channel == 0 ? 440 : 997) * Double(frame) / 44_100)
-                return total + pow(Double(samples[frame]) - expected, 2)
+            var error: Double = 0
+            for frame in 64..<(samples.count - 64) {
+                let difference: Double = Double(samples[frame]) - testTone(frame: frame, channel: channel)
+                error += difference * difference
             }
             #expect(sqrt(error / Double(count)) < 0.001)
         }
