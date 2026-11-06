@@ -428,5 +428,4 @@ public struct MPCProgram: Sendable {
         bytes = Data(b)
     }
     public var referencedSlots: Set<Int> { Set((35...98).compactMap { slot(forNote: $0) }) }
-    public var soundNames: [String] { (0..<128).map { soundName(slot: $0) } }
 }

@@ -41,7 +41,7 @@ final class LibraryAssociationModelTests: XCTestCase {
     }
 
     @MainActor
-    func testSamplesDefaultToLibraryAndPartsAndResolveOnlyExactFileAssociations() async throws {
+    func testSDPaneListsEveryPartSampleAndResolvesOnlyExactFileAssociations() async throws {
         let partA = try directory("MPC-PART--A")
         let partB = try directory("MPC-PART--B")
         let kickA = try sound("KICK", in: partA)
@@ -56,18 +56,16 @@ final class LibraryAssociationModelTests: XCTestCase {
 
         XCTAssertEqual(model.sampleScope, .library)
         XCTAssertTrue(model.filteredSamples.isEmpty, "The Mac collection holds no SD sample; the SD has its own pane")
-        XCTAssertEqual(Set(model.visibleSDSamples), [])
-        model.showAllSDSamples()
-        XCTAssertEqual(Set(model.filteredSamples), Set([kickA, kickB, orphan]))
+        model.toggleSDPart(partA)
+        model.toggleSDPart(partB)
+        XCTAssertEqual(Set(model.visibleSDSamples), Set([kickA, kickB, orphan]))
         XCTAssertEqual(Set(model.programsUsingSample(kickA).map(\.url)), Set([soulA, funkA]))
         XCTAssertEqual(model.programsUsingSample(kickB).map(\.url), [soulB])
-        XCTAssertEqual(model.sampleAssociationSummary(for: kickA), "2 .PGM associés")
-        XCTAssertEqual(model.sampleAssociationSummary(for: orphan), "Aucun lien .PGM trouvé")
+        XCTAssertTrue(model.programsUsingSample(orphan).isEmpty)
         XCTAssertEqual(model.sampleLocationLabel(for: kickA), "PART A")
         XCTAssertEqual(model.sampleLocationLabel(for: kickB), "PART B")
-        XCTAssertFalse(model.canGoUpSamples)
-        model.sampleQuery = "PART B"
-        XCTAssertEqual(model.filteredSamples, [kickB])
+        model.sdSampleQuery = "kick"
+        XCTAssertEqual(Set(model.visibleSDSamples), Set([kickA, kickB]))
     }
 
     @MainActor
@@ -86,9 +84,9 @@ final class LibraryAssociationModelTests: XCTestCase {
         XCTAssertNil(model.libraryKits.first?.partitionLetter)
         XCTAssertEqual(model.sampleLocationLabel(for: kick), "MPC-PART--S")
         XCTAssertEqual(model.libraryKits.first?.locationLabel, "MPC-PART--S")
-        model.programURL = model.libraryKits.first?.url
-        XCTAssertTrue(model.kitLocationLabel.contains("MPC-PART--S"))
-        XCTAssertFalse(model.kitLocationLabel.contains("PART S"))
+        let kit = try XCTUnwrap(model.libraryKits.first)
+        XCTAssertEqual(model.libraryLocationLabel(for: kit), "MPC-PART--S")
+        XCTAssertFalse(model.libraryLocationLabel(for: kit).contains("PART S"))
     }
 
     @MainActor
@@ -102,21 +100,17 @@ final class LibraryAssociationModelTests: XCTestCase {
         await model.refreshLocations().value
         let snapshot = try XCTUnwrap(model.partitions.first)
 
-        model.showSamples(in: snapshot)
+        model.toggleSDPart(part)
 
-        XCTAssertEqual(model.sampleScope, .partition(part))
-        XCTAssertEqual(Set(model.filteredSamples), Set([kick, roll]))
-        XCTAssertEqual(model.filteredSamples.count, snapshot.audioCount)
-        XCTAssertTrue(model.filteredSampleFolders.isEmpty)
-        XCTAssertEqual(model.sampleScopeTitle, "Samples · PART S")
+        XCTAssertEqual(Set(model.visibleSDSamples), Set([kick, roll]))
+        XCTAssertEqual(model.visibleSDSamples.count, snapshot.audioCount)
         XCTAssertEqual(model.sampleLocationLabel(for: roll), "PART S · Soul")
-        XCTAssertFalse(model.canGoUpSamples)
-        model.selectSample(roll)
-        model.sampleQuery = "roll"
+        model.selectSDSample(roll)
+        model.sdSampleQuery = "roll"
         await model.refreshLocations().value
-        XCTAssertEqual(model.filteredSamples, [roll])
-        XCTAssertEqual(model.selectedSampleURL, roll)
-        XCTAssertEqual(model.sampleQuery, "roll")
+        XCTAssertEqual(model.visibleSDSamples, [roll])
+        XCTAssertEqual(model.selectedSDSampleURL, roll)
+        XCTAssertEqual(model.sdSampleQuery, "roll")
     }
 
     @MainActor
@@ -131,16 +125,12 @@ final class LibraryAssociationModelTests: XCTestCase {
 
         model.showSamples(in: saved)
 
-        XCTAssertEqual(model.libraryMode, .samples)
         XCTAssertEqual(model.sampleScope, .program(saved))
         XCTAssertEqual(model.filteredSamples, [kick])
-        XCTAssertTrue(model.filteredSampleFolders.isEmpty)
         XCTAssertTrue(model.sampleScopeTitle.contains("SOUL.PGM"))
         XCTAssertTrue(model.sampleScopeTitle.contains("PART S"))
-        XCTAssertNotNil(model.libraryContentIssue)
-        XCTAssertTrue(model.libraryContentIssue?.contains("MISSING") == true)
+        XCTAssertTrue(model.sampleBrowserIssue?.contains("MISSING") == true)
         XCTAssertNil(model.sampleFolder)
-        XCTAssertFalse(model.canGoUpSamples)
     }
 
     @MainActor
@@ -157,21 +147,18 @@ final class LibraryAssociationModelTests: XCTestCase {
         let beforeStatus = model.status
         let beforeMemory = model.memoryBytes
         let saved = try XCTUnwrap(model.libraryKits.first { $0.url == pgm })
-        let partition = try XCTUnwrap(model.partitions.first)
 
         model.showSamples(in: saved)
         model.selectSample(kick)
         XCTAssertEqual(model.programsUsingSample(kick).map(\.url), [pgm])
         XCTAssertTrue(model.selectedSampleAssociationNotice?.contains("modifications en mémoire ne sont pas incluses") == true)
-        model.kitSearch = "NO MATCH"
-        model.showPrograms(in: partition)
-        XCTAssertEqual(model.kitSearch, "")
-        XCTAssertEqual(model.libraryMode, .kits)
+        model.filterPrograms(to: part)
         XCTAssertEqual(model.filteredKits.map(\.url), [pgm])
-        model.showSamples(in: partition)
-        await model.browseSamplesFolder(part)?.value
+        await model.selectSampleRoot(part)?.value
         XCTAssertEqual(model.filteredSamples, [kick])
-        model.showAllSDSamples()
+        model.toggleSDPart(part)
+        model.selectSDSample(kick)
+        model.showAllLibrarySamples()
 
         XCTAssertEqual(model.program?.bytes, beforeProgram)
         XCTAssertEqual(model.sound?.channels, beforeSound)
@@ -195,13 +182,12 @@ final class LibraryAssociationModelTests: XCTestCase {
         model.showSamples(in: saved)
         model.selectSample(kick)
         model.sampleQuery = "kick"
-        let preview = model.samplePreviewStatus
 
         await model.refreshLocations().value
 
         XCTAssertEqual(model.selectedSampleURL, kick)
         XCTAssertEqual(model.sampleQuery, "kick")
-        XCTAssertEqual(model.samplePreviewStatus, preview)
+        XCTAssertNil(model.sampleProblem)
         try FileManager.default.removeItem(at: pgm)
         await model.refreshLocations().value
 
@@ -209,7 +195,7 @@ final class LibraryAssociationModelTests: XCTestCase {
         XCTAssertTrue(model.programsUsingSample(kick).isEmpty)
         XCTAssertNil(model.selectedSampleURL)
         XCTAssertEqual(model.sampleQuery, "kick")
-        XCTAssertTrue(model.libraryContentIssue?.contains("plus disponible") == true)
+        XCTAssertTrue(model.sampleBrowserIssue?.contains("plus disponible") == true)
     }
 
     @MainActor
@@ -222,21 +208,21 @@ final class LibraryAssociationModelTests: XCTestCase {
         await model.refreshLocations().value
         await model.importURLs([kick], atPad: 0)?.value
         let before = model.program?.bytes
-        model.showAllSDSamples()
-        model.selectSample(kick)
-        model.sampleQuery = "kick"
+        model.toggleSDPart(part)
+        model.selectSDSample(kick)
+        model.sdSampleQuery = "kick"
         model.samplePreviewBusy = true
         mounted = []
 
         await model.refreshLocations().value
 
         XCTAssertTrue(model.libraryKits.isEmpty)
-        XCTAssertTrue(model.filteredSamples.isEmpty)
+        XCTAssertTrue(model.sdSampleRows.isEmpty)
         XCTAssertTrue(model.programsUsingSample(kick).isEmpty)
-        XCTAssertNil(model.selectedSampleURL)
+        XCTAssertNil(model.selectedSDSampleURL)
         XCTAssertFalse(model.samplePreviewBusy)
-        XCTAssertEqual(model.sampleQuery, "kick")
-        XCTAssertTrue(model.libraryContentIssue?.contains("plus montée") == true)
+        XCTAssertEqual(model.sdSampleQuery, "kick")
+        XCTAssertTrue(model.programListIssue?.contains("plus montée") == true)
         XCTAssertEqual(model.program?.bytes, before)
         XCTAssertTrue(model.isDirty)
         XCTAssertFalse(try XCTUnwrap(model.partitions.first).isEmpty)
@@ -257,12 +243,11 @@ final class LibraryAssociationModelTests: XCTestCase {
         model.showSamples(in: saved)
 
         XCTAssertEqual(model.filteredSamples, [kick])
-        XCTAssertEqual(model.libraryContentIssue, reason)
-        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet · PART M")
+        XCTAssertEqual(model.sampleBrowserIssue, reason, "A .PGM on a PART to check carries that PART's caveat")
     }
 
     @MainActor
-    func testLateFolderReadCannotReplaceProgramOrAllSDScope() async throws {
+    func testLateFolderReadCannotReplaceProgramOrMacScope() async throws {
         let folder = try directory("Programs")
         let kick = try sound("KICK", in: folder)
         _ = try program("SOUL", sounds: ["KICK"], in: folder)
@@ -277,16 +262,15 @@ final class LibraryAssociationModelTests: XCTestCase {
             })
             await model.refreshLocations().value
             let saved = try XCTUnwrap(model.libraryKits.first)
-            model.selectedSampleRoot = folder
-            let pending = try XCTUnwrap(model.browseSamplesFolder(folder))
+            let pending = try XCTUnwrap(model.selectSampleRoot(folder))
             await fulfillment(of: [requested], timeout: 3)
             if useProgram { model.showSamples(in: saved) }
-            else { model.showAllSDSamples() }
+            else { model.showAllLibrarySamples() }
             model.sampleQuery = "kick"
             gate.release()
             await pending.value
 
-            XCTAssertEqual(model.sampleScope, useProgram ? .program(saved) : .sd)
+            XCTAssertEqual(model.sampleScope, useProgram ? .program(saved) : .library)
             XCTAssertEqual(model.filteredSamples, useProgram ? [kick] : [])
             XCTAssertNil(model.sampleFolder)
             XCTAssertTrue(model.sampleListing.samples.isEmpty)

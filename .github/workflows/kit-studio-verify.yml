@@ -9,7 +9,8 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to a commit: a moved tag cannot change what runs. Node.js 24.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test and package the current revision
         run: bash scripts/build-app.sh
       - name: Verify this job's exact archives, commit, resources and signature
@@ -24,7 +25,7 @@ jobs:
           trap 'rm -rf "$UNPACKED"' EXIT
           ditto -x -k dist/MPC-Kit-Studio-Apple-Silicon.zip "$UNPACKED"
           swift scripts/verify-ci-launch.swift "$UNPACKED/MPC Kit Studio.app"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: MPC-Kit-Studio-Apple-Silicon
           path: |

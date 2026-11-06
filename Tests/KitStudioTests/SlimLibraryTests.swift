@@ -54,8 +54,7 @@ final class SlimLibraryTests: XCTestCase {
         let root = try directory("SOULS64-final")
         let urls = try ["A01KICK", "A02KICK", "A03SNARE"].map { try sound($0, in: root) }
         let model = try model()
-        model.selectSampleRoot(root)
-        await model.browseSamplesFolder(root)?.value
+        await model.selectSampleRoot(root)?.value
 
         let groups = model.groupedFilteredSamples
         XCTAssertEqual(groups.map(\.title), ["SOULS64-final"])
@@ -63,15 +62,20 @@ final class SlimLibraryTests: XCTestCase {
     }
 
     @MainActor
-    func testOnlyRealProblemsReachTheSamplePanel() throws {
+    func testOnlyRealProblemsReachTheSamplePanel() async throws {
+        let root = try directory("Samples")
+        let kick = try sound("KICK", in: root)
         let model = try model()
-        model.samplePreviewStatus = "475 sample(s) visibles. Sélectionne un sample pour voir ses .PGM."
-        XCTAssertNil(model.sampleBrowserProblem)
-        model.samplePreviewStatus = "Prêt à écouter · KICK.SND"
-        XCTAssertNil(model.sampleBrowserProblem)
-        model.samplePreviewStatus = "Écoute impossible : le fichier a disparu."
-        XCTAssertEqual(model.sampleBrowserProblem, "Écoute impossible : le fichier a disparu.")
-        model.samplePreviewStatus = "PART indisponible."
-        XCTAssertEqual(model.sampleBrowserProblem, "PART indisponible.")
+        await model.selectSampleRoot(root)?.value
+        XCTAssertNil(model.sampleProblem, "Reading a folder is routine, not a problem")
+
+        model.playSample(root.appendingPathComponent("GONE.SND"))
+        let deadline = Date().addingTimeInterval(3)
+        while model.samplePreviewBusy && Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertTrue(model.sampleProblem?.hasPrefix("Écoute impossible") == true)
+
+        model.playSample(kick)
+        XCTAssertNil(model.sampleProblem, "A new preview clears the previous problem")
+        model.stop()
     }
 }

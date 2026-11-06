@@ -108,8 +108,7 @@ final class BankBuildingTests: XCTestCase {
         let names = ["A_KICK", "B_SNARE", "C_HAT"]
         let urls = try names.map { try sound($0, in: root) }
         let (model, defaults) = try model()
-        model.selectSampleRoot(root)
-        await model.browseSamplesFolder(root)?.value
+        await model.selectSampleRoot(root)?.value
         XCTAssertEqual(model.filteredSamples, urls.map(\.standardizedFileURL))
 
         model.moveSampleSelection(by: 1)

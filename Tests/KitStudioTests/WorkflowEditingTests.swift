@@ -83,7 +83,6 @@ final class WorkflowEditingTests: XCTestCase {
         let first = try XCTUnwrap(model.localSaveURL)
         model.setPadTune(15)
         model.selectedLocation = folder.appendingPathComponent("OtherSource")
-        model.kitSearch = "hidden by a previous search"
         await model.saveProgram()?.value
         let latest = try XCTUnwrap(model.localSaveURL)
         XCTAssertNotEqual(first, latest)
@@ -92,7 +91,6 @@ final class WorkflowEditingTests: XCTestCase {
         await model.refreshLocations().value
         XCTAssertEqual(model.libraryKits.map(\.url), [latest])
         XCTAssertEqual(model.filteredKits.map(\.url), [latest])
-        XCTAssertEqual(model.libraryMode, .kits)
         XCTAssertFalse(model.isDirty)
         XCTAssertEqual(try Data(contentsOf: source), sourceBytes)
         try FileManager.default.removeItem(at: source)

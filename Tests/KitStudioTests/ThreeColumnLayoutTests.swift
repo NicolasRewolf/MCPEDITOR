@@ -71,8 +71,7 @@ final class ThreeColumnLayoutTests: XCTestCase {
         let (model, _) = try model(volumes: { [part] })
         await model.refreshLocations().value
         model.sampleRoots = [ssd]
-        model.selectSampleRoot(ssd)
-        await model.browseSamplesFolder(ssd)?.value
+        await model.selectSampleRoot(ssd)?.value
 
         model.selectSample(ssdSnare)
         XCTAssertEqual(model.chosenSampleURL, ssdSnare)
@@ -166,8 +165,7 @@ final class ThreeColumnLayoutTests: XCTestCase {
         let kick = try sound("KICK", in: soul)
         let (first, defaults) = try model()
         first.sampleRoots = [root]
-        first.selectSampleRoot(root)
-        await first.browseSamplesFolder(root)?.value
+        await first.selectSampleRoot(root)?.value
         await first.toggleSampleFolder(soul)?.value
         defaults.set([root.path], forKey: "library.sampleRoots")
 

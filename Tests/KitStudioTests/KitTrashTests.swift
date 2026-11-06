@@ -274,8 +274,7 @@ final class KitTrashTests: XCTestCase {
         XCTAssertFalse(snapshot.issues.isEmpty)
         XCTAssertNil(snapshot.availableBytes)
         XCTAssertNil(model.recommendedSDPartition)
-        model.selectedSampleRoot = part
-        XCTAssertNil(model.browseSamplesFolder(part))
+        XCTAssertNil(model.selectSampleRoot(part), "An unmounted PART is not read")
         XCTAssertTrue(model.sampleListing.samples.isEmpty)
         XCTAssertNotNil(model.sampleListing.issue)
         XCTAssertTrue(FileManager.default.fileExists(atPath: leftover.path))

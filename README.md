@@ -62,15 +62,15 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    Sous la mémoire audio, une jauge compare l’espace que demande la copie (allocation FAT et réserve,
    comme la vérification de copie) à la plus grande PART vide de la SD, ou à la dernière observée si la carte
    est absente. Une bank qui dépasse est signalée avant la copie.
-   Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire. Le retour de la vue Samples
-   retrouve sa recherche et sa sélection précédentes.
+   Parcourir la bibliothèque ne remplace jamais le programme .PGM en mémoire. Le retour (‹) des samples de
+   l’ordinateur, après **Voir ses samples à gauche**, retrouve la recherche et la sélection précédentes.
 5. **Enregistrer (⌘S)** conserve le programme et tous ses sons dans la bibliothèque sur le Mac.
    Le premier enregistrement d’une source externe en crée une version indépendante ; aucun original n’est remplacé.
    Enregistrer à nouveau met à jour le même élément de bibliothèque. Le nom se modifie dans l’en-tête.
 6. **Copier sur la SD… (⇧⌘S)** propose une PART vide disposant d’assez d’espace, avec une réserve pour
    l’allocation des fichiers. Valider ou changer la destination. Sans PART adaptée, choisir un autre dossier.
    La copie ne renomme pas le document ouvert et ne remplace pas son enregistrement local. Le message de fin
-   indique la PART et le nom réel du `.PGM` à charger. L’onglet **PART** affiche les `.PGM` présents et leurs samples.
+   indique la PART et le nom réel du `.PGM` à charger ; la colonne **.PGM**, filtrée sur cette PART, le montre.
 7. Éjecter la SD depuis le Finder, la remettre dans la MPC et charger le `.PGM` indiqué.
 8. Pour retirer un programme .PGM de la bibliothèque, ouvrir son menu **⋯** ou faire un clic droit,
    puis **Mettre le programme à la corbeille…**. La confirmation indique son chemin exact.
@@ -133,7 +133,7 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
 
 - Le programme natif fait 4 608 octets. Les paramètres non édités, la carte des pads,
   les modes d'affectation, le filtre et le mixer sont conservés.
-- Le nouveau programme .PGM utilise un programme modèle présent dans le corpus du dépôt.
+- Le nouveau programme .PGM part d’un modèle embarqué, `Sources/MPCCore/Resources/Default.pgm`.
 - Le SND natif a un en-tête de 38 octets et du PCM 16 bits little-endian,
   stéréo planaire. Import WAV/AIFF converti vers 44,1 kHz.
 - Les samples restent partagés entre les pads qui utilisent le même emplacement.
@@ -159,8 +159,8 @@ Aucun aller-retour matériel n'a encore été effectué par ce projet.
   automatique ne risque de supprimer un fichier repris par un autre écrivain.
   L’ensemble formé par le .PGM et ses sons n’est pas une transaction atomique en cas de coupure d’alimentation.
   Une interruption peut laisser des SND ou un TMP à examiner ; ne pas les effacer aveuglément.
-- Les modifications sont en mémoire jusqu'à l'export. Il n'y a pas encore de sauvegarde
-  de projet de travail, d'annulation générale ou de restauration de session.
+- Les modifications restent en mémoire jusqu’à **Enregistrer (⌘S)** ou une copie. Il n’y a ni sauvegarde
+  automatique ni restauration de session ; l’annulation couvre les éditions du document ouvert.
 
 ## Compiler sur le Mac
 

@@ -182,5 +182,24 @@ que les samples soient à côté des pads pour glisser. »
 - Les racines de la bibliothèque Mac sont comparées par chemin : une même racine écrite avec ou sans « / » final
   faisait manquer le groupe « Bibliothèque sur le Mac » dans les tests.
 
-Les états de modèle des anciens onglets (portées SD et PART du navigateur, `libraryMode`) restent pour les
-tests existants mais ne sont plus atteints par l’interface ; ils sont à retirer dans une passe de nettoyage.
+Les états de modèle des anciens onglets sont retirés en 0.8.1.
+
+## Hygiène en 0.8.1 (28), 6 novembre 2026
+
+Nicolas : « Fais le ménage, clean tout. Je veux une app avec une hygiène indiscutable. » Aucune fonction visible
+ne change ; tout ce que l’interface n’atteignait plus est retiré, avec ses tests portés vers ce qui l’a remplacé.
+
+- Retirés du modèle : le mode d’onglet, les portées « toute la SD » et « une PART » du volet ordinateur, la
+  navigation vers un sous-dossier et son bouton « dossier parent », la recherche de .PGM sans champ, la liste des
+  emplacements, les libellés et avertissements de l’ancien navigateur, `previewSample`, `collapseAllSampleFolders`,
+  le résumé des liens d’un sample ; dans MPCCore, `soundNames`.
+- L’état des samples n’est plus une phrase analysée pour y trouver une erreur : `sampleProblem` ne porte que les
+  vrais problèmes (écoute impossible, source indisponible) et s’efface au geste suivant.
+- Un arbre vide ne se dit « vide » que si l’inventaire permet de conclure ; sinon « Aucun sample visible ». Les
+  samples d’un .PGM gardent l’avertissement de sa PART.
+- Les tests de sûreté portent désormais sur les volets réels : démontage, PART à vérifier, lien symbolique qui
+  remplace un dossier ouvert, sélection qui disparaît, réponses tardives d’une source abandonnée.
+- `LibraryBrowser.swift`, qui ne contenait plus de navigateur, devient `SampleColumn`, `ProgramColumn`,
+  `LibraryComponents`, `LibraryFormat` et `ExportDestinationSheet`.
+- CI : `actions/checkout` v7.0.1 et `actions/upload-artifact` v7.0.2 (Node.js 24), épinglés sur leur commit.
+- README : la portée parlait encore d’absence de sauvegarde et d’annulation, et d’un onglet PART.

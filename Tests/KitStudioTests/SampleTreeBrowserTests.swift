@@ -63,8 +63,7 @@ final class SampleTreeBrowserTests: XCTestCase {
     @MainActor
     private func open(_ tree: Tree, in model: StudioModel) async {
         model.sampleRoots = [tree.root]
-        model.selectSampleRoot(tree.root)
-        await model.browseSamplesFolder(tree.root)?.value
+        await model.selectSampleRoot(tree.root)?.value
     }
 
     @MainActor
@@ -72,17 +71,16 @@ final class SampleTreeBrowserTests: XCTestCase {
         let tree = try tree()
         let model = try model()
         model.sampleRoots = [tree.root]
-        let pending = model.browseSamplesFolder(tree.root)
-        XCTAssertNil(pending, "No source chosen yet")
-        model.selectSampleRoot(tree.root)
+        let pending = model.selectSampleRoot(tree.root)
         XCTAssertTrue(model.sampleFolderReading)
         XCTAssertTrue(model.sampleTreeRows.isEmpty)
-        await model.browseSamplesFolder(tree.root)?.value
+        await pending?.value
         XCTAssertFalse(model.sampleFolderReading)
-        XCTAssertNil(model.sampleFolderIssue, "The SD inventory does not speak for an SSD folder")
+        XCTAssertNil(model.sampleBrowserIssue, "The SD inventory does not speak for an SSD folder")
 
-        model.showAllSDSamples()
-        XCTAssertFalse(model.sampleFolderReading)
+        model.selectSampleRoot(tree.root)
+        model.showAllLibrarySamples()
+        XCTAssertFalse(model.sampleFolderReading, "Leaving a source stops waiting for it")
     }
 
     @MainActor
@@ -206,17 +204,17 @@ final class SampleTreeBrowserTests: XCTestCase {
         XCTAssertEqual(model.selectedSamplePlace, .library)
         await open(tree, in: model)
         XCTAssertEqual(model.selectedSamplePlace, .root(tree.root))
-        model.showAllSDSamples()
-        XCTAssertEqual(model.selectedSamplePlace, .sd)
+        model.showAllLibrarySamples()
+        XCTAssertEqual(model.selectedSamplePlace, .library)
 
         let unlisted = try directory("Kits")
         model.selectSampleRoot(unlisted)
-        XCTAssertNil(model.selectedSamplePlace, "A folder reached from the .PGM list is not one of the places")
+        XCTAssertNil(model.selectedSamplePlace, "A folder that is not in the places list is not one of the places")
     }
 
     func testVolumeNameOfASource() {
-        XCTAssertEqual(LibraryBrowser.volumeName(of: URL(fileURLWithPath: "/Volumes/T9/User Library/Samples/Soul")), "T9")
-        XCTAssertNil(LibraryBrowser.volumeName(of: URL(fileURLWithPath: "/Users/nicolas/Music/Samples")))
-        XCTAssertNil(LibraryBrowser.volumeName(of: URL(fileURLWithPath: "/Volumes")))
+        XCTAssertEqual(LibraryFormat.volumeName(of: URL(fileURLWithPath: "/Volumes/T9/User Library/Samples/Soul")), "T9")
+        XCTAssertNil(LibraryFormat.volumeName(of: URL(fileURLWithPath: "/Users/nicolas/Music/Samples")))
+        XCTAssertNil(LibraryFormat.volumeName(of: URL(fileURLWithPath: "/Volumes")))
     }
 }

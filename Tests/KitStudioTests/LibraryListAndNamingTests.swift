@@ -60,7 +60,7 @@ final class LibraryListAndNamingTests: XCTestCase {
         let (model, defaults) = try model(kitFolders: [kept, removed])
         await model.refreshLocations().value
         XCTAssertEqual(Set(model.libraryKits.map(\.title)), ["KEPT", "GONE"])
-        model.selectLocation(removed)
+        model.filterPrograms(to: removed)
 
         model.removeKitFolder(removed)
         await model.refreshLocations().value

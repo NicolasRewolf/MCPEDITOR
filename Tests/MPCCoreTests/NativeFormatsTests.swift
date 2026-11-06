@@ -229,7 +229,7 @@ final class NativeFormatsTests: XCTestCase {
         XCTAssertEqual(program.midiNote(forPad: 1), 36)
         XCTAssertEqual(program.midiNote(forPad: 63), 98)
         XCTAssertTrue(program.referencedSlots.isEmpty)
-        XCTAssertTrue(program.soundNames.allSatisfy(\.isEmpty))
+        XCTAssertTrue((0..<128).allSatisfy { program.soundName(slot: $0).isEmpty })
         program.assign(slot: 127, toNote: 37)
         program.setSound(slot: 127, name: "SNARE", wordCount: 882)
         XCTAssertEqual(program.bytes[2690 + 62 + 2 * 24], 127)
@@ -338,7 +338,7 @@ final class NativeFormatsTests: XCTestCase {
                 if let program = try? MPCProgram(data: bytes) {
                     XCTAssertEqual(program.bytes, bytes)
                     _ = try? program.validateKnownFields()
-                    _ = program.name; _ = program.soundNames; _ = program.referencedSlots
+                    _ = program.name; _ = program.soundName(slot: 0); _ = program.referencedSlots
                     for pad in 0..<64 { _ = program.midiNote(forPad: pad) }
                     for note in 35...98 { _ = program.tune(forNote: note) }
                 }

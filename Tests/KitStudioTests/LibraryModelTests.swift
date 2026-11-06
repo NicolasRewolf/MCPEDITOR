@@ -76,8 +76,8 @@ final class LibraryModelTests: XCTestCase {
         let beforeStatus = model.status
         let beforeMemory = model.memoryBytes
 
-        model.selectLocation(part)
-        await model.browseSamplesFolder(part)?.value
+        model.filterPrograms(to: part)
+        await model.selectSampleRoot(part)?.value
 
         XCTAssertEqual(model.selectedLocation, part.standardizedFileURL)
         XCTAssertEqual(model.sampleListing.samples, [sampleURL.standardizedFileURL])
@@ -119,8 +119,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.dropFiles([gate.provider], onPad: 21))
         await fulfillment(of: [requested], timeout: 3)
         let operationStatus = model.status
-        model.selectLocation(part)
-        await model.browseSamplesFolder(part)?.value
+        model.filterPrograms(to: part)
+        await model.selectSampleRoot(part)?.value
 
         XCTAssertTrue(model.busy)
         XCTAssertTrue(model.isDirty)
@@ -152,8 +152,8 @@ final class LibraryModelTests: XCTestCase {
         try Data([1, 2, 3]).write(to: part.appendingPathComponent("TAKE.SEQ"))
         let model = try testModel()
 
-        model.selectLocation(part)
-        await model.browseSamplesFolder(part)?.value
+        model.filterPrograms(to: part)
+        await model.selectSampleRoot(part)?.value
 
         XCTAssertEqual(model.sampleListing.samples, [kick, snare].map(\.standardizedFileURL))
         XCTAssertNil(model.sampleListing.issue)
@@ -172,23 +172,16 @@ final class LibraryModelTests: XCTestCase {
         model.partitions = [LibraryPartition(
             url: part, letter: "M", kits: [], fileCount: 0, folderCount: 0,
             audioCount: 0, sequenceCount: 0, issues: [reason], availableBytes: 1_000_000)]
-        model.libraryMode = .samples
 
-        model.selectLocation(part)
-        await model.browseSamplesFolder(part)?.value
+        model.filterPrograms(to: part)
+        await model.selectSampleRoot(part)?.value
 
         XCTAssertTrue(model.filteredSamples.isEmpty)
-        XCTAssertTrue(model.samplePreviewStatus.contains("incomplet"))
-        XCTAssertFalse(model.samplePreviewStatus.contains("0 samples dans ce dossier"))
-        XCTAssertEqual(model.libraryContentIssue, reason)
-        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet · PART M")
-        XCTAssertTrue(model.libraryInventoryWarningDetail.contains("ne permettent pas de conclure"))
-
-        model.libraryMode = .kits
-        model.kitSearch = "NO MATCH"
+        XCTAssertEqual(model.emptySampleTreeTitle, "Aucun sample visible", "An incomplete inventory is never called empty")
+        XCTAssertTrue(model.emptySampleTreeDetail.contains("ne permettent pas de conclure"))
+        XCTAssertEqual(model.sampleBrowserIssue, reason)
         XCTAssertTrue(model.filteredKits.isEmpty)
-        XCTAssertEqual(model.libraryContentIssue, reason)
-        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet · PART M")
+        XCTAssertEqual(model.programListIssue, reason)
     }
 
     @MainActor
@@ -211,33 +204,26 @@ final class LibraryModelTests: XCTestCase {
         ]
         model.libraryKits = [visibleKit]
         model.libraryIssue = reason
-        model.libraryMode = .samples
-        model.selectLocation(suspect)
-        await model.browseSamplesFolder(suspect)?.value
+        model.filterPrograms(to: suspect)
+        await model.selectSampleRoot(suspect)?.value
         XCTAssertEqual(model.filteredSamples, [visible])
-        XCTAssertEqual(model.libraryContentIssue, reason)
+        XCTAssertEqual(model.sampleBrowserIssue, reason, "The PART's and the listing's identical reasons are said once")
 
         model.sampleQuery = "NO MATCH"
         XCTAssertTrue(model.filteredSamples.isEmpty)
-        XCTAssertEqual(model.libraryContentIssue, reason)
-        model.libraryMode = .kits
+        XCTAssertEqual(model.sampleBrowserIssue, reason)
         XCTAssertEqual(model.filteredKits, [visibleKit])
-        model.kitSearch = "NO MATCH"
-        XCTAssertTrue(model.filteredKits.isEmpty)
-        XCTAssertEqual(model.libraryContentIssue, reason)
+        XCTAssertEqual(model.programListIssue, reason)
 
-        model.selectLocation(healthy)
-        await model.browseSamplesFolder(healthy)?.value
-        XCTAssertNil(model.libraryContentIssue)
-        model.libraryMode = .samples
-        XCTAssertNil(model.libraryContentIssue)
-        XCTAssertEqual(model.samplePreviewStatus, "0 samples dans ce dossier.")
+        model.filterPrograms(to: healthy)
+        await model.selectSampleRoot(healthy)?.value
+        XCTAssertNil(model.sampleBrowserIssue)
+        XCTAssertNil(model.programListIssue)
+        XCTAssertEqual(model.emptySampleTreeTitle, "Dossier vide")
         XCTAssertEqual(model.libraryIssue, reason, "The separate issue on M must not disappear globally.")
 
-        model.libraryMode = .kits
-        model.showAllKits()
-        XCTAssertEqual(model.libraryContentIssue, reason)
-        XCTAssertEqual(model.libraryInventoryWarningTitle, "Inventaire incomplet")
+        model.filterPrograms(to: nil)
+        XCTAssertEqual(model.programListIssue, reason)
     }
 
     @MainActor
@@ -249,20 +235,17 @@ final class LibraryModelTests: XCTestCase {
         model.partitions = [LibraryPartition(
             url: part, letter: "M", kits: [], fileCount: 0, folderCount: 0,
             audioCount: 0, sequenceCount: 0, issues: ["Deux fichiers portent le même nom."], availableBytes: nil)]
-        model.libraryMode = .samples
-        model.selectLocation(part)
-        await model.browseSamplesFolder(part)?.value
-        XCTAssertNotNil(model.libraryContentIssue)
+        model.filterPrograms(to: part)
+        await model.selectSampleRoot(part)?.value
+        XCTAssertNotNil(model.sampleBrowserIssue)
 
         model.partitions = [LibraryPartition(
             url: part, letter: "M", kits: [], fileCount: 0, folderCount: 0,
             audioCount: 0, sequenceCount: 0, issues: [], availableBytes: 8_000_000)]
-        await model.browseSamplesFolder(part)?.value
 
-        XCTAssertNil(model.libraryContentIssue)
-        XCTAssertEqual(model.samplePreviewStatus, "0 samples dans ce dossier.")
-        model.libraryMode = .kits
-        XCTAssertNil(model.libraryContentIssue)
+        XCTAssertNil(model.sampleBrowserIssue)
+        XCTAssertEqual(model.emptySampleTreeTitle, "Dossier vide")
+        XCTAssertNil(model.programListIssue)
     }
 
     @MainActor
@@ -316,8 +299,6 @@ final class LibraryModelTests: XCTestCase {
             model.selectedLocation = parent
             XCTAssertEqual(Set(model.filteredKits.map(\.url)), Set([soulKit, siblingKit]))
             XCTAssertEqual(model.filteredKits.count, 2)
-            model.kitSearch = "NOT FOUND"
-            XCTAssertTrue(model.filteredKits.isEmpty)
         }
     }
 
@@ -344,18 +325,16 @@ final class LibraryModelTests: XCTestCase {
         let kick = try nativeSound("KICK", in: folder)
         _ = try nativeSound("SNARE", in: folder)
         let model = try testModel()
-        model.selectedSampleRoot = folder
-        await model.browseSamplesFolder(folder)?.value
+        await model.selectSampleRoot(folder)?.value
         model.sampleQuery = "kick"
         model.selectSample(kick)
-        let previewStatus = model.samplePreviewStatus
 
         await model.refreshLocations().value
 
         XCTAssertEqual(model.sampleQuery, "kick")
         XCTAssertEqual(model.filteredSamples, [kick])
         XCTAssertEqual(model.selectedSampleURL, kick)
-        XCTAssertEqual(model.samplePreviewStatus, previewStatus)
+        XCTAssertNil(model.sampleProblem)
         XCTAssertFalse(model.samplePreviewBusy)
         XCTAssertEqual(model.sampleFolder, folder)
     }
@@ -366,8 +345,7 @@ final class LibraryModelTests: XCTestCase {
         let kick = try nativeSound("KICK", in: folder)
         let snare = try nativeSound("SNARE", in: folder)
         let model = try testModel()
-        model.selectedSampleRoot = folder
-        await model.browseSamplesFolder(folder)?.value
+        await model.selectSampleRoot(folder)?.value
         model.sampleQuery = "kick"
         model.selectSample(kick)
         try FileManager.default.removeItem(at: kick)
@@ -389,7 +367,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertFalse(model.samplePreviewBusy)
         XCTAssertTrue(model.sampleListing.samples.isEmpty)
         XCTAssertNotNil(model.sampleListing.issue)
-        XCTAssertTrue(model.samplePreviewStatus.contains("indisponible"))
+        XCTAssertTrue(model.sampleProblem?.contains("indisponible") == true)
     }
 
     @MainActor
@@ -397,8 +375,7 @@ final class LibraryModelTests: XCTestCase {
         let part = try directory("MPC-PART--S")
         let sample = try nativeSound("KICK", in: part)
         let model = try testModel()
-        model.selectedSampleRoot = part
-        await model.browseSamplesFolder(part)?.value
+        await model.selectSampleRoot(part)?.value
         model.selectSample(sample)
         model.sampleQuery = "kick"
         model.samplePreviewBusy = true
@@ -412,7 +389,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertEqual(model.sampleQuery, "kick")
         XCTAssertTrue(model.sampleListing.samples.isEmpty)
         XCTAssertTrue(model.sampleListing.issue?.contains("plus montée") == true)
-        XCTAssertEqual(model.samplePreviewStatus, "PART indisponible.")
+        XCTAssertEqual(model.sampleProblem, "PART indisponible.")
     }
 
     @MainActor
@@ -433,7 +410,7 @@ final class LibraryModelTests: XCTestCase {
             }
             return LibraryFolderListing(folders: [], samples: [nextSample], issue: nil)
         })
-        model.selectedSampleRoot = root
+        model.selectedSampleRoot = old
         model.sampleFolder = old
         model.sampleListing = oldListing
         model.selectSample(oldSample)
@@ -441,12 +418,11 @@ final class LibraryModelTests: XCTestCase {
         let refresh = model.refreshLocations()
         await fulfillment(of: [requested], timeout: 3)
 
-        await model.browseSamplesFolder(next)?.value
-        XCTAssertEqual(model.sampleQuery, "", "Explicit navigation must still reset the previous folder's query.")
+        await model.selectSampleRoot(next)?.value
+        XCTAssertEqual(model.sampleQuery, "", "Choosing another source still resets the previous source's query.")
         XCTAssertNil(model.selectedSampleURL)
         model.selectSample(nextSample)
         model.sampleQuery = "snare"
-        let previewStatus = model.samplePreviewStatus
         gate.release(oldListing)
         await refresh.value
 
@@ -454,7 +430,7 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertEqual(model.sampleListing.samples, [nextSample])
         XCTAssertEqual(model.selectedSampleURL, nextSample)
         XCTAssertEqual(model.sampleQuery, "snare")
-        XCTAssertEqual(model.samplePreviewStatus, previewStatus)
+        XCTAssertNil(model.sampleProblem)
     }
 
     @MainActor
@@ -480,13 +456,12 @@ final class LibraryModelTests: XCTestCase {
 
         model.selectSample(snare)
         model.sampleQuery = "snare"
-        let previewStatus = model.samplePreviewStatus
         gate.release(listing)
         await refresh.value
 
         XCTAssertEqual(model.selectedSampleURL, snare)
         XCTAssertEqual(model.sampleQuery, "snare")
-        XCTAssertEqual(model.samplePreviewStatus, previewStatus)
+        XCTAssertNil(model.sampleProblem)
         XCTAssertEqual(model.filteredSamples, [snare])
     }
 
@@ -506,11 +481,9 @@ final class LibraryModelTests: XCTestCase {
             }
             return LibraryFolderListing(folders: [], samples: [], issue: "Disconnected source")
         })
-        model.selectedSampleRoot = root
-
-        let previous = try XCTUnwrap(model.browseSamplesFolder(old))
+        let previous = try XCTUnwrap(model.selectSampleRoot(old))
         await fulfillment(of: [requested], timeout: 3)
-        let latest = try XCTUnwrap(model.browseSamplesFolder(missing))
+        let latest = try XCTUnwrap(model.selectSampleRoot(missing))
         await latest.value
         XCTAssertEqual(model.sampleListing.issue, "Disconnected source")
         gate.release(oldListing)
@@ -520,9 +493,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.sampleListing.samples.isEmpty)
         XCTAssertTrue(model.sampleListing.folders.isEmpty)
         XCTAssertEqual(model.sampleListing.issue, "Disconnected source")
-        XCTAssertTrue(model.samplePreviewStatus.contains("indisponible"))
-        model.libraryMode = .samples
-        XCTAssertEqual(model.libraryContentIssue, "Disconnected source")
+        XCTAssertTrue(model.sampleProblem?.contains("indisponible") == true)
+        XCTAssertEqual(model.sampleBrowserIssue, "Disconnected source")
     }
 
     @MainActor
@@ -532,12 +504,11 @@ final class LibraryModelTests: XCTestCase {
         let model = try testModel()
         await model.importURLs([sample], atPad: 0)?.value
         let before = try XCTUnwrap(model.program?.bytes)
-        model.selectSampleRoot(folder)
-        await model.browseSamplesFolder(folder)?.value
+        await model.selectSampleRoot(folder)?.value
         XCTAssertEqual(model.sampleListing.samples, [sample.standardizedFileURL])
         try FileManager.default.removeItem(at: folder)
 
-        await model.browseSamplesFolder(folder)?.value
+        await model.refreshLocations().value
 
         XCTAssertTrue(model.sampleListing.samples.isEmpty)
         XCTAssertTrue(model.sampleListing.folders.isEmpty)
@@ -574,8 +545,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.isDirty, "A transport copy does not save the document in the local collection.")
         XCTAssertFalse(model.busy)
         XCTAssertNil(model.errorMessage)
-        XCTAssertTrue(model.kitLocationLabel.contains("LocalDestination"))
-        XCTAssertTrue(model.kitLocationLabel.contains("SOULKIT1.PGM"))
+        XCTAssertTrue(model.status.contains("LocalDestination"))
+        XCTAssertTrue(model.status.contains("SOULKIT1.PGM"))
         XCTAssertEqual(try Data(contentsOf: collisionURL), collisionBytes)
         XCTAssertEqual(try Data(contentsOf: sourceURL), sourceBytes)
         XCTAssertEqual(try Data(contentsOf: originalSoundURL), soundBytes)
@@ -609,7 +580,6 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertTrue(model.isDirty)
         XCTAssertFalse(model.busy)
         XCTAssertNotNil(model.errorMessage)
-        XCTAssertTrue(model.kitLocationLabel.contains("Modifié depuis la dernière copie"))
         XCTAssertTrue(model.kitLocationPath.hasSuffix("SAVED.PGM"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: saved.path))
@@ -625,9 +595,7 @@ final class LibraryModelTests: XCTestCase {
         let model = try testModel()
         await model.importURLs([sample], atPad: 0)?.value
         model.setKitName("SOUL")
-        model.selectLocation(source)
-        model.libraryMode = .samples
-        model.kitSearch = "OTHER KIT"
+        model.filterPrograms(to: source)
         XCTAssertTrue(model.libraryKits.isEmpty)
 
         await model.exportKit(to: destination)?.value
@@ -637,10 +605,8 @@ final class LibraryModelTests: XCTestCase {
         XCTAssertEqual(output.lastPathComponent, "SOUL1.PGM")
         XCTAssertTrue(model.libraryKits.contains { $0.url == output.standardizedFileURL })
         XCTAssertTrue(model.filteredKits.contains { $0.url == output.standardizedFileURL })
-        XCTAssertEqual(model.libraryMode, .kits)
-        XCTAssertNil(model.selectedLocation)
-        XCTAssertEqual(model.kitSearch, "")
-        XCTAssertTrue(model.locations.contains { $0.resolvingSymlinksInPath() == destination.resolvingSymlinksInPath() })
+        XCTAssertNil(model.selectedLocation, "After a copy the whole list is shown, so the copy is visible")
+        XCTAssertTrue(model.addedKitFolders.contains { $0.resolvingSymlinksInPath() == destination.resolvingSymlinksInPath() })
         XCTAssertTrue(model.isDirty, "A transport copy does not save the document in the local collection.")
         XCTAssertTrue(model.libraryIssue?.contains("SOUL.PGM") == true, "The pre-existing invalid PGM must remain visible as an unresolved association.")
         XCTAssertEqual(model.associations.association(for: existing)?.isComplete, false)
@@ -858,7 +824,7 @@ final class LibraryModelTests: XCTestCase {
     }
 
     @MainActor
-    func testBrowserRejectsChildAfterItsAncestorIsReplacedByAnOutsideSymlink() async throws {
+    func testTreeNeverOpensAFolderWhoseAncestorBecameAnOutsideSymlink() async throws {
         let root = try directory("Samples")
         let outside = try directory("Outside")
         let ancestor = root.appendingPathComponent("Selected", isDirectory: true)
@@ -869,29 +835,25 @@ final class LibraryModelTests: XCTestCase {
         try FileManager.default.createDirectory(at: outsideChild, withIntermediateDirectories: false)
         _ = try nativeSound("OUTSIDE", in: outsideChild)
         let model = try testModel()
-        model.selectedSampleRoot = root
-        await model.browseSamplesFolder(child)?.value
-        let before = model.sampleListing
-        XCTAssertEqual(before.samples, [inside.standardizedFileURL])
+        await model.selectSampleRoot(root)?.value
+        await model.toggleSampleFolder(ancestor)?.value
+        await model.toggleSampleFolder(child)?.value
+        XCTAssertTrue(model.sampleTreeRows.contains { $0.url == inside.standardizedFileURL })
         try FileManager.default.removeItem(at: ancestor)
         try FileManager.default.createSymbolicLink(at: ancestor, withDestinationURL: outside)
 
-        XCTAssertNil(model.browseSamplesFolder(child))
-
-        XCTAssertEqual(model.sampleListing, before)
-        XCTAssertFalse(model.sampleListing.samples.contains { $0.lastPathComponent == "OUTSIDE.SND" })
-        XCTAssertNil(model.program)
-        XCTAssertFalse(model.isDirty)
-
-        model.selectSample(inside)
+        model.selectSample(inside.standardizedFileURL)
         model.sampleQuery = "inside"
         await model.refreshLocations().value
 
         XCTAssertNil(model.selectedSampleURL, "A refresh must not leave a cached selection pointing outside its source.")
         XCTAssertFalse(model.samplePreviewBusy)
         XCTAssertEqual(model.sampleQuery, "inside")
-        XCTAssertTrue(model.sampleListing.samples.isEmpty)
-        XCTAssertNotNil(model.sampleListing.issue)
+        XCTAssertFalse(model.sampleTreeRows.contains { $0.name == "OUTSIDE.SND" })
+        XCTAssertFalse(model.sampleTreeRows.contains { $0.name == "Selected" }, "A symbolic link is not a folder of the tree")
+        XCTAssertFalse(model.sampleTreeListings.keys.contains { $0.path == child.standardizedFileURL.path })
+        XCTAssertNil(model.program)
+        XCTAssertFalse(model.isDirty)
     }
 
 
@@ -1014,22 +976,18 @@ final class LibraryModelTests: XCTestCase {
     }
 
     @MainActor
-    func testKitSearchIncludesPartAndRelativeFolderAndRespectsLocationFilter() throws {
+    func testLocationFilterNarrowsProgramsToOneSource() throws {
         let a = try directory("MPC-PART--A")
         let s = try directory("MPC-PART--S")
         let first = LibraryKit(url: a.appendingPathComponent("KIT.PGM"), rootURL: a, partitionLetter: "A", relativeFolder: "")
         let second = LibraryKit(url: s.appendingPathComponent("Live/KIT.PGM"), rootURL: s, partitionLetter: "S", relativeFolder: "Live")
         let model = try testModel()
         model.libraryKits = [first, second]
-        model.kitSearch = "part s"
-        XCTAssertEqual(model.filteredKits, [second])
-        model.kitSearch = "live"
-        XCTAssertEqual(model.filteredKits, [second])
-        model.kitSearch = "kit"
-        XCTAssertEqual(model.filteredKits, [first, second])
-        model.selectLocation(a)
+        model.filterPrograms(to: a)
         XCTAssertEqual(model.filteredKits, [first])
-        model.showAllKits()
+        model.filterPrograms(to: s)
+        XCTAssertEqual(model.filteredKits, [second])
+        model.filterPrograms(to: nil)
         XCTAssertEqual(model.filteredKits, [first, second])
     }
 

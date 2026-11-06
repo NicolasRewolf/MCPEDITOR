@@ -52,24 +52,28 @@ struct StudioView: View {
         }
         .background(StudioPalette.background)
         .toolbar {
+            // Every action says what it does: an icon alone did not.
             ToolbarItemGroup {
-                Button(action: model.newKit) { Label("Nouveau .PGM", systemImage: "plus") }
-                    .help("Créer un programme vide")
-                    .disabled(model.documentActionsDisabled)
-                Button(action: model.importAudio) { Label("Importer", systemImage: "square.and.arrow.down") }
-                    .disabled(model.program == nil || model.documentActionsDisabled)
+                Button(action: model.newKit) {
+                    Label("Nouveau .PGM", systemImage: "plus").labelStyle(.titleAndIcon)
+                }
+                .help("Créer un programme vide")
+                .disabled(model.documentActionsDisabled)
+                Button(action: model.importAudio) {
+                    Label("Importer un son…", systemImage: "waveform.badge.plus").labelStyle(.titleAndIcon)
+                }
+                .help("Choisir un WAV, AIFF ou SND pour le pad \(model.selectedLabel)")
+                .disabled(model.program == nil || model.documentActionsDisabled)
                 Button { _ = model.saveProgram() } label: {
-                    Label("Enregistrer", systemImage: "internaldrive")
-                        .labelStyle(.titleAndIcon)
+                    Label("Enregistrer sur le Mac", systemImage: "square.and.arrow.down").labelStyle(.titleAndIcon)
                 }
-                    .help("Conserver le .PGM et ses samples dans la bibliothèque sur ce Mac")
-                    .disabled(model.program == nil || model.documentActionsDisabled)
+                .help("Conserver le .PGM et ses samples dans la bibliothèque de l’app, sur ce Mac (⌘S)")
+                .disabled(model.program == nil || model.documentActionsDisabled)
                 Button(action: model.exportKit) {
-                    Label("Copier sur la SD…", systemImage: "sdcard")
-                        .labelStyle(.titleAndIcon)
+                    Label("Copier sur la SD…", systemImage: "sdcard").labelStyle(.titleAndIcon)
                 }
-                    .help("Choisir une PART et y copier le .PGM et ses samples")
-                    .disabled(model.program == nil || model.documentActionsDisabled)
+                .help("Choisir une PART et y copier le .PGM et ses samples (⇧⌘S)")
+                .disabled(model.program == nil || model.documentActionsDisabled)
             }
         }
         .sheet(isPresented: $model.showExportSheet) {

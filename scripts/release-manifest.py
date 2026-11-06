@@ -17,7 +17,9 @@ import tempfile
 
 APP_NAME = "MPC Kit Studio.app"
 ARCHIVES = ("MPC-Kit-Studio-Apple-Silicon.zip", "MPC-Kit-Studio-Apple-Silicon.dmg")
-RESOURCE = "Contents/Resources/KitStudio_MPCCore.bundle/Default.pgm"
+# SwiftPM copies the resource flat (older toolchains) or as a structured bundle (Xcode 27).
+RESOURCES = ("Contents/Resources/KitStudio_MPCCore.bundle/Default.pgm",
+             "Contents/Resources/KitStudio_MPCCore.bundle/Contents/Resources/Default.pgm")
 MANIFEST = "release-manifest.json"
 
 
@@ -80,8 +82,8 @@ def create(dist):
 
 
 def verify_bundle(app, report):
-    resource = app / RESOURCE
-    if not resource.is_file() or resource.stat().st_size != 4608:
+    resource = next((app / path for path in RESOURCES if (app / path).is_file()), None)
+    if resource is None or resource.stat().st_size != 4608:
         raise ValueError("Missing or invalid Default.pgm resource")
     if inventory(app) != report["appFiles"]:
         raise ValueError("Extracted app files differ from the release manifest")
