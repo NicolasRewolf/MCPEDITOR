@@ -64,7 +64,10 @@ struct LibraryBrowser: View {
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(model.partitions, id: \.url) { partition in
+                    if !model.emptyParts.isEmpty {
+                        EmptyPartsSummary(parts: model.emptyParts, capacity: model.emptyPartCapacityBytes)
+                    }
+                    ForEach(model.partsWithContent, id: \.url) { partition in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Label("PART \(partition.letter)", systemImage: "sdcard")
@@ -75,9 +78,10 @@ struct LibraryBrowser: View {
                                         .font(.caption)
                                         .foregroundStyle(.yellow)
                                         .help(partition.issues.joined(separator: "\n"))
-                                } else if partition.isEmpty {
-                                    Text("Aucun fichier visible").font(.caption).foregroundStyle(StudioPalette.muted)
                                 }
+                            }
+                            if let available = partition.availableBytes {
+                                PartFillBar(available: available, capacity: model.emptyPartCapacityBytes)
                             }
                             if !partition.kits.isEmpty {
                                 Text(partition.kits.map { $0.url.lastPathComponent }.joined(separator: " · "))
@@ -289,7 +293,8 @@ struct LibraryBrowser: View {
                     Button("Bibliothèque et SD", action: model.showAllLibrarySamples)
                     Button("Toute la SD", action: model.showAllSDSamples)
                     Divider()
-                    ForEach(model.partitions, id: \.url) { partition in
+                    // Empty PARTs hold no sample: listing them would only lengthen the menu.
+                    ForEach(model.partitions.filter { $0.audioCount > 0 || !$0.issues.isEmpty }, id: \.url) { partition in
                         Button("PART \(partition.letter) · \(partition.issues.isEmpty ? "\(partition.audioCount) samples" : "à vérifier")") {
                             model.showSamples(in: partition)
                         }
@@ -524,6 +529,71 @@ struct LibraryBrowser: View {
                     .help(model.samplePreviewStatus)
             }
         }
+    }
+}
+
+/// Empty PARTs carry nothing to browse: one line names them and their capacity.
+private struct EmptyPartsSummary: View {
+    let parts: [LibraryPartition]
+    let capacity: Int64?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("\(parts.count) PART vide\(parts.count > 1 ? "s" : "")", systemImage: "sdcard")
+                    .font(.callout.weight(.semibold))
+                Spacer()
+                if let capacity {
+                    Text("\(ByteCountFormatter.string(fromByteCount: capacity, countStyle: .file)) \(parts.count > 1 ? "chacune" : "")")
+                        .font(.caption)
+                        .foregroundStyle(StudioPalette.muted)
+                }
+            }
+            Text(parts.map(\.letter).joined(separator: " · "))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Sans fichier visible et vérifiées : « Copier sur la SD… » propose la première qui peut recevoir la bank.")
+                .font(.caption)
+                .foregroundStyle(StudioPalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioPalette.panel, in: RoundedRectangle(cornerRadius: 7))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Free space of a PART against an empty one, so a bank's room is visible at a glance.
+private struct PartFillBar: View {
+    let available: Int64
+    let capacity: Int64?
+
+    private var used: Double? {
+        guard let capacity, capacity > 0 else { return nil }
+        return min(1, max(0, 1 - Double(available) / Double(capacity)))
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let used {
+                Capsule()
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(alignment: .leading) {
+                        GeometryReader { geometry in
+                            Capsule().fill(used > 0.9 ? Color.yellow : StudioPalette.orange)
+                                .frame(width: geometry.size.width * max(0.02, used))
+                        }
+                    }
+                    .frame(height: 4)
+            }
+            Text("\(ByteCountFormatter.string(fromByteCount: available, countStyle: .file)) libres")
+                .font(.caption)
+                .foregroundStyle(StudioPalette.muted)
+                .fixedSize()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(ByteCountFormatter.string(fromByteCount: available, countStyle: .file)) libres")
     }
 }
 

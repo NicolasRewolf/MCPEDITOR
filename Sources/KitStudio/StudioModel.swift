@@ -488,6 +488,19 @@ final class StudioModel: ObservableObject {
                             measuredLetter: measured?.letter)
     }
 
+    /// The PART view details PARTs with content or a problem; empty ones share one summary.
+    var partsWithContent: [LibraryPartition] { partitions.filter { !$0.isEmpty } }
+    var emptyParts: [LibraryPartition] { partitions.filter(\.isEmpty) }
+
+    /// Free space of an empty PART, measured now or remembered, used for fill bars.
+    var emptyPartCapacityBytes: Int64? {
+        if let measured = partitions.filter(\.isEmpty).compactMap(\.volumeSpace).map(\.availableBytes).max() {
+            return measured
+        }
+        let remembered = Int64(preferences.integer(forKey: Self.emptyPartBytesKey))
+        return remembered > 0 ? remembered : nil
+    }
+
     /// Keeps the largest empty PART seen, so the gauge still works with the card out.
     func rememberEmptyPartCapacity(_ parts: [LibraryPartition]) {
         guard let space = parts.filter({ $0.isEmpty }).compactMap(\.volumeSpace)

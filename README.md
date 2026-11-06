@@ -30,8 +30,10 @@ Réglages Système → Confidentialité et sécurité. Ne pas désactiver Gateke
    Dans **.PGM**, la liste est groupée : bibliothèque sur le Mac, puis PART A à Z, puis dossiers par nom.
    Chaque ligne indique le nombre de samples résolus, ce qui distingue les homonymes comme plusieurs
    `PROGRAM_.pgm` ; l’infobulle donne le titre sur la MPC s’il diffère.
-   L’onglet **PART** signale les fichiers laissés par macOS (`._*` des copies du Finder, `.Trashes`,
-   index) et la place qu’ils occupent. Kit Studio n’en crée pas et ne les supprime pas.
+   L’onglet **PART** regroupe les PART vides en une seule carte (lettres et capacité), puis détaille
+   les autres avec leur place libre et une barre de remplissage. Il signale les fichiers laissés par macOS
+   (`._*` des copies du Finder, `.Trashes`, index) et la place qu’ils occupent. Kit Studio n’en crée pas
+   et ne les supprime pas. Le menu des samples ne liste que les PART qui contiennent des samples.
    Dans **.PGM**, le bouton de forme d’onde **Voir les samples** parcourt les sons référencés sans charger le programme.
 4. Former les banques A–D, nommer le sample sélectionné, régler les découpes, l’accordage et les traitements.
    Déplacer un pad vers un autre déplace son affectation ; deux pads occupés sont échangés. Survoler une

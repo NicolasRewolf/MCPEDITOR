@@ -98,3 +98,22 @@ La capacité mémorisée est une observation de la carte, pas une constante de l
 Écarté pour l’instant : partager les SND inchangés entre révisions locales. Une bank tient dans une PART
 d’environ 8 Mo, ce qui borne chaque révision ; modifier la publication atomique du magasin local coûterait plus
 que l’espace gagné.
+
+## Alléger les 26 PART en 0.7.4 (24), 6 novembre 2026
+
+Nicolas trouve encombrantes les 26 PART de sa carte. Côté app :
+
+- Onglet PART : les PART vides et vérifiées partagent une carte (11 sur la carte de test : E G H J K M N P Q W X,
+  8,1 Mo chacune). Une PART à vérifier, comme U avec son `.Trashes`, garde sa carte.
+- Chaque autre PART montre sa place libre et une barre de remplissage par rapport à une PART vide
+  (mesurée, ou mémorisée sans la carte). PART D : 90 ko libres.
+- Le menu des sources de samples ne liste plus les PART sans sample.
+
+Contrôles sur la carte réelle, en lecture seule : relevé macOS identique à l’inventaire manuel (A 1, R 5, S 65,
+T 17, U 1 fichiers `._` ; `.Trashes` sur S et U), scan de 26 PART en 0,20 s. Au rebranchement du SSD, la source
+`/Volumes/T9 1/…` a été réparée en `/Volumes/T9/…` et a reçu son bookmark.
+
+Côté machine, le canon (checkpoint 33, analyse statique de Vailixi 3.50) décrit deux formats SCSI, Standard et
+Hybrid, au plus 26 partitions, et l’étiquette `MPC-PART` écrite par le mode Hybrid. La PART A de la carte mesure
+15 939 secteurs, soit le premier volume Hybrid de taille 1. Les tailles proposées par l’écran de formatage ne
+sont pas établies ; aucun reformatage n’a été fait.
